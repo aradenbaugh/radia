@@ -98,10 +98,10 @@ corresponding FASTA files.  You can specify the output filename where the VCF fi
 be output, otherwise it will be sent to STDOUT.
 
 1) Run RADIA on 3 BAM triplets:
-python radia.pyc patientId 1 -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fasta --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o patientId_chr1.vcf -e hg19 -u url_to_fasta.fasta
+python radia.pyc patientId 1 -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fa --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o patientId_chr1.vcf -e hg19 -u url_to_fasta.fa
 
 2) Run RADIA on 2 BAM files:
-python radia.pyc patientId 1 -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fasta -o patientId_chr1.vcf -e hg19 -u url_to_fasta.fasta
+python radia.pyc patientId 1 -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fa -o patientId_chr1.vcf -e hg19 -u url_to_fasta.fa
 
 For the full list of optional parameters, type:
 python radia.pyc -h
