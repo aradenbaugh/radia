@@ -24,17 +24,21 @@ PREREQUISITES
 =====================
 
 1) python (version 2.7)
+
 The RADIA code is written and compiled in python.  In order to run the commands, 
 you'll need python (version 2.7).
 
 2) samtools (version 0.1.18)
+
 RADIA uses samtools (version 0.1.18 or higher) to examine pileups of reads across
 each sample in parallel.  You must install samtools prior to running RADIA.
 
 3) BLAT
+
 RADIA uses BLAT to check the mapping of reads for all Triple BAM calls.
 
 4) snpEff
+
 RADIA uses snpEff to annotate passing variants and to filter out calls from the 
 Triple BAM method that land in genes with high sequence similarity.
 
@@ -44,10 +48,12 @@ DATA PREPARATION
 =====================
 
 1) BAM files
+
 The BAM files need to be indexed with the samtools index command and located in
 the same directory as the BAM file itself.
 
 2) FASTA files
+
 The fasta files need to be indexed with the samtools faidx command and located in
 the same directory as the fasta file itself.
 
@@ -63,10 +69,10 @@ the fasta file for the normal and tumor DNA BAMs are the same.  You can also ove
 the default fasta file specified with the -f parameter with the following BAM specific
 fasta files:
 
---dnaNormalFasta
---rnaNormalFasta
---dnaTumorFasta
---rnaTumorFasta
+--dnaNormalFasta<br>
+--rnaNormalFasta<br>
+--dnaTumorFasta<br>
+--rnaTumorFasta<br>
 
 If the "chr" prefix is neeeded, then add the corresponding flag:
 --dnaNormalUseChr
