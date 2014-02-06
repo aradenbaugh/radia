@@ -4,19 +4,14 @@ RADIA
 
 RADIA:  RNA and DNA Integrated Analysis for Somatic Mutation Detection
 
-RADIA identifies RNA and DNA variants in BAM files.  The program is designed
-to take in 4 BAM files:  DNA Normal, RNA Normal, DNA Tumor, and RNA Tumor.  For the 
-normal DNA, the program outputs any differences compared to the reference which could 
-be potential Germline mutations.  For the normal RNA, the program outputs any differences 
-compared to the reference and the normal DNA which could be potential normal RNA-Editing
-events.  For the tumor DNA, the program outputs any difference compared to the reference, 
-normal DNA and normal RNA which could be potential Somatic mutations.  For the tumor
-RNA, the program outputs any difference compared to the reference, normal DNA, normal 
-RNA and tumor DNA which could be potential RNA-editing events.
-
-RADIA is typically run on 3 BAM triplets consisting of the Normal DNA, Tumor DNA and 
-Tumor RNA.  If no RNA is available from the tumor, then it is run on the normal/tumor
-pairs.
+RADIA identifies RNA and DNA variants in BAM files.  RADIA is typically run on 3 BAM 
+files consisting of the Normal DNA, Tumor DNA and Tumor RNA.  If no RNA is available 
+from the tumor, then it is run on the normal/tumor pairs.  For the normal DNA, RADIA 
+outputs any differences compared to the reference which could be potential Germline 
+mutations.  For the tumor DNA, RADIA outputs any differenceis compared to the reference 
+and the normal DNA which could be potential Somatic mutations.  RADIA combines the 
+tumor DNA and tumor RNA to augment the somatic mutation calls.  It also uses the 
+tumor RNA to identify potential RNA editing events.
 
 
 =====================
@@ -53,7 +48,7 @@ the same directory as the fasta file itself.
 
 When running RADIA, you need to specify the appropriate fasta file - typically the
 one that was used during the alignment which is usually specified in the BAM header.
-Some fasta files use the "chr" prefix and some do not.  Some BAM files use the "chr"
+Some FASTA files use the "chr" prefix and some do not.  Some BAM files use the "chr"
 prefix and some do not.  If a BAM file uses the "chr" prefix, then the fasta file
 that is specified must also use the "chr" prefix and vice versa.
 
@@ -98,10 +93,10 @@ corresponding FASTA files.  You can specify the output filename where the VCF fi
 be output, otherwise it will be sent to STDOUT.
 
 1) Run RADIA on 3 BAM triplets:<br>
-python radia.pyc patientId 1 -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fa --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o patientId_chr1.vcf -e hg19 -u url_to_fasta.fa
+python radia.pyc patientId 1 -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fa --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o patientId_chr1.vcf -i hg19 -u http://url_to_fasta.fa
 
 2) Run RADIA on 2 BAM files:<br>
-python radia.pyc patientId 1 -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fa -o patientId_chr1.vcf -e hg19 -u url_to_fasta.fa
+python radia.pyc patientId 1 -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fa -o patientId_chr1.vcf -i hg19 -u http://url_to_fasta.fa
 
 For the full list of optional parameters, type:<br>
 python radia.pyc -h
