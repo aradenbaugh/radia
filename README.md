@@ -40,8 +40,8 @@ RADIA uses the pysam API during the filtering process.
 4) BLAT<br>
 RADIA uses BLAT to check the mapping of reads for all Triple BAM calls.
 
-5) snpEff<br>
-RADIA uses snpEff to annotate passing variants and to filter out calls from the 
+5) SnpEff<br>
+RADIA uses SnpEff to annotate passing variants and to filter out calls from the 
 Triple BAM method that land in genes with high sequence similarity.
 
 
@@ -139,7 +139,7 @@ For calls that originate in the RNA, there are further filters:
 If you only have DNA pairs, use the --dnaOnly flag<br>
 If you only want the calls from the Triple BAM method, use the --rnaOnly flag<br>
 
-If you want to exclude a particular filter, there are flags such as '--noBlat' 
+If you want to exclude a particular filter, there are flags such as --noBlat 
 to exclude the BLAT filter.
 
 Many of the filters rely on data that is provided in the radia/data/ directory.  Other
@@ -152,7 +152,7 @@ Some default parameters to watch out for:<br>
 - The default SnpEff genome is set to "GRCh37.69".<br>
 - BLAT FASTA filename:  by default the fasta file specified in the BAM header will be used.  You
 can overwrite it with the -f parameter.  We recommend that you use a fasta file that includes
-the chrUn_gl000*** contigs, chr*_gl000***_random contigs and the hap contigs (e.g. chr6_apd_hap1, 
+the chrUn_gl000 contigs, chr_gl000_random contigs and the hap contigs (e.g. chr6_apd_hap1, 
 chr6_cox_hap2, etc).  Often times, the fasta files that are used during the alignment process of
 the bams exclude these contigs.<br>
 - By default, the calls are filtered by the GAF 2.1 target regions.  If you don't want to filter
