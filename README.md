@@ -143,7 +143,7 @@ If you want to exclude a particular filter, there are flags such as --noBlat
 to exclude the BLAT filter.
 
 Many of the filters rely on data that is provided in the radia/data/ directory.  Other
-dependencies are on external programs such as BLAT and SnpEff.
+dependencies are on the pysam API and external programs such as BLAT and SnpEff.
 
 Here is an example filtering command:<br>
 python filterRadia.pyc patientId 22 /inputDir/patientId_chr22.vcf /outputDir/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase1/ -x /radiaDir/data/hg19/snp135 -y /radiaDir/data/hg19/snp132/ -z /radiaDir/data/hg19/snp130/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gaf/2_1/ -d /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
