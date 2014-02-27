@@ -15,8 +15,8 @@ tumor RNA to identify potential RNA editing events.
 
 The DNA Only Method (DOM) uses just the tumor/normal pairs of DNA (ignoring the RNA), 
 while the Triple BAM Method (TBM) uses all three datasets from the same patient to detect 
-somatic mutations.  The mutations from the TBM are further categorized into 2 sub-groups:  
-RNA Confirmation and RNA Rescue calls.  RNA Confirmation calls are those that are made by 
+somatic mutations.  The mutations from the TBM are further categorized into 2 sub-groups:  RNA 
+Confirmation and RNA Rescue calls.  RNA Confirmation calls are those that are made by 
 both the DOM and the TBM due to the strong read support in both the DNA and RNA.  RNA Rescue 
 calls are those that had very little DNA support, hence not called by the DOM, but strong 
 RNA support, and thus called by the TBM.  RNA Rescue calls are typically missed by 
@@ -146,14 +146,15 @@ Many of the filters rely on data that is provided in the radia/data/ directory. 
 dependencies are on external programs such as BLAT and SnpEff.
 
 Here is an example filtering command:<br>
-python filterRadia.py patientId 22 /inputDir/patientId_chr22.vcf /outputDir/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase1/ -x /radiaDir/data/hg19/snp135 -y /radiaDir/data/hg19/snp132/ -z /radiaDir/data/hg19/snp130/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gaf/2_1/ -d /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
+python filterRadia.pyc patientId 22 /inputDir/patientId_chr22.vcf /outputDir/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase1/ -x /radiaDir/data/hg19/snp135 -y /radiaDir/data/hg19/snp132/ -z /radiaDir/data/hg19/snp130/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gaf/2_1/ -d /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
 
 Some default parameters to watch out for:<br>
 - The default SnpEff genome is set to "GRCh37.69".<br>
-- BLAT FASTA filename:  by default the fasta file specified in the header will be used.  You
+- BLAT FASTA filename:  by default the fasta file specified in the BAM header will be used.  You
 can overwrite it with the -f parameter.  We recommend that you use a fasta file that includes
 the chrUn_gl000*** contigs, chr*_gl000***_random contigs and the hap contigs (e.g. chr6_apd_hap1, 
-chr6_cox_hap2, etc).<br>
+chr6_cox_hap2, etc).  Often times, the fasta files that are used during the alignment process of
+the bams exclude these contigs.<br>
 - By default, the calls are filtered by the GAF 2.1 target regions.  If you don't want to filter
 by target regions, then use the --noTargets flag.<br>
 
