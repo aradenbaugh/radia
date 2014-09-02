@@ -118,19 +118,23 @@ python radia.pyc -h
 RUN RADIA FILTER COMMAND 
 ===========================
 
-There is one filter script that can generally be used for all filtering needs.  By default
-all of the following filters are applied:<br>
+There is one filter script that can generally be used for all filtering needs.  Note:  there 
+is a difference between "flagging" and "filtering".  A site that is "flagged" will have the 
+information added to the INFO column of the VCF, a site that is "filtered" will have the
+filter added to the FILTER column of the VCF.  By default all of the following filters are applied:<br>
 
 - 1000 Genomes Blacklists<br>
-- Flag dbSnp135<br>
-- Flag pseudogenes<br>
-- Flag cosmic sites<br>
-- mpileup support<br>
-- read support<br>
+- Flag dbSNP135<br>
+- Flag Pseudogenes<br>
+- Flag Retrogenes<br>
+- Flag COSMIC sites<br>
+- MPileup support<br>
+- Read support<br>
 
 For calls that originate in the RNA, there are further filters:
-- Filter dbSnp135, dbSnp132, dbSnp130<br>
-- Filter pseudogenes<br>
+- Filter dbSNP135, dbSNP132, dbSNP130<br>
+- Filter Pseudogenes<br>
+- Filter Retrogenes<br>
 - Filter by BLAT<br>
 - Filter by positional bias<br>
 - Annotate with SnpEff<br>
