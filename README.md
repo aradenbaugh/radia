@@ -65,9 +65,9 @@ that is specified must also use the "chr" prefix and vice versa.
 
 There are multiple ways to specify the fasta files when running RADIA.  You can use
 the -f parameter for a fasta file that can be used for multiple BAM files.  Typically, 
-the fasta file for the normal and tumor DNA BAMs are the same.  You can also overwrite
-the default fasta file specified with the -f parameter with the following BAM specific
-fasta files:
+the fasta file for the normal and tumor DNA BAMs are the same.  If the fasta file is 
+not the same for all BAM files, you can overwrite the default fasta file specified 
+with the -f parameter with the following BAM specific fasta files:
 
 --dnaNormalFasta<br>
 --rnaNormalFasta<br>
@@ -105,10 +105,10 @@ be output, otherwise it will be sent to STDOUT.  If the filename ends with ".gz"
 will be gzipped.
 
 1) Run RADIA on 3 BAM files:<br>
-python radia.pyc patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fa --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o patientId_chr1.vcf -i hg19 -u http://url_to_fasta.fa
+python radia.pyc patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fa --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o patientId_chr1.vcf.gz -i hg19 -u http://url_to_fasta.fa
 
 2) Run RADIA on 2 BAM files:<br>
-python radia.pyc patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fa -o patientId_chr1.vcf -i hg19 -u http://url_to_fasta.fa
+python radia.pyc patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fa -o patientId_chr1.vcf.gz -i hg19 -u http://url_to_fasta.fa
 
 For the full list of optional parameters, type:<br>
 python radia.pyc -h
@@ -124,7 +124,7 @@ information added to the INFO column of the VCF, a site that is "filtered" will 
 filter added to the FILTER column of the VCF.  By default all of the following filters are applied:<br>
 
 - 1000 Genomes Blacklists<br>
-- Flag dbSNP135<br>
+- Flag dbSNP<br>
 - Flag Pseudogenes<br>
 - Flag Retrogenes<br>
 - Flag COSMIC sites<br>
@@ -132,7 +132,7 @@ filter added to the FILTER column of the VCF.  By default all of the following f
 - Read support<br>
 
 For calls that originate in the RNA, there are further filters:
-- Filter dbSNP135, dbSNP132, dbSNP130<br>
+- Filter dbSNP<br>
 - Filter Pseudogenes<br>
 - Filter Retrogenes<br>
 - Filter by BLAT<br>
@@ -150,7 +150,7 @@ Many of the filters rely on data that is provided in the radia/data/ directory. 
 dependencies are on the pysam API and external programs such as BLAT and SnpEff.
 
 Here is an example filtering command:<br>
-python filterRadia.pyc patientId 22 /inputDir/patientId_chr22.vcf /outputDir/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase1/ -x /radiaDir/data/hg19/snp135 -y /radiaDir/data/hg19/snp132/ -z /radiaDir/data/hg19/snp130/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gaf/2_1/ -d /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
+python filterRadia.pyc patientId 22 /inputDir/patientId_chr22.vcf /outputDir/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase1/ -d /radiaDir/data/hg19/snp135/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gaf/2_1/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
 
 Some default parameters to watch out for:<br>
 - The default SnpEff genome is set to "GRCh37.69".<br>
@@ -164,3 +164,16 @@ by target regions, then use the --noTargets flag.<br>
 
 For the full list of optional parameters, type:<br>
 python filterRadia.pyc -h
+
+=========
+LICENSE
+=========
+
+RADIA is free for non-profit and academic use.  RADIA is copyrighted by Amie Radenbaugh (2010-2014), all rights reserved. 
+Permission to download and locally use RADIA is only granted to academic researchers for non-profit purposes.  
+RADIA may not be redistributed in any format, in whole or in part.  All other uses are prohibited.  RADIA has no warranty 
+of any kind and is not guaranteed to be fit for any purpose, implied or otherwise.  For non-academic users,
+please contact the author.
+
+
+
