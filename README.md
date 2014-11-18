@@ -170,8 +170,8 @@ LICENSE
 =========
 
 RADIA is free for non-profit and academic use.  RADIA is copyrighted by Amie Radenbaugh (2010-2014), all rights reserved. 
-Permission to download and locally use RADIA is only granted to academic researchers for non-profit purposes.  
-RADIA may not be redistributed in any format, in whole or in part.  All other uses are prohibited.  RADIA has no warranty 
+Permission to download and locally use RADIA is only granted to academic researchers for non-profit purposes.  RADIA may 
+not be redistributed in any format, in whole or in part.  All other uses are prohibited.  RADIA has no warranty 
 of any kind and is not guaranteed to be fit for any purpose, implied or otherwise.  For non-academic users,
 please contact the author.
 
