@@ -105,10 +105,10 @@ be output, otherwise it will be sent to STDOUT.  If the filename ends with ".gz"
 will be gzipped.
 
 1) Run RADIA on 3 BAM files:<br>
-python radia.pyc patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fa --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o patientId_chr1.vcf.gz -i hg19 -u http://url_to_fasta.fa
+python radia.pyc patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fa --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o /radia/raw/patientId_chr1.vcf.gz -i hg19 -u http://url_to_fasta.fa
 
 2) Run RADIA on 2 BAM files:<br>
-python radia.pyc patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fa -o patientId_chr1.vcf.gz -i hg19 -u http://url_to_fasta.fa
+python radia.pyc patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fa -o /radia/raw/patientId_chr1.vcf.gz -i hg19 -u http://url_to_fasta.fa
 
 For the full list of optional parameters, type:<br>
 python radia.pyc -h
@@ -150,7 +150,7 @@ Many of the filters rely on data that is provided in the radia/data/ directory. 
 dependencies are on the pysam API and external programs such as BLAT and SnpEff.
 
 Here is an example filtering command:<br>
-python filterRadia.pyc patientId 22 /inputDir/patientId_chr22.vcf /outputDir/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase1/ -d /radiaDir/data/hg19/snp135/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gaf/2_1/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
+python filterRadia.pyc patientId 22 /radia/raw/patientId_chr22.vcf /radia/filtered/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase1/ -d /radiaDir/data/hg19/snp135/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gaf/2_1/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
 
 Some default parameters to watch out for:<br>
 - The default SnpEff genome is set to "GRCh37.69".<br>
@@ -164,6 +164,17 @@ by target regions, then use the --noTargets flag.<br>
 
 For the full list of optional parameters, type:<br>
 python filterRadia.pyc -h
+
+
+===========================
+RUN RADIA MERGE COMMAND 
+===========================
+
+To merge all of the filtered chromosome files into one VCF file for the patient, execute the following command:<br>
+python mergeChroms.pyc patientId /radia/filtered/ /radia/filtered/ --gzip
+
+This will merge all of the files with the names: patientId_chr*.vcf or patientId_chr*.vcf.gz into one file called patientId.vcf or patientId.vcf.gz (if you specify the --gzip parameter).
+
 
 =========
 LICENSE
