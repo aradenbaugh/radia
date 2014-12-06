@@ -173,7 +173,7 @@ RUN RADIA MERGE COMMAND
 To merge all of the filtered chromosome files into one VCF file for the patient, execute the following command:<br>
 python mergeChroms.pyc patientId /radia/filtered/ /radia/filtered/ --gzip
 
-This will merge all of the files with the names: patientId_chr*.vcf or patientId_chr*.vcf.gz into one file called patientId.vcf or patientId.vcf.gz (if you specify the --gzip parameter).
+This will merge all of the files with the names: patientId_chr\*.vcf or patientId_chr\*.vcf.gz into one file called patientId.vcf or patientId.vcf.gz (if you specify the --gzip parameter).
 
 
 =========
