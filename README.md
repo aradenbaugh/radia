@@ -34,13 +34,13 @@ you'll need python (version 2.7).
 RADIA uses samtools (version 0.1.18 or higher) to examine pileups of reads across
 each sample in parallel.  You must install samtools prior to running RADIA.
 
-3) pysam API<br>
+3) pysam API (version 0.7.5)<br>
 RADIA uses the pysam API during the filtering process.
 
 4) BLAT<br>
 RADIA uses BLAT to check the mapping of reads for all Triple BAM calls.
 
-5) SnpEff<br>
+5) SnpEff (version 3.3) <br>
 RADIA uses SnpEff to annotate passing variants and to filter out calls from the 
 Triple BAM method that land in genes with high sequence similarity.
 
