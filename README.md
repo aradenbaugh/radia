@@ -34,7 +34,7 @@ you'll need python (version 2.7).
 RADIA uses samtools (version 0.1.18 or higher) to examine pileups of reads across
 each sample in parallel.  You must install samtools prior to running RADIA.
 
-3) pysam API (version 0.7.5)<br>
+3) pysam API (version 0.8.1 and higher)<br>
 RADIA uses the pysam API during the filtering process.
 
 4) BLAT<br>
@@ -174,6 +174,13 @@ To merge all of the filtered chromosome files into one VCF file for the patient,
 python mergeChroms.pyc patientId /radia/filtered/ /radia/filtered/ --gzip
 
 This will merge all of the files with the names: patientId_chr\*.vcf or patientId_chr\*.vcf.gz into one file called patientId.vcf or patientId.vcf.gz (if you specify the --gzip parameter).
+
+
+===========
+CITATION
+===========
+If you use RADIA, please site the method:<br>
+Radenbaugh AJ, Ma S, Ewing A, Stuart JM, Collisson EA, Zhu J, Haussler D. (2014) RADIA: RNA and DNA Integrated Analysis for Somatic Mutation Detection. PLoS ONE 9(11): e111516. doi:10.1371/journal.pone.0111516
 
 
 =========
