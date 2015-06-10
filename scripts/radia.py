@@ -956,7 +956,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
         
     # add RADIA param info
     aParamDict["algorithm"] = "RADIA"
-    aParamDict["version"] = "1.1.2"
+    aParamDict["version"] = "1.1.3"
     #vcfHeader += "##vcfProcessLog=<"
     vcfHeader += "##vcfGenerator=<"
     for (paramName) in sorted(aParamDict.iterkeys()):
@@ -1102,7 +1102,7 @@ def main():
     # commands for running this on real data:    
     #python radia.py uniqueId X -n normalDna.bam -t tumorDna.bam -r tumorRna.bam -f all_sequences.fasta -o /path/to/output/uniqueId.vcf -e hg19 -u https://url/to/fasta/hg19.fasta
      
-    i_radiaVersion = "v1.1.2"
+    i_radiaVersion = "v1.1.3"
     i_vcfFormat = "VCFv4.1"
     
     # create the usage statement
