@@ -165,7 +165,8 @@ def parsevcf(filename):
 def checkread(pileupread):
     if pileupread.alignment.mapq < MINMQ:
         return False
-    if pileupread.is_del:
+    # starting with pysam 0.8.3, pileupread.query_position is None if is_del or is_refskip is true
+    if pileupread.is_del or pileupread.is_refskip:
         return False
     
     if ord(pileupread.alignment.qual[pileupread.query_position]) - ord('!') < MINBQ:
@@ -207,11 +208,15 @@ def softclip(alignedread):
 
 
 def ismut(pileupread, chrom, pos, fastafile, alt):
-    #wait, what happens at insertions or deletions?
+    #insertions and deletions get counted in the checkfilter() method after this return
     if pileupread.indel != 0:
         return True
+    # starting with pysam 0.8.3, pileupread.query_position is None if is_del or is_refskip is true
+    # we check for indels above, insertions and deletions get counted separately in the checkfilter() method
+    if pileupread.is_refskip:
+        return False
     if pileupread.alignment.seq[pileupread.query_position] == fastafile.fetch(chrom, pos, pos+1):
-	return False
+        return False
     if pileupread.alignment.seq[pileupread.query_position] in alt:
         return True
     return False
@@ -407,7 +412,7 @@ class Club():
                 perfect = False
             i, d, m, g = nummut(alignedread, self.germlinedict, bamfile, fasta)
 
-	    if m > 9:
+            if m > 9:
                 m = 9
             muts[m] += 1
             if i:
