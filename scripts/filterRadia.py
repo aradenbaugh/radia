@@ -1270,9 +1270,11 @@ def main():
                     
     # everything gets run through the read support filter
     previousFilename = filter_readSupport(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-            
-    # remove all the temp files
-    remove_tmpFiles(rmTmpFilesList, i_joblistFileHandler, i_debug)
+    
+    # if we aren't debugging, then remove all the tmp files
+    if (not i_debug):
+    	# remove all the temp files
+    	remove_tmpFiles(rmTmpFilesList, i_joblistFileHandler, i_debug)
         
     if (i_joblistDir != None):
         i_joblistFileHandler.close()
