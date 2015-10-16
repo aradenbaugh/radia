@@ -364,6 +364,9 @@ def convert_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfQualScores,
     ' read base column, a symbol "^" marks the start of a read. The ASCII of the character following "^" 
     ' minus 33 gives the mapping quality. A symbol "$" marks the end of a read segment.
     '
+    ' Note:  the samtools documentation is a bit out of date.  They now allow all of the IUPAC nucleotide
+    ' codes for INDELS:  [ACGTURYSWKMBDHVNacgturyswkmbdhvn].
+    '
     ' We are converting all dots and commas to the upper case reference base.  Even though the comma represents 
     ' a match on the reverse strand, there is no need to take the complement of it, since samtools does
     ' that for us.  We are converting all mismatches on the reverse strand to upper case as well, and again 
@@ -402,14 +405,14 @@ def convert_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfQualScores,
             # the length of the indel is the number following the + or - sign
             lengthOfIndel = indel[1:len(indel)]
             # this reg ex will specifically match indels with the specified length, i.e. +3AGG, -2AG
-            indelRegEx = re.compile("\\" + indel + "[ACGTNacgtn=]{" + lengthOfIndel + "}")
+            indelRegEx = re.compile("\\" + indel + "[ACGTURYSWKMBDHVNacgturyswkmbdhvn=]{" + lengthOfIndel + "}")
             
             # we can simply remove the indels and replace them with empty strings for now
             # there are no base quality scores for indels that need to be removed
             aStringOfRawReads = indelRegEx.sub("", aStringOfRawReads) 
-            
+
         if (indelCount > 0):
-            logging.debug("%s indels found in %s", indelCount, aStringOfRawReads)
+            logging.debug("%s indel(s) found at %s:%s", indelCount, aChr, aCoordinate)
             
     # count starts and stops
     starts = aStringOfRawReads.count("^")
@@ -435,7 +438,7 @@ def convert_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfQualScores,
         
     # get an iterator of match objects for all valid cDNA
     # this regular expression will match any number of valid cDNA strings
-    # i_cDNARegEx = re.compile("[ACGTacgt]+")
+    # i_cDNARegEx = re.compile("[ACGTNacgtn]+")
     iterator = i_cDNARegEx.finditer(aStringOfRawReads)
     
     # create final strings consisting of just the valid cDNA and corresponding qual scores
@@ -443,13 +446,13 @@ def convert_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfQualScores,
     finalQuals = ""
     
     # only extract the valid cDNA and corresponding qual scores
-    # ignore >", "<", etc.
+    # ignore ">", "<", etc.
     for match in iterator:
         start = match.start()
         end = match.end()
         finalPileups += aStringOfRawReads[start:end]
         finalQuals += aStringOfQualScores[start:end]
-              
+    
     # get the lengths
     lenFinalPileups = len(finalPileups)
     lenFinalQuals = len(finalQuals) 
