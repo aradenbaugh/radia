@@ -211,6 +211,8 @@ def ismut(pileupread, chrom, pos, fastafile, alt):
     #insertions and deletions get counted in the checkfilter() method after this return
     if pileupread.indel != 0:
         return True
+    if pileupread.is_del:
+        return True
     # starting with pysam 0.8.3, pileupread.query_position is None if is_del or is_refskip is true
     # we check for indels above, insertions and deletions get counted separately in the checkfilter() method
     if pileupread.is_refskip:
