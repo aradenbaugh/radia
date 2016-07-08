@@ -459,7 +459,8 @@ def write_to_blat_file(aBlatFileHandler, aChr, aStopCoordinate, aParamsDict, anI
                             numSsFound += 1
                         
                         # if we haven't found the first "M" yet, then count the number of skips before the first "M"
-                        if (not foundFirstMatch):
+                        #if (not foundFirstMatch):
+                        if (not foundFirstMatch) and ("H" not in match):
                             skipsBeforeFirstMatch += number
                             
                     #print readCigar, cigarList
