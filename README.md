@@ -179,7 +179,7 @@ This will merge all of the files with the names: patientId_chr\*.vcf or patientI
 ===========
 CITATION
 ===========
-If you use RADIA, please site the method:<br>
+If you use RADIA, please cite the method:<br>
 Radenbaugh AJ, Ma S, Ewing A, Stuart JM, Collisson EA, Zhu J, Haussler D. (2014) RADIA: RNA and DNA Integrated Analysis for Somatic Mutation Detection. PLoS ONE 9(11): e111516. doi:10.1371/journal.pone.0111516
 
 
