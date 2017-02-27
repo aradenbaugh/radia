@@ -1,3 +1,12 @@
+# Some of the hg38 dbSNP 147 files (chroms 1-4) were too large (> 100 MB) to upload to git, therefore they have been broken into 2 parts.  
+# After you download the data, please cat the 2 parts into 1 file before filtering.  For example, you can use a command like this:
+
+# cat chr1_part1.bed.gz chr1_part2.bed.gz > chr1.bed.gz
+
+# In the future, these large DB dump files may move to something like Git Large File Storage (LFS).
+
+
+# To download the data yourself:
 # connect to the UCSC hg38 database
 # download the dbSNP 147 tables with commands like these:
 "select chrom,chromStart,chromEnd,name from snp147 where chrom = 'chr1'" > /radia/data/hg38/snp147/chr1_unsorted.bed
