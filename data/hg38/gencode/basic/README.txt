@@ -1,3 +1,9 @@
+# The GENCODE basic gene set is replacing the old GAF (Generic Annotation File) data sets.
+# If you want to filter out mutations that are not in the GENCODE basic gene set,
+# these are the files that should be specified with the --targetDir option when filtering.
+# If you don't want to filter out mutations based on the GENCODE basic gene set, 
+# use the --noTargets flag when filtering.
+
 # connect to the UCSC hg38 database
 # download the GENCODE basic gene set with commands like these:
 echo "select chrom,txStart,txEnd from knownGene where chrom = 'chr1'" > /radia/data/hg38/gencode/basic/chr1_unsorted.bed
