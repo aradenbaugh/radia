@@ -263,23 +263,30 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aMappingQuality, aChrom, aCoordin
     
     # execute the samtools command
     samtoolsCall = subprocess.Popen(samtoolsSelectStatement, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-    samtoolsCall.poll()
+    # communicate() waits for the process to finish
+    (pileups, samtoolsStdErr) = samtoolsCall.communicate()
+    # wait for the child process to terminate and set the returncode
+    #samtoolsStdErr = samtoolsCall.wait()
+    #samtoolsCall.poll()
     
     if (anIsDebug):
         timeSamtoolsEnd = time.time()
         logging.debug("Time spent executing samtools command: %s", str(timeSamtoolsEnd-timeSamtoolsStart)) 
     
     # get the output from executing the samtools command
-    pileups = samtoolsCall.stdout.readlines()
+    #pileups = samtoolsCall.stdout.readlines()
     
     # for some reason, we have to get the stdout.readlines() before the stderr.readlines(), otherwise the process hangs
-    if (anIsDebug and samtoolsCall.returncode != 0):
-        logging.debug("Warning from %s\n %s", samtoolsSelectStatement, samtoolsCall.stderr.readlines())
-    
+    if (samtoolsCall.returncode != 0):
+        logging.error("Error from %s\n %s", samtoolsSelectStatement, samtoolsStdErr)
+        #logging.error("Error from %s\n %s", samtoolsSelectStatement, samtoolsCall.stderr.readlines())
+        sys.exit(1)
+        
     # kill the command
-    samtoolsCall.kill()
+    #samtoolsCall.kill()
     
-    return pileups
+    #return pileups
+    return pileups.split("\n")
    
    
 def write_to_blat_file(aBlatFileHandler, aChr, aStopCoordinate, aParamsDict, anInfoDict, aPrefix, anIsDebug):
@@ -354,7 +361,7 @@ def write_to_blat_file(aBlatFileHandler, aChr, aStopCoordinate, aParamsDict, anI
             # small and the selection is done in an area with no reads, then a warning message will be
             # returned that starts with [main_samview], [sam_header_read2], or [fai_build_core].  We can 
             # ignore the message and move on to the next select statement.
-            if (line.isspace() or line.startswith("[")):
+            if (line == "" or line.isspace() or line.startswith("[")):
                 continue;
 
             # strip the carriage return and newline characters
