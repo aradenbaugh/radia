@@ -8,6 +8,7 @@ import os
 from optparse import OptionParser
 import myvcf
 import gzip
+import radiaUtil
 
 MINNQS = 10
 MINBQ = 10
@@ -456,87 +457,112 @@ class Club():
         else:
             return ["PASS"]
 
-
-usage = "usage: python %prog vcfFile [Options]"
-cmdLineParser = OptionParser(usage=usage)
-cmdLineParser.add_option("-c", "--allVCFCalls", action="store_false", default=True, dest="passedVCFCallsOnly", help="by default only the VCF calls that have passed all filters thus far are processed, include this argument if all of the VCF calls should be processed")
-
-# range(inclusiveFrom, exclusiveTo, by)
-i_possibleArgLengths = range(1,5,1)
-i_argLength = len(sys.argv)
-
-# check if this is one of the possible correct commands
-if (i_argLength not in i_possibleArgLengths):
-    cmdLineParser.print_help()
-    sys.exit(1)
-        
-(cmdLineOptions, cmdLineArgs) = cmdLineParser.parse_args()
-
-filename = cmdLineArgs[0]
-
-i_passedVCFCallsOnlyFlag = cmdLineOptions.passedVCFCallsOnly
-
-vcf = get_read_fileHandler(filename)
-currVCF = myvcf.VCF()
-
-club = Club(filename)
-
-for line in vcf:
-    if line.startswith("#CHROM"):
-        print "##FILTER=<ID=perfect5,Description=\"There were not enough perfect reads for this position.\">"
-        print "##FILTER=<ID=perfectsbias,Description=\"A strand bias exists on the perfect reads. \">"
-        print line[:-1]
-        currVCF.set_headers(line[1:].strip().split("\t"))
-        break
-
-    print line[:-1]
-
-#loop through and categorize all calls
-for line in vcf:
-    dataAsList = line.strip().split("\t")
-    if len(dataAsList) == len(currVCF.headers):
-        curr_data = currVCF.make_data(dataAsList)
-        
-        # if this is a somatic mutation or an RNA editing event
-        if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "Somatic" or curr_data.info["SS"] == "2" or curr_data.info["SS"] == "5"):
-
-            # Pebbles doesn't have the ORIGIN flag
-            if (curr_data.info["ORIGIN"] == None):
-                curr_data.filter = club.checkfilter(curr_data.chrom, curr_data.pos-1, curr_data.alt, curr_data.info["SS"], curr_data.info["MT"], "DNA")
-            # These are RADIA calls
-            else:
-                dnaFilter = list()
-                rnaFilter = list()
-                originFlags = curr_data.info["ORIGIN"].split(",")
-                
-                # A call can be made by the DNA or RNA
-                for origin in originFlags:
-                    if (origin == "DNA"):
-                        if ((i_passedVCFCallsOnlyFlag and "PASS" in curr_data.filter) or (not i_passedVCFCallsOnlyFlag)):
-                            # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
-                            modTypes = curr_data.info["MT"].split(",")
-                            for modType in modTypes:
-                                dnaFilter += club.checkfilter(curr_data.chrom, curr_data.pos-1, curr_data.alt, curr_data.info["SS"], modType, "DNA")
-                                    
-                    # if we already passed using the DNA, then don't bother checking the RNA
-                    elif ("PASS" not in dnaFilter):
-                        if ((i_passedVCFCallsOnlyFlag and "PASS" in curr_data.filter) or (not i_passedVCFCallsOnlyFlag)):
-                            # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
-                            modTypes = curr_data.info["MT"].split(",")
-                            for modType in modTypes:
-                                rnaFilter += club.checkfilter(curr_data.chrom, curr_data.pos-1, curr_data.alt, curr_data.info["SS"], modType, "RNA")
-                                #print >> sys.stderr, curr_data.chrom, curr_data.pos-1, modType, rnaFilter
-
-                if ("PASS" in dnaFilter or "PASS" in rnaFilter):
-                    curr_data.filter = ["PASS"]
-                else:
-                    if (len(dnaFilter) > 0):
-                        curr_data.filter = dnaFilter
-                    elif (len(rnaFilter) > 0):
-                        curr_data.filter = rnaFilter
-        print curr_data
+if __name__ == '__main__':
+    
+    usage = "usage: python %prog vcfFile [Options]"
+    cmdLineParser = OptionParser(usage=usage)
+    cmdLineParser.add_option("-c", "--allVCFCalls", action="store_false", default=True, dest="passedVCFCallsOnly", help="by default only the VCF calls that have passed all filters thus far are processed, include this argument if all of the VCF calls should be processed")
+    cmdLineParser.add_option("-o", "--outputFilename", default=sys.stdout, dest="outputFilename", metavar="OUTPUT_FILE", help="the name of the output file, STDOUT by default")
+    
+    # range(inclusiveFrom, exclusiveTo, by)
+    i_possibleArgLengths = range(1,7,1)
+    i_argLength = len(sys.argv)
+    
+    # check if this is one of the possible correct commands
+    if (i_argLength not in i_possibleArgLengths):
+        cmdLineParser.print_help()
+        sys.exit(1)
+            
+    (cmdLineOptions, cmdLineArgs) = cmdLineParser.parse_args()
+    
+    i_readFilenameList = []
+    i_writeFilenameList = []
+    i_dirList = []
+    
+    # get the required params
+    vcfFilename = cmdLineArgs[0]
+    i_readFilenameList += [vcfFilename]
+    
+    # get the optional parameters with defaults    
+    i_passedVCFCallsOnlyFlag = cmdLineOptions.passedVCFCallsOnly
+    
+    # get the optional parameters with out defaults
+    i_outputFilename = None
+    if (cmdLineOptions.outputFilename != None):
+        i_outputFilename = cmdLineOptions.outputFilename
+        if (cmdLineOptions.outputFilename != sys.stdout):
+            i_writeFilenameList += [i_outputFilename]
+    
+    # check for any errors
+    if (not radiaUtil.check_for_argv_errors(i_dirList, i_readFilenameList, i_writeFilenameList)):
+        sys.exit(1)
+    
+    vcf = get_read_fileHandler(vcfFilename)
+    currVCF = myvcf.VCF()
+    
+    club = Club(vcfFilename)
+    
+    if i_outputFilename is not sys.stdout:
+        i_outputFileHandler = get_write_fileHandler(i_outputFilename)
     else:
-        #print line
-        continue
+        i_outputFileHandler = i_outputFilename
+    
+    for line in vcf:
+        if line.startswith("#CHROM"):
+            i_outputFileHandler.write("##FILTER=<ID=perfect5,Description=\"There were not enough perfect reads for this position.\">\n")
+            i_outputFileHandler.write("##FILTER=<ID=perfectsbias,Description=\"A strand bias exists on the perfect reads. \">\n")
+            i_outputFileHandler.write(line)
+            currVCF.set_headers(line[1:].strip().split("\t"))
+            break
+    
+        i_outputFileHandler.write(line)
+    
+    #loop through and categorize all calls
+    for line in vcf:
+        dataAsList = line.strip().split("\t")
+        if len(dataAsList) == len(currVCF.headers):
+            curr_data = currVCF.make_data(dataAsList)
+            
+            # if this is a somatic mutation or an RNA editing event
+            if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "Somatic" or curr_data.info["SS"] == "2" or curr_data.info["SS"] == "5"):
+    
+                # Pebbles doesn't have the ORIGIN flag
+                if (curr_data.info["ORIGIN"] == None):
+                    curr_data.filter = club.checkfilter(curr_data.chrom, curr_data.pos-1, curr_data.alt, curr_data.info["SS"], curr_data.info["MT"], "DNA")
+                # These are RADIA calls
+                else:
+                    dnaFilter = list()
+                    rnaFilter = list()
+                    originFlags = curr_data.info["ORIGIN"].split(",")
+                    
+                    # A call can be made by the DNA or RNA
+                    for origin in originFlags:
+                        if (origin == "DNA"):
+                            if ((i_passedVCFCallsOnlyFlag and "PASS" in curr_data.filter) or (not i_passedVCFCallsOnlyFlag)):
+                                # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
+                                modTypes = curr_data.info["MT"].split(",")
+                                for modType in modTypes:
+                                    dnaFilter += club.checkfilter(curr_data.chrom, curr_data.pos-1, curr_data.alt, curr_data.info["SS"], modType, "DNA")
+                                        
+                        # if we already passed using the DNA, then don't bother checking the RNA
+                        elif ("PASS" not in dnaFilter):
+                            if ((i_passedVCFCallsOnlyFlag and "PASS" in curr_data.filter) or (not i_passedVCFCallsOnlyFlag)):
+                                # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
+                                modTypes = curr_data.info["MT"].split(",")
+                                for modType in modTypes:
+                                    rnaFilter += club.checkfilter(curr_data.chrom, curr_data.pos-1, curr_data.alt, curr_data.info["SS"], modType, "RNA")
+                                    #print >> sys.stderr, curr_data.chrom, curr_data.pos-1, modType, rnaFilter
+    
+                    if ("PASS" in dnaFilter or "PASS" in rnaFilter):
+                        curr_data.filter = ["PASS"]
+                    else:
+                        if (len(dnaFilter) > 0):
+                            curr_data.filter = dnaFilter
+                        elif (len(rnaFilter) > 0):
+                            curr_data.filter = rnaFilter
+            i_outputFileHandler.write(str(curr_data) + "\n")
+        else:
+            #print line
+            continue
     
 

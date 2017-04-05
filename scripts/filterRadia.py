@@ -63,7 +63,7 @@ def filter_blacklist(aPythonExecutable, anId, aChromId, anInputFilename, anOutpu
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_blacklist_chr" + aChromId + ".vcf")
 
-    script = os.path.join(aScriptsDir, "filterByPybed.pyc")        
+    script = os.path.join(aScriptsDir, "filterByPybed.py")        
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " blck --includeFilterName -f \"##FILTER=<ID=blck,Description=\\\"Position overlaps 1000 Genomes Project blacklist\\\">\" -o " + outputFilename
     
     if (anIsDebug):
@@ -102,7 +102,7 @@ def flag_dbSnp(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, 
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_dbsnp_chr" + aChromId + ".vcf")
     
-    script = os.path.join(aScriptsDir, "filterByCoordinate.pyc")
+    script = os.path.join(aScriptsDir, "filterByCoordinate.py")
     
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " DB --includeOverlaps --includeFilterName --includeIdName -d INFO -f \"##INFO=<ID=DB,Number=0,Type=Flag,Description=\\\"dbSNP common SNP membership\\\">\" -o " + outputFilename
     
@@ -142,7 +142,7 @@ def flag_retroGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutput
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_retroGene_chr" + aChromId + ".vcf")
     
-    script = os.path.join(aScriptsDir, "filterByPybed.pyc")
+    script = os.path.join(aScriptsDir, "filterByPybed.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " RTPS --includeOverlaps --includeFilterName -d INFO -f \"##INFO=<ID=RTPS,Number=0,Type=Flag,Description=\\\"Overlaps with retrotransposon or pseudogene\\\">\" -o " + outputFilename
     
     if (anIsDebug):
@@ -181,7 +181,7 @@ def flag_pseudoGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutpu
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_pseudoGene_chr" + aChromId + ".vcf")
     
-    script = os.path.join(aScriptsDir, "filterByPybed.pyc")
+    script = os.path.join(aScriptsDir, "filterByPybed.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " EGPS --includeOverlaps --includeFilterName -d INFO -f \"##INFO=<ID=EGPS,Number=0,Type=Flag,Description=\\\"Overlaps with ENCODE/GENCODE pseudogenes\\\">\" -o " + outputFilename
     
     if (anIsDebug):
@@ -220,7 +220,7 @@ def flag_cosmic(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir,
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_cosmic_chr" + aChromId + ".vcf")
     
-    script = os.path.join(aScriptsDir, "filterByPybed.pyc")
+    script = os.path.join(aScriptsDir, "filterByPybed.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " COSMIC --includeOverlaps --includeFilterName -d INFO -f \"##INFO=<ID=COSMIC,Number=0,Type=Flag,Description=\\\"Overlaps with Catalogue Of Somatic Mutations In Cancer (COSMIC)\\\">\" -o " + outputFilename
     
     if (anIsDebug):
@@ -259,7 +259,7 @@ def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputD
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_targets_chr" + aChromId + ".vcf")
     
-    script = os.path.join(aScriptsDir, "filterByPybed.pyc")
+    script = os.path.join(aScriptsDir, "filterByPybed.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " ntr --includeFilterName -f \"##FILTER=<ID=ntr,Description=\\\"Position does not overlap with a TCGA target region\\\">\" -o " + outputFilename
     
     if (anIsDebug):
@@ -289,7 +289,7 @@ def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputD
 
 def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, anOriginFlag, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
-    script = os.path.join(aScriptsDir, "filterByMpileupSupport.pyc")
+    script = os.path.join(aScriptsDir, "filterByMpileupSupport.py")
     dnaParameterList = ["--genotypeMinPct=0.10", "--modMinDepth=4", "--modMinPct=0.10"]
     dnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=4", "--dnaNormalMinAltPct=0.10", "--dnaNormalMaxErrPct=0.01", "--dnaNormalMinStrandBiasDepth=4"]
     dnaParameterList += ["--dnaTumorMinTotalBases=10", "--dnaTumorMinAltBases=4", "--dnaTumorMinAltPct=0.10", "--dnaTumorMaxErrPct=0.01", "--dnaTumorMinStrandBiasDepth=4"]
@@ -341,7 +341,7 @@ def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename
 
 def filter_mpileupSupport_rna(aPythonExecutable, anId, aChromId, anInputFilename, anOriginFlag, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
-    script = os.path.join(aScriptsDir, "filterByMpileupSupport.pyc")
+    script = os.path.join(aScriptsDir, "filterByMpileupSupport.py")
     rnaParameterList = ["--genotypeMinPct=0.0", "--modMinDepth=1", "--modMinPct=0.01", "--minAltAvgBaseQual=15.0"]
     rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=1.0", "--dnaNormalMinStrandBiasDepth=4"]
     rnaParameterList += ["--dnaTumorMinTotalBases=1", "--dnaTumorMinAltBases=1", "--dnaTumorMinAltPct=0.01", "--dnaTumorMaxErrPct=1.0", "--dnaTumorMinStrandBiasDepth=4"]
@@ -396,7 +396,7 @@ def radia_compare(aPythonExecutable, anId, aChromId, anRnaFilename, aDnaFilename
     else:
         nonOverlapFilename = os.path.join(anOutputDir, anId + "_nonoverlap_chr" + aChromId + ".vcf")
     
-    script = os.path.join(aScriptsDir, "radiaCompare.pyc")
+    script = os.path.join(aScriptsDir, "radiaCompare.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anRnaFilename + " " + aDnaFilename + " -c \"SOM=SOM,NOR_EDIT=NOR_EDIT,TUM_EDIT=TUM_EDIT\" -o " + overlapFilename + " -n " + nonOverlapFilename 
     
     if (anIsDebug):
@@ -550,7 +550,7 @@ def filter_createBlatInput(aPythonExecutable, anId, aChromId, anInputFilename, a
     # we can't gzip the blat input file
     outputFilename = os.path.join(anOutputDir, anId + "_blatInput_chr" + aChromId + ".fa")
         
-    script = os.path.join(aScriptsDir, "createBlatFile.pyc")
+    script = os.path.join(aScriptsDir, "createBlatFile.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aHeaderFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
     
     if (anIsDebug):
@@ -650,7 +650,7 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
 
     blatOutputFilename = filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aJobListFileHandler, anIsDebug)
     
-    script = os.path.join(aScriptsDir, "filterByBlat.pyc")
+    script = os.path.join(aScriptsDir, "filterByBlat.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " " + blatOutputFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
     
     if (anIsDebug):
@@ -683,7 +683,7 @@ def filter_positionalBias(aPythonExecutable, anId, aChromId, anInputFilename, aB
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_pbias_chr" + aChromId + ".vcf")
         
-    script = os.path.join(aScriptsDir, "filterByPositionalBias.pyc")
+    script = os.path.join(aScriptsDir, "filterByPositionalBias.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " -o " + outputFilename
     
     if (anIsDebug):
@@ -718,7 +718,7 @@ def filter_rnaBlacklist(aPythonExecutable, anId, aChromId, anInputFilename, aGen
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_rna_genes_chr" + aChromId + ".vcf")
         
-    script = os.path.join(aScriptsDir, "filterByRnaBlacklist.pyc")
+    script = os.path.join(aScriptsDir, "filterByRnaBlacklist.py")
     command = aPythonExecutable + " " + script + " " + anInputFilename + " " + aGeneBlckFilename + " " + aGeneFamilyBlckFilename + " -o " + outputFilename
     
     if (anIsDebug):
@@ -754,7 +754,7 @@ def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename, anRnaOverla
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_merged_chr" + aChromId + ".vcf")
     
-    script = os.path.join(aScriptsDir, "mergeRnaAndDnaFiles.pyc")
+    script = os.path.join(aScriptsDir, "mergeRnaAndDnaFiles.py")
     if (aDnaHeaderOnlyFlag):
         command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaOverlapsFilname + " " + anRnaNonoverlapsFilename + " " + outputFilename + " --dnaHeaderOnly"
     else:
@@ -790,7 +790,7 @@ def merge_passingAndOriginals(aPythonExecutable, anId, aChromId, aPassingCallsFi
         outputFilename = os.path.join(anOutputDir, anId + "_mergedFinal_chr" + aChromId + ".vcf.gz")
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_mergedFinal_chr" + aChromId + ".vcf")
-    script = os.path.join(aScriptsDir, "mergePassingAndOriginals.pyc")
+    script = os.path.join(aScriptsDir, "mergePassingAndOriginals.py")
     command = aPythonExecutable + " " + script + " " + aPassingCallsFilename + " " + anOriginalFilname + " " + outputFilename
         
     if (anIsDebug):
@@ -819,13 +819,14 @@ def merge_passingAndOriginals(aPythonExecutable, anId, aChromId, aPassingCallsFi
 
 def filter_readSupport(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
-    script = os.path.join(aScriptsDir, "filterByReadSupport.pyc")
+    script = os.path.join(aScriptsDir, "filterByReadSupport.py")
     if (aGzipFlag):
         outputFilename = os.path.join(anOutputDir, anId + "_chr" + aChromId + ".vcf.gz")
-        command = aPythonExecutable + " " + script + " " + anInputFilename + " | gzip > " + outputFilename
+        #command = aPythonExecutable + " " + script + " " + anInputFilename + " | gzip > " + outputFilename
     else:
         outputFilename = os.path.join(anOutputDir, anId + "_chr" + aChromId + ".vcf")
-        command = aPythonExecutable + " " + script + " " + anInputFilename + " > " + outputFilename
+        #command = aPythonExecutable + " " + script + " " + anInputFilename + " > " + outputFilename
+    command = aPythonExecutable + " " + script + " " + anInputFilename + " -o " + outputFilename
     
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -1273,8 +1274,8 @@ def main():
     
     # if we aren't debugging, then remove all the tmp files
     if (not i_debug):
-    	# remove all the temp files
-    	remove_tmpFiles(rmTmpFilesList, i_joblistFileHandler, i_debug)
+        # remove all the temp files
+        remove_tmpFiles(rmTmpFilesList, i_joblistFileHandler, i_debug)
         
     if (i_joblistDir != None):
         i_joblistFileHandler.close()
