@@ -1,4 +1,3 @@
-=======
 RADIA
 =======
 
@@ -22,7 +21,7 @@ calls are those that had very little DNA support, hence not called by the DOM, b
 RNA support, and thus called by the TBM.  RNA Rescue calls are typically missed by 
 traditional methods that only interrogate the DNA.
 
-=====================
+
 PREREQUISITES
 =====================
 
@@ -45,7 +44,6 @@ RADIA uses SnpEff to annotate passing variants and to filter out calls from the
 Triple BAM method that land in genes with high sequence similarity.
 
 
-=====================
 DATA PREPARATION
 =====================
 
@@ -81,7 +79,6 @@ If the "chr" prefix is neeeded, then add the corresponding flag:<br>
 --rnaTumorUseChr<br>
 
 
-=======================
 TEST SAMTOOLS COMMAND
 =======================
 
@@ -95,7 +92,6 @@ If no "chr" prefix is needed:<br>
 samtools mpileup -f fastaFilename.fa -E -r 7:55248979-55249079 normalBamFilename.bam
 
 
-===========================
 RUN RADIA INITIAL COMMAND
 ===========================
 
@@ -114,7 +110,6 @@ For the full list of optional parameters, type:<br>
 python radia.py -h
 
 
-===========================
 RUN RADIA FILTER COMMAND 
 ===========================
 
@@ -166,7 +161,6 @@ For the full list of optional parameters, type:<br>
 python filterRadia.py -h
 
 
-===========================
 RUN RADIA MERGE COMMAND 
 ===========================
 
@@ -176,14 +170,12 @@ python mergeChroms.py patientId /radia/filtered/ /radia/filtered/ --gzip
 This will merge all of the files with the names: patientId_chr\*.vcf or patientId_chr\*.vcf.gz into one file called patientId.vcf or patientId.vcf.gz (if you specify the --gzip parameter).
 
 
-===========
 CITATION
 ===========
-If you use RADIA, please site the method:<br>
+If you use RADIA, please cite the method:<br>
 Radenbaugh AJ, Ma S, Ewing A, Stuart JM, Collisson EA, Zhu J, Haussler D. (2014) RADIA: RNA and DNA Integrated Analysis for Somatic Mutation Detection. PLoS ONE 9(11): e111516. doi:10.1371/journal.pone.0111516
 
 
-=========
 LICENSE
 =========
 

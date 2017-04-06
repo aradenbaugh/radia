@@ -7,7 +7,6 @@ import os
 import subprocess
 import datetime
 import logging
-#from argparse import ArgumentParser
 from optparse import OptionParser
 from itertools import izip
 import radiaUtil
@@ -511,7 +510,7 @@ def filter_by_base_quality(aStringOfReads, aStringOfQualScores, aMinBaseQualityS
     return (pileups, qualScores, len(pileups), numBasesDict, sumBaseQualsDict, numPlusStrandDict)               
 
 
-def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict, aStringReads, aStringQualScores, aNumBases, aStartsCount, aStopsCount, anIndelCount, aBaseCountsDict, aQualitySumsOfBasesDict, aPlusStrandCountsDict, aGTMinDepth, aGTMinPct, anIsDebug):
+def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict, aStringReads, aStringQualScores, aNumBases, aStartsCount, aStopsCount, anIndelCount, aBaseCountsDict, aQualitySumsOfBasesDict, aPlusStrandCountsDict, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
     '''
     ' This function converts information from a .bam mpileup coordinate into a format that can be output to a VCF formatted file.
     ' This function calculates the average overall base quality score, strand bias, and fraction of reads supporting the alternative.
@@ -531,7 +530,6 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
     '''
     
     # initialize the return variables
-    returnString = "."
     sumAltReadSupport = 0
     
     # if we have reads at this position
@@ -707,10 +705,10 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
         
         # create a list of each of the elements, then join them by colon
         outputList = ("/".join(map(str, genotypes)), str(aNumBases), str(anIndelCount), str(aStartsCount), str(aStopsCount), ",".join(map(str, depths)), ",".join(map(str, readSupports)), ",".join(map(str, baseQuals)), ",".join(map(str, strandBias)))
-        returnString = ":".join(outputList)
+        aBamOutputString = ":".join(outputList)
         
     # return the string representation and overall calculations       
-    return (returnString, anAltCountsDict, anAltPerDict, sumAltReadSupport)
+    return (aBamOutputString, anAltCountsDict, anAltPerDict, sumAltReadSupport)
 
 
 def get_next_pileup(aGenerator):
@@ -734,7 +732,7 @@ def get_next_pileup(aGenerator):
             return False, "", -1, "", 0, "", ""
 
 
-def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aPreviousUniqueBases, aPreviousBaseCounts, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, aRefList, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, aGainModCount, aLossModCount, aGainModType, aLossModType, anInfoDict, aMinTotalNumBases, aMinAltNumBases, aBaseQual, aBaseQualsList, aSourcePrefix, aGTMinDepth, aGTMinPct, anIsDebug):
+def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aPreviousUniqueBases, aPreviousBaseCounts, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, aRefList, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, aGainModCount, aLossModCount, aGainModType, aLossModType, anInfoDict, aMinTotalNumBases, aMinAltNumBases, aBaseQual, aBaseQualsList, aSourcePrefix, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
     '''
     ' This function finds variants in BAM pileups.  This function first converts the samtools pileup of reads into 
     ' human-readable reads and then records some characteristics of the pileups.  It counts the number of bases on the 
@@ -759,7 +757,6 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
     '''
     
     # default outputs
-    bamOutputString = "."
     sumOfBaseQuals = 0
     sumOfStrandBiases = 0
     sumOfAltReads = 0
@@ -905,12 +902,12 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
             aDnaSet = aDnaSet.union(set(convertedReads))
             
             # get the summary output for the pileups at this position
-            (bamOutputString, anAltCountsDict, anAltPerDict, sumOfAltReads) = format_bam_output(aChr, aRefList, anAltList, anAltCountsDict, anAltPerDict, convertedReads, convertedBaseQuals, aNumBases, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict, aGTMinDepth, aGTMinPct, anIsDebug)
+            (aBamOutputString, anAltCountsDict, anAltPerDict, sumOfAltReads) = format_bam_output(aChr, aRefList, anAltList, anAltCountsDict, anAltPerDict, convertedReads, convertedBaseQuals, aNumBases, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug)
             
             sumOfBaseQuals = sum(qualitySumsOfBasesDict.itervalues())
             sumOfStrandBiases = sum(plusStrandCountsDict.itervalues())
                  
-    return (bamOutputString, uniqueBases, baseCountsDict, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, (aNumBases < aMinTotalNumBases), (not oneAboveMinAltBasesFlag and setBelowMinAltBasesFlag), aGainModCount, aLossModCount, anInfoDict, aNumBases, indels, starts, stops, sumOfBaseQuals, sumOfStrandBiases, sumOfAltReads, aBaseQualsList)
+    return (aBamOutputString, uniqueBases, baseCountsDict, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, (aNumBases < aMinTotalNumBases), (not oneAboveMinAltBasesFlag and setBelowMinAltBasesFlag), aGainModCount, aLossModCount, anInfoDict, aNumBases, indels, starts, stops, sumOfBaseQuals, sumOfStrandBiases, sumOfAltReads, aBaseQualsList)
         
         
 def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aRadiaVersion, aPatientId, aParamDict, aFilenameList, aLabelList, aDescList, aPlatformList, aSourceList, anAnalytesList, aDisease, anIsDebug):
@@ -1015,8 +1012,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Number of unique alleles across all samples\">\n"
     vcfHeader += "##INFO=<ID=AC,Number=.,Type=Integer,Description=\"Allele count in genotypes, for each ALT allele, in the same order as listed\">\n" 
     vcfHeader += "##INFO=<ID=AF,Number=.,Type=Float,Description=\"Allele frequency, for each ALT allele, in the same order as listed\">\n" 
-    vcfHeader += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total read depth for all samples\">\n"
-    vcfHeader += "##INFO=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels for all samples\">\n"
+    vcfHeader += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total read depth across all samples\">\n"
+    vcfHeader += "##INFO=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels across all samples\">\n"
     vcfHeader += "##INFO=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this position across all samples\">\n"
     vcfHeader += "##INFO=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position across all samples\">\n"
     vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Float,Description=\"Overall average base quality\">\n"
@@ -1067,7 +1064,7 @@ def pad(aList, aPadder, aLength):
     return aList + [aPadder] * (aLength - len(aList))
            
         
-def pad_output(anOutput, anAlleleLength):
+def pad_output(anOutput, anEmptyOutput, anAlleleLength):
     '''
     ' This function pads some of the output components with null or zero values.  If a variant is found in a sample and the output for 
     ' previous samples has already been formatted, it needs to be reformatted with null or zero values.  For example, all of the allele 
@@ -1077,11 +1074,8 @@ def pad_output(anOutput, anAlleleLength):
     ' anAlleleLength - The number of alleles found at this site 
     '''
     
-    #TODO: make this accept any format
-    #format = "GT:DP:INDEL:START:STOP:AD:AF:BQ:SB"
-    
     # if there is no data, then just return
-    if (anOutput == "."):
+    if (anOutput == anEmptyOutput):
         return anOutput
     
     # get the data for this sample
@@ -1756,10 +1750,13 @@ def main():
         # create some default output in case there are no reads for one dataset but there are for others
         #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
         vcfOutputList = [i_chrom, str(currentCoordinate), "."]
-        dnaNormalOutputString = "."
-        dnaTumorOutputString = "."
-        rnaNormalOutputString = "."
-        rnaTumorOutputString = "."
+        formatItemCount = len(formatString.split(":"))
+        emptyFormatList = ["."] * formatItemCount
+        emptyFormatString = ":".join(emptyFormatList)
+        dnaNormalOutputString = emptyFormatString
+        dnaTumorOutputString = emptyFormatString
+        rnaNormalOutputString = emptyFormatString
+        rnaTumorOutputString = emptyFormatString
         
         # these are only used to determine the Germline parent of an LOH
         # the output shows which parent base has been lost in the tumor DNA
@@ -1809,7 +1806,7 @@ def main():
             lossModType = "NOREF"
         
             # process the normal DNA
-            (dnaNormalOutputString, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalGerms, totalNoRef, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores, previousUniqueBases, previousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalGerms, totalNoRef, gainModType, lossModType, infoDict, i_dnaNormMinTotalNumBases, i_dnaNormMinAltNumBases, i_dnaNormBaseQual, coordinateBaseQualsList, "DNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, i_debug)
+            (dnaNormalOutputString, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalGerms, totalNoRef, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores, previousUniqueBases, previousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalGerms, totalNoRef, gainModType, lossModType, infoDict, i_dnaNormMinTotalNumBases, i_dnaNormMinAltNumBases, i_dnaNormBaseQual, coordinateBaseQualsList, "DNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, dnaNormalOutputString, i_debug)
             
             if (numBases > 0):
                 totalSamples += 1
@@ -1838,7 +1835,7 @@ def main():
             # need to think about this in more detail
             previousUniqueBases = ""
             
-            (rnaNormalOutputString, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalNormEdits, totalNormNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalNormEdits, totalNormNotExp, gainModType, lossModType, infoDict, i_rnaNormMinTotalNumBases, i_rnaNormMinAltNumBases, i_rnaNormBaseQual, coordinateBaseQualsList, "RNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, i_debug)    
+            (rnaNormalOutputString, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalNormEdits, totalNormNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalNormEdits, totalNormNotExp, gainModType, lossModType, infoDict, i_rnaNormMinTotalNumBases, i_rnaNormMinAltNumBases, i_rnaNormBaseQual, coordinateBaseQualsList, "RNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, rnaNormalOutputString, i_debug)    
             
             if (numBases > 0):
                 totalSamples += 1
@@ -1864,7 +1861,7 @@ def main():
             lossModType = "LOH"
             
             # process the tumor DNA
-            (dnaTumorOutputString, previousUniqueBases, previousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalSoms, totalLohs, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalSoms, totalLohs, gainModType, lossModType, infoDict, i_dnaTumMinTotalNumBases, i_dnaTumMinAltNumBases, i_dnaTumBaseQual, coordinateBaseQualsList, "DNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, i_debug)
+            (dnaTumorOutputString, previousUniqueBases, previousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalSoms, totalLohs, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalSoms, totalLohs, gainModType, lossModType, infoDict, i_dnaTumMinTotalNumBases, i_dnaTumMinAltNumBases, i_dnaTumBaseQual, coordinateBaseQualsList, "DNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, dnaTumorOutputString, i_debug)
             
             if (numBases > 0):
                 totalSamples += 1
@@ -1893,7 +1890,7 @@ def main():
             # need to think about this in more detail
             previousUniqueBases = ""
             
-            (rnaTumorOutputString, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalTumEdits, totalTumNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalTumEdits, totalTumNotExp, gainModType, lossModType, infoDict, i_rnaTumMinTotalNumBases, i_rnaTumMinAltNumBases, i_rnaTumBaseQual, coordinateBaseQualsList, "RNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, i_debug)    
+            (rnaTumorOutputString, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalTumEdits, totalTumNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalTumEdits, totalTumNotExp, gainModType, lossModType, infoDict, i_rnaTumMinTotalNumBases, i_rnaTumMinAltNumBases, i_rnaTumBaseQual, coordinateBaseQualsList, "RNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, rnaTumorOutputString, i_debug)    
             
             if (numBases > 0):
                 totalSamples += 1
@@ -1989,16 +1986,16 @@ def main():
                 
                 # add the sample specific data
                 if (i_dnaNormalFilename != None or i_dnaNormalPileupsFilename != None):
-                    dnaNormalOutputString = pad_output(dnaNormalOutputString, len(refList + altList))
+                    dnaNormalOutputString = pad_output(dnaNormalOutputString, emptyFormatString, len(refList + altList))
                     vcfOutputList.append(dnaNormalOutputString)
                 if (i_rnaNormalFilename != None or i_rnaNormalPileupsFilename != None):
-                    rnaNormalOutputString = pad_output(rnaNormalOutputString, len(refList + altList))
+                    rnaNormalOutputString = pad_output(rnaNormalOutputString, emptyFormatString, len(refList + altList))
                     vcfOutputList.append(rnaNormalOutputString)
                 if (i_dnaTumorFilename != None or i_dnaTumorPileupsFilename != None):
-                    dnaTumorOutputString = pad_output(dnaTumorOutputString, len(refList + altList))
+                    dnaTumorOutputString = pad_output(dnaTumorOutputString, emptyFormatString, len(refList + altList))
                     vcfOutputList.append(dnaTumorOutputString)
                 if (i_rnaTumorFilename != None or i_rnaTumorPileupsFilename != None):
-                    rnaTumorOutputString = pad_output(rnaTumorOutputString, len(refList + altList))
+                    rnaTumorOutputString = pad_output(rnaTumorOutputString, emptyFormatString, len(refList + altList))
                     vcfOutputList.append(rnaTumorOutputString)
                 
                 # output
