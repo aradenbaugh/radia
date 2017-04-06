@@ -269,7 +269,7 @@ def pre_filter_mod_types(aLine, aRefPlusAltList, anInfoDict, aDNANormalDepths, a
                                 modTypesList.append("SOM")
                                 modChangesList.append(modChange)
                         
-            elif (modType == "NOR_EDIT"):
+            elif (modType == "NOR_EDIT" or modType == "RNA_NOR_VAR"):
                 # get the indices
                 sourceIndex = aRefPlusAltList.index(source)
                 targetIndex = aRefPlusAltList.index(target)
@@ -291,7 +291,7 @@ def pre_filter_mod_types(aLine, aRefPlusAltList, anInfoDict, aDNANormalDepths, a
                             modTypesList.append("TUM_EDIT")
                             modChangesList.append(modChange)
             
-            elif (modType == "TUM_EDIT"):
+            elif (modType == "TUM_EDIT" or modType == "RNA_TUM_VAR"):
                 # get the indices
                 sourceIndex = aRefPlusAltList.index(source)
                 targetIndex = aRefPlusAltList.index(target)
@@ -399,10 +399,16 @@ def get_final_mod_type(aRefPlusAltList, anInfoDict, aDNANormalAFs, anRNANormalAF
             finalModTypeList = ["NOR_EDIT"]
             if ("TUM_EDIT" in aModTypeList):
                 finalModTypeList.append("TUM_EDIT")
+        elif ("RNA_NOR_VAR" in aModTypeList):
+            finalModTypeList = ["RNA_NOR_VAR"]
+            if ("RNA_TUM_VAR" in aModTypeList):
+                finalModTypeList.append("RNA_TUM_VAR")
         elif ("SOM" in aModTypeList):
             finalModTypeList = ["SOM"]
         elif ("TUM_EDIT" in aModTypeList):
             finalModTypeList = ["TUM_EDIT"]
+        elif ("RNA_TUM_VAR" in aModTypeList):
+            finalModTypeList = ["RNA_TUM_VAR"]
         elif ("LOH" in aModTypeList):
             finalModTypeList = ["LOH"]
         
@@ -423,6 +429,8 @@ def get_final_mod_type(aRefPlusAltList, anInfoDict, aDNANormalAFs, anRNANormalAF
         anInfoDict["SOMATIC"].append("True")
     elif (finalModType.find("EDIT") != -1):
         anInfoDict["SS"].append("5")
+    elif (finalModType.find("RNA_NOR_VAR") != -1 or finalModType.find("RNA_TUM_VAR") != 1):
+        anInfoDict["SS"].append("4")
     # other
     else:
         anInfoDict["SS"].append("4")
@@ -1368,12 +1376,12 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                             isValidMod = False
                             filterSet.add("rnmnab")
                         
-                        # check to make sure the tumor DNA sample percentage of ALT bases is above the min
+                        # check to make sure the tumor RNA sample percentage of ALT bases is above the min
                         if (float(event_rnaNormalDict["AF"][targetIndex]) < anRnaNormParamsDict["MinAltPct"]):
                             isValidMod = False
                             filterSet.add("rnmnap")
                             
-                        # check to make sure the tumor DNA sample average base quality for ALT bases is above the min
+                        # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
                         if (float(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                             isValidMod = False
                             filterSet.add("rnmnbq")
@@ -1499,6 +1507,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                             filterSet.add("rtmntb")
                     
                 elif (modType.find("TUM_EDIT") != -1 or modType.find("RNA_TUM_VAR") != -1):
+                    
                     sourceIndex = refPlusAltList.index(source)
                     targetIndex = refPlusAltList.index(target)
                     
@@ -1556,12 +1565,12 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                             isValidMod = False
                             filterSet.add("rtmnab")
                         
-                        # check to make sure the tumor DNA sample percentage of ALT bases is above the min
+                        # check to make sure the tumor RNA sample percentage of ALT bases is above the min
                         if (float(event_rnaTumorDict["AF"][targetIndex]) < anRnaTumParamsDict["MinAltPct"]):
                             isValidMod = False
                             filterSet.add("rtmnap")
                             
-                        # check to make sure the tumor DNA sample average base quality for ALT bases is above the min
+                        # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
                         if (float(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                             isValidMod = False
                             filterSet.add("rtmnbq")
@@ -1579,7 +1588,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                     else:
                         isValidMod = False
                         filterSet.add("rtmntb")
-                
+                    
                 # if this one is not valid and we have more, 
                 # then remove this one and try the next one
                 if (not isValidMod):
@@ -1588,8 +1597,6 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                         if (modType == removeModType and modChange == removeModChange):
                             del modTypesList[modIndex]
                             del modChangesList[modIndex]
-                            #modTypesList.remove(modType)
-                            #modChangesList.remove(modChange)
                             break;
                      
             # after looping through all of them:  if there are still some valid mod types, then set them in the infoDict and ignore the other filtered calls
