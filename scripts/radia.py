@@ -1391,7 +1391,8 @@ def main():
         i_readFilenameList += [i_rnaTumorFastaFilename]
         if (i_universalFastaFilename == None):
             i_universalFastaFilename = i_rnaTumorFastaFilename
-    i_readFilenameList += [i_universalFastaFilename]
+    if (i_universalFastaFilename != None):
+        i_readFilenameList += [i_universalFastaFilename]
         
     # need to set these for the vcf header, especially when only a universal fasta file is specified
     i_cmdLineOptionsDict["dnaNormalFastaFilename"] = i_dnaNormalFastaFilename
@@ -1404,7 +1405,7 @@ def main():
     # specify --log=DEBUG or --log=debug
     i_numericLogLevel = getattr(logging, i_logLevel.upper(), None)
     if not isinstance(i_numericLogLevel, int):
-        raise ValueError("Invalid log level: '%s' must be one of the following:  DEBUG, INFO, WARNING, ERROR, CRITICAL", i_logLevel)
+        raise ValueError("Invalid log level: '%s' must be one of the following:  DEBUG, INFO, WARNING, ERROR, CRITICAL" % str(i_logLevel))
     
     # set up the logging
     if (i_logFilename != None):
@@ -1493,7 +1494,7 @@ def main():
     # the user must specify at least one .bam file
     if (i_dnaNormalFilename == None and i_dnaTumorFilename == None and i_rnaNormalFilename == None and i_rnaTumorFilename == None and
         i_dnaNormalPileupsFilename == None and i_dnaTumorPileupsFilename == None and i_rnaNormalPileupsFilename == None and i_rnaTumorPileupsFilename == None):
-        logging.critical("You must specify at least one .bam file.")
+        logging.critical("You must specify at least one BAM file.")
         sys.exit(1)
     if (i_dnaNormalFilename == None and i_dnaNormalPileupsFilename != None):
         logging.critical("You have specified a pileups file for the DNA normal sample, but the original .bam file is needed for filtering. Please specify both a .bam and a pileups file for the DNA normal sample.")
@@ -1574,53 +1575,61 @@ def main():
     # get the generators that will yield the pileups
     # Note:  Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
     #        Use the "get_bam_data" when running on real .bam file data
-    if ((i_dnaNormalFilename != None and i_dnaNormalFilename.endswith(".sam")) or (i_dnaNormalPileupsFilename != None)):
-        if (i_dnaNormalFilename != None):
-            i_dnaNormalGenerator = get_sam_data(i_dnaNormalFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_dnaNormLabel, i_debug)
-        else:
-            i_dnaNormalGenerator = get_sam_data(i_dnaNormalPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate,i_dnaNormLabel, i_debug)
-        
-    if ((i_dnaTumorFilename != None and i_dnaTumorFilename.endswith(".sam")) or (i_dnaTumorPileupsFilename != None)):
-        if (i_dnaTumorFilename != None):
-            i_dnaTumorGenerator = get_sam_data(i_dnaTumorFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_dnaTumLabel, i_debug)
-        else:
-            i_dnaTumorGenerator = get_sam_data(i_dnaTumorPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_dnaTumLabel, i_debug)
-        
-    if ((i_rnaNormalFilename != None and i_rnaNormalFilename.endswith(".sam")) or (i_rnaNormalPileupsFilename != None)):
-        if (i_rnaNormalFilename != None):
-            i_rnaNormalGenerator = get_sam_data(i_rnaNormalFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_rnaNormLabel, i_debug)
-        else:
-            i_rnaNormalGenerator = get_sam_data(i_rnaNormalPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_rnaNormLabel, i_debug)
     
-    if ((i_rnaTumorFilename != None and i_rnaTumorFilename.endswith(".sam")) or (i_rnaTumorPileupsFilename != None)):
-        if (i_rnaTumorFilename != None):
-            i_rnaTumorGenerator = get_sam_data(i_rnaTumorFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_rnaTumLabel, i_debug)
+    # Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
+    if (i_dnaNormalPileupsFilename != None):
+        # some bams/references use "M", some use "MT"
+        if (i_chrom == "M" or i_chrom == "MT" and i_dnaNormMitochon != None):
+            i_dnaNormalGenerator = get_sam_data(i_dnaNormalPileupsFilename, i_dnaNormMitochon, i_startCoordinate, i_stopCoordinate, i_dnaNormLabel, i_debug)                      
         else:
-            i_rnaTumorGenerator = get_sam_data(i_rnaTumorPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_rnaTumLabel, i_debug)
-                     
-                    
-    if (i_dnaNormalFilename != None):
+            i_dnaNormalGenerator = get_sam_data(i_dnaNormalPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_dnaNormLabel, i_debug)                      
+    # Use the "get_bam_data" when running on real .bam file data
+    elif (i_dnaNormalFilename != None):
         # some bams/references use "M", some use "MT"
         if (i_chrom == "M" or i_chrom == "MT" and i_dnaNormMitochon != None):
             i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormBaseQual, i_dnaNormMapQual, i_dnaNormMitochon, i_startCoordinate, i_stopCoordinate, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)                      
         else:
             i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormBaseQual, i_dnaNormMapQual, i_chrom, i_startCoordinate, i_stopCoordinate, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)                      
-
-    if (i_rnaNormalFilename != None):
+  
+    # Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
+    if (i_rnaNormalPileupsFilename != None):
+        # some bams/references use "M", some use "MT"
+        if (i_chrom == "M" or i_chrom == "MT" and i_rnaNormMitochon != None):
+            i_rnaNormalGenerator = get_sam_data(i_rnaNormalPileupsFilename, i_rnaNormMitochon, i_startCoordinate, i_stopCoordinate, i_rnaNormLabel, i_debug)                      
+        else:
+            i_rnaNormalGenerator = get_sam_data(i_rnaNormalPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_rnaNormLabel, i_debug)                      
+    # Use the "get_bam_data" when running on real .bam file data
+    elif (i_rnaNormalFilename != None):
         # some bams/reference use "M", some use "MT"
         if (i_chrom == "M" or i_chrom == "MT" and i_rnaNormMitochon != None):
             i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormBaseQual, i_rnaNormMapQual, i_rnaNormMitochon, i_startCoordinate, i_stopCoordinate, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
         else:
             i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormBaseQual, i_rnaNormMapQual, i_chrom, i_startCoordinate, i_stopCoordinate, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
-
-    if (i_dnaTumorFilename != None):
+        
+    # Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
+    if (i_dnaTumorPileupsFilename != None):
+        # some bams/references use "M", some use "MT"
+        if (i_chrom == "M" or i_chrom == "MT" and i_dnaTumMitochon != None):
+            i_dnaTumorGenerator = get_sam_data(i_dnaTumorPileupsFilename, i_dnaTumMitochon, i_startCoordinate, i_stopCoordinate, i_dnaTumLabel, i_debug)                      
+        else:
+            i_dnaTumorGenerator = get_sam_data(i_dnaTumorPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_dnaTumLabel, i_debug)                      
+    # Use the "get_bam_data" when running on real .bam file data
+    elif (i_dnaTumorFilename != None):
         # some bams/reference use "M", some use "MT"
         if (i_chrom == "M" or i_chrom == "MT" and i_dnaTumMitochon != None):
             i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumBaseQual, i_dnaTumMapQual, i_dnaTumMitochon, i_startCoordinate, i_stopCoordinate, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
         else:
             i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumBaseQual, i_dnaTumMapQual, i_chrom, i_startCoordinate, i_stopCoordinate, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)   
     
-    if (i_rnaTumorFilename != None):
+    # Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
+    if (i_rnaTumorPileupsFilename != None):
+        # some bams/references use "M", some use "MT"
+        if (i_chrom == "M" or i_chrom == "MT" and i_rnaTumMitochon != None):
+            i_rnaTumorGenerator = get_sam_data(i_rnaTumorPileupsFilename, i_rnaTumMitochon, i_startCoordinate, i_stopCoordinate, i_rnaTumLabel, i_debug)                      
+        else:
+            i_rnaTumorGenerator = get_sam_data(i_rnaTumorPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_rnaTumLabel, i_debug)                      
+    # Use the "get_bam_data" when running on real .bam file data
+    elif (i_rnaTumorFilename != None):
         # some bams/reference use "M", some use "MT"
         if (i_chrom == "M" or i_chrom == "MT" and i_rnaTumMitochon != None):
             i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumBaseQual, i_rnaTumMapQual, i_rnaTumMitochon, i_startCoordinate, i_stopCoordinate, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
@@ -1723,6 +1732,11 @@ def main():
             logging.debug("Initial NormalRNAData: %s %s %s %s %s %s", rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores)
             logging.debug("Initial TumorDNAData: %s %s %s %s %s %s", dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores)
             logging.debug("Initial TumorRNAData: %s %s %s %s %s %s", rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores)
+            
+        # if we don't have any more data, then break out of the loop
+        # this can happen when testing or when we've reached the end of all the data in the .mpileups files
+        if (dnaNormalCoordinate == -1 and rnaNormalCoordinate == -1 and dnaTumorCoordinate == -1 and rnaTumorCoordinate == -1):
+            break
             
         # empty the set of DNA for each new coordinate
         dnaSet.clear()
@@ -1908,8 +1922,9 @@ def main():
         if (len(refList) > 1):
             countRefMismatches += 1
             
-        # if we should output
-        if (shouldOutput or i_debug):
+        # if we should output, or
+        # if we are debugging and we have data
+        if (shouldOutput or (i_debug and hasDNA or hasRNA)):
             
             # the chrom, position, and Id columns have been filled
             #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
@@ -1936,8 +1951,9 @@ def main():
             if (len(filterList) == 0):
                 filterList.append("PASS")
             
-            # if we pass the basic filters, or if we are debugging    
-            if (("PASS" in filterList and shouldOutput) or (i_debug)):
+            # if we should output and pass the basic filters, or
+            # if we are debugging, and this call doesn't pass    
+            if ((shouldOutput and "PASS" in filterList) or (i_debug and "PASS" not in filterList)):
                 vcfOutputList.append(";".join(filterList))
                 
                 #vcfHeader += "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">\n"
@@ -1998,19 +2014,16 @@ def main():
                     rnaTumorOutputString = pad_output(rnaTumorOutputString, emptyFormatString, len(refList + altList))
                     vcfOutputList.append(rnaTumorOutputString)
                 
-                # output
-                if ("PASS" not in filterList and i_debug):
-                    # output the line if we're debugging
-                    logging.debug("\t".join(vcfOutputList))
-                elif (shouldOutput):
+                # if we should output
+                if (shouldOutput):
                     if (i_outputFileHandler != None):
                         i_outputFileHandler.write("\t".join(vcfOutputList) + "\n")
                     else:
-                        print >> sys.stdout, "\t".join(vcfOutputList)
-                        
-                    if (i_debug):
-                        logging.debug("finalOutput: %s", "\t".join(vcfOutputList))    
-            
+                        print >> sys.stdout, "\t".join(vcfOutputList)    
+                # if we're debugging
+                elif (i_debug):
+                    logging.debug("\t".join(vcfOutputList))
+                    
         # count coordinates when we have both DNA and RNA
         if (hasDNA and hasRNA):
             countRnaDnaCoordinateOverlap += 1
@@ -2044,12 +2057,12 @@ def main():
         #summaryMessage += "Total GERMs=" + str(totalGerms-totalLohs) + ", "
         summaryMessage += "Total GERMs=" + str(totalGerms) + ", "
     if (i_rnaNormalFilename != None or i_rnaNormalPileupsFilename != None):
-        summaryMessage += "Total Normal EDITs=" + str(totalNormEdits) + ", "
+        summaryMessage += "Total Normal RNA Variants/Edits=" + str(totalNormEdits) + ", "
     if (i_dnaTumorFilename != None or i_dnaTumorPileupsFilename != None):
         summaryMessage += "Total SOMs=" + str(totalSoms) + ", "
         #summaryMessage += "Total LOHs=" + str(totalLohs) + ", "
     if (i_rnaTumorFilename != None or i_rnaTumorPileupsFilename != None):
-        summaryMessage += "Total Tumor EDITs=" + str(totalTumEdits) + ", "
+        summaryMessage += "Total Tumor RNA Variants/Edits=" + str(totalTumEdits) + ", "
     #summaryMessage += "Total coordinates with both DNA and RNA=" + str(countRnaDnaCoordinateOverlap) + ", "
     
     logging.info(summaryMessage.rstrip(", "))
