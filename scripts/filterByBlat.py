@@ -468,7 +468,7 @@ def main():
         logging.basicConfig(level=i_numericLogLevel, format='%(asctime)s\t%(levelname)s\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         
     # set the debug    
-    i_debug = (i_numericLogLevel < logging.WARNING)
+    i_debug = (i_numericLogLevel == logging.DEBUG)
     
     # output some debug info
     if (i_debug):
@@ -536,7 +536,7 @@ def main():
             # for each read, investigate the blat hits to see if this read is valid
             for (readId, blatHitList) in blatHitsDict.iteritems():
                 if (i_debug):
-                    logging.info("num of blat hits for read %s=%s", readId, len(blatHitList))
+                    logging.debug("num of blat hits for read %s=%s", readId, len(blatHitList))
                 
                 blatOverallReadDepth +=1
     
@@ -567,9 +567,9 @@ def main():
                 atLeastOnePass = True
                 
             if (i_debug):
-                logging.info("blatOverallReadDepth=%s, numValidReads=%s, altPercent=%s", str(blatOverallReadDepth), str(numValidReads), str(altPercent))
-                logging.info("modType=%s, passed? %s", modType, modTypeFilters[modType])
-                logging.info("blatFilter originalDepth=%s, afterBlatDepth=%s", str(blatOverallReadDepth), str(numValidReads))
+                logging.debug("blatOverallReadDepth=%s, numValidReads=%s, altPercent=%s", str(blatOverallReadDepth), str(numValidReads), str(altPercent))
+                logging.debug("modType=%s, passed? %s", modType, modTypeFilters[modType])
+                logging.debug("blatFilter originalDepth=%s, afterBlatDepth=%s", str(blatOverallReadDepth), str(numValidReads))
             
         # make a copy of the list to manipulate
         modTypesTmpList = list(modTypes)

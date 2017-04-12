@@ -378,7 +378,7 @@ def main():
         logging.basicConfig(level=i_numericLogLevel, format='%(asctime)s\t%(levelname)s\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         
     # set the debug    
-    i_debug = (i_numericLogLevel < logging.WARNING)
+    i_debug = (i_numericLogLevel == logging.DEBUG)
 
     # do some debugging
     if (i_debug):

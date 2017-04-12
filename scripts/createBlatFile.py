@@ -536,8 +536,8 @@ def write_to_blat_file(aBlatFileHandler, aChr, aStopCoordinate, aParamsDict, anI
                         numSkipsFound += 1   
                         
     if (anIsDebug):  
-        logging.info("numAltsFound for stopCoordinate=%s, numSkipsFound=%s, numSkipsBeforeFirstM=%s, numNonRefAltBasesFound=%s, numAltsFound=%s, numTotalMatches=%s", aStopCoordinate, numSkipsFound, skipsBeforeFirstMatch, numNonRefAltBasesFound, numAltsFound, numMatchesFound)
-        logging.info("numMs=%s, numSs=%s, numIs=%s, numDs=%s, numHs=%s, numPs=%s, numNs=%s, numXs=%s, numEquals=%s", numMsFound, numSsFound, numIsFound, numDsFound, numHsFound, numPsFound, numNsFound, numXsFound, numEqualsFound)
+        logging.debug("For stopCoordinate=%s, numSkipsFound=%s, numSkipsBeforeFirstMatch=%s, numNonRefAltBasesFound=%s, numAltsFound=%s, numTotalMatches=%s", aStopCoordinate, numSkipsFound, skipsBeforeFirstMatch, numNonRefAltBasesFound, numAltsFound, numMatchesFound)
+        logging.debug("numMs=%s, numSs=%s, numIs=%s, numDs=%s, numHs=%s, numPs=%s, numNs=%s, numXs=%s, numEquals=%s", numMsFound, numSsFound, numIsFound, numDsFound, numHsFound, numPsFound, numNsFound, numXsFound, numEqualsFound)
         
     return 
     
@@ -616,8 +616,8 @@ def main():
     else:
         logging.basicConfig(level=i_numericLogLevel, format='%(asctime)s\t%(levelname)s\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         
-    # set the debug    
-    i_debug = (i_numericLogLevel < logging.WARNING)
+    # set the debug flag    
+    i_debug = (i_numericLogLevel == logging.DEBUG)
 
     # output some debug info
     if (i_debug):

@@ -213,7 +213,7 @@ def main():
         logging.basicConfig(level=i_numericLogLevel, format='%(asctime)s\t%(levelname)s\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         
     # set the debug    
-    i_debug = (i_numericLogLevel < logging.WARNING)
+    i_debug = (i_numericLogLevel == logging.DEBUG)
     
     # output some debug info
     if (i_debug):
@@ -311,7 +311,7 @@ def main():
                 atLeastOnePass = True
                 
             if (i_debug):
-                logging.info("coordinate=%s, starts=%s, middles=%s, ends=%s, total=%s, positionalBias=%s", coordinate, starts, middles, ends, total, str(modTypeFilters))
+                logging.debug("coordinate=%s, starts=%s, middles=%s, ends=%s, total=%s, positionalBias=%s", coordinate, starts, middles, ends, total, str(modTypeFilters))
            
         # make a copy of the list to manipulate
         modTypesTmpList = list(modTypes)

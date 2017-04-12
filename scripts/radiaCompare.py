@@ -84,8 +84,8 @@ def get_vcf_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIsDebug):
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
-        if (anIsDebug):
-            logging.debug("VCF Line: %s", line)
+        #if (anIsDebug):
+        #    logging.debug("VCF Line: %s", line)
             
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -211,8 +211,8 @@ def get_maf_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIsDebug):
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
-        if (anIsDebug):
-            logging.debug("MAF Line: %s", line)
+        #if (anIsDebug):
+        #    logging.debug("MAF Line: %s", line)
             
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -239,7 +239,7 @@ def get_maf_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIsDebug):
             #if ("Somatic" in line and "SNP" in line):
             if (True):
                 #if (chrom + "_" + stopCoordinate) in outputDict:
-                #    logging.info(line + outputDict[chrom + "_" + stopCoordinate])
+                #    logging.debug(line + outputDict[chrom + "_" + stopCoordinate])
                 
                 # add the coordinate to the output
                 outputDict[chrom + "_" + stopCoordinate] = line
@@ -316,8 +316,8 @@ def get_validation_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIs
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
-        if (anIsDebug):
-            logging.debug("Validation Line: %s", line)
+        #if (anIsDebug):
+        #    logging.debug("Validation Line: %s", line)
             
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -400,8 +400,8 @@ def get_simulation_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIs
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
-        if (anIsDebug):
-            logging.debug("Simulation Line: %s", line)
+        #if (anIsDebug):
+        #    logging.debug("Simulation Line: %s", line)
             
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -430,7 +430,7 @@ def get_simulation_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIs
             #highestAF = splitLine[10]
             
             if (chrom + "_" + mutPosition) in outputDict:
-                logging.info(line + outputDict[chrom + "_" + mutPosition])
+                logging.debug(line + outputDict[chrom + "_" + mutPosition])
                 
             # add the coordinate to the output
             outputDict[chrom + "_" + mutPosition] = line
@@ -513,7 +513,7 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
         #if (cmpCoordinate not in i_radDict):
         #if ("PASS" in cmpLine and "SNP" in cmpLine and "SOM" in cmpLine and cmpCoordinate not in i_radDict):
         #if ("Somatic" in cmpLine and "SNP" in cmpLine and cmpCoordinate not in i_radDict):    
-            logging.info("no radia call %s", cmpLine)
+            logging.debug("no radia call %s", cmpLine)
             
             #if (aNonOverlapFilename != None):
             #    nonOverlapFileHandler.write(cmpLine + "\n")
@@ -535,7 +535,7 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
         #if ("SNP" in radLine and "Somatic" in radLine and radCoordinate not in i_cmpDict):
         #if ("PASS" in radLine and "SOM" in radLine and radCoordinate not in i_cmpDict):
         #if ("SOM" in radLine and radCoordinate not in i_cmpDict):
-            logging.info("new radia call %s", radLine)
+            logging.debug("new radia call %s", radLine)
             
             if (aNonOverlapFilename != None):
                 nonOverlapFileHandler.write(radLine + "\n")
@@ -623,7 +623,7 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
                         #if ("SNP" in radLine):
                         #if (True):
                             i_statsDict["overlap_pass_" + radKey] += 1
-                            logging.info("found call %s", compareLine)
+                            logging.debug("found call %s", compareLine)
                             if (anOverlapFilename != None):
                                 
                                 # add to maf
@@ -655,7 +655,7 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
                                 break;
                                 #overlapFileHandler.write(compareLine + "\n")
                         else:
-                            logging.info("found but no radia pass %s %s", radLine, compareLine)
+                            logging.debug("found but no radia pass %s %s", radLine, compareLine)
                             #overlapFileHandler.write(compareLine + "\n")
                             splitLine = radLine.split("\t")
                             
@@ -669,13 +669,13 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
                                 nonOverlapFileHandler.write(radLine + "\n")
                         
                 elif (foundInRad):
-                    logging.info("overlap but not found in compare file %s %s %s", radKey, radLine, compareLine)
+                    logging.debug("overlap but not found in compare file %s %s %s", radKey, radLine, compareLine)
                     #overlapFileHandler.write(compareLine + "\n")
                 elif (foundInCmp):
-                    logging.info("overlap but not found in RADIA %s %s %s", cmpKey, radLine, compareLine)
+                    logging.debug("overlap but not found in RADIA %s %s %s", cmpKey, radLine, compareLine)
                     #overlapFileHandler.write(compareLine + "\n")
                 else:
-                    logging.info("overlap but not same type %s %s %s %s", radKeyList, cmpKeyList, radLine, compareLine)
+                    logging.debug("overlap but not same type %s %s %s %s", radKeyList, cmpKeyList, radLine, compareLine)
                     #overlapFileHandler.write(compareLine + "\n")
 
     # aTCGAId, aChrom, rad_events, cmp_events, overlap_events, [rad_key, cmp_key, overlap_radKey]{n}
@@ -691,7 +691,7 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
         outputList += [str(i_statsDict["rad_pass_" + radKey]), str(i_statsDict["cmp_pass_" + cmpKey]), str(i_statsDict["overlap_pass_" + radKey])]
           
     for (filterKey, count) in i_filterDict.iteritems():
-        logging.info("filter: %s\t%s", filterKey, count)
+        logging.debug("filter: %s\t%s", filterKey, count)
         
     # get the files
     i_statsFileHandler = None
@@ -792,7 +792,7 @@ def main():
         logging.basicConfig(level=i_numericLogLevel, format='%(asctime)s\t%(levelname)s\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
         
     # set the debug    
-    i_debug = (i_numericLogLevel < logging.WARNING)
+    i_debug = (i_numericLogLevel == logging.DEBUG)
 
     # do some debugging
     if (i_debug):
