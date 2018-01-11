@@ -602,6 +602,21 @@ def main():
             else:
                 vcfFilterSet = ["blat"]
         
+            # update the mod filters    
+            modTypes = vcfInfoDict["MT"]
+            modChanges = vcfInfoDict["MC"]
+            origins = vcfInfoDict["ORIGIN"]
+            modFilters = [] if vcfInfoDict["MF"] is None else vcfInfoDict["MF"]
+            modFilterTypes = [] if vcfInfoDict["MFT"] is None else vcfInfoDict["MFT"]
+                    
+            for origin in origins:
+                for (modType, modChange) in izip(modTypes, modChanges):
+                    modFilterTypes.append("_".join([origin, modType, modChange]))
+                    modFilters.append("_".join(vcfFilterSet))
+                
+            vcfInfoDict["MF"] = modFilters
+            vcfInfoDict["MFT"] = modFilterTypes
+            
         output = [vcfChr, str(vcfStopCoordinate), vcfId, vcfRef, vcfAlt, vcfScore, ";".join(vcfFilterSet)]
         
         # add the modified info dict
