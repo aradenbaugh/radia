@@ -171,6 +171,8 @@ def main():
     i_cmdLineParser.add_option("-d", "--readDepthCutoff", type="int", default=int(4), dest="readDepthCutoff", metavar="READ_DP_CUTOFF", help="the minimum number of reads that are necessary before applying this filter, %default by default")
     i_cmdLineParser.add_option("-p", "--readPercentCutoff", type="float", default=float(0.95), dest="readPercentCutoff", metavar="READ_PERCENT_CUTOFF", help="the maximum percentage of reads with the alternative allele at the beginning or end of the reads, %default by default")
     
+    i_cmdLineParser.add_option("-k", "--keepPreviousFilters", action="store_true", default=False, dest="keepPreviousFilters", help="by default the previous filters are overwritten with the pbias filter, include this argument if the previous filters should be kept")
+    
     # range(inclusiveFrom, exclusiveTo, by)
     i_possibleArgLengths = range(4,17,1)
     i_argLength = len(sys.argv)
@@ -190,6 +192,7 @@ def main():
     i_logLevel = i_cmdLineOptions.logLevel
     i_readDepthCutoff = i_cmdLineOptions.readDepthCutoff
     i_readPercentCutoff = i_cmdLineOptions.readPercentCutoff
+    i_keepPreviousFiltersFlag = i_cmdLineOptions.keepPreviousFilters
     
     # try to get any optional parameters with no defaults    
     i_outputFilename = None
@@ -224,6 +227,7 @@ def main():
         logging.debug("logFilename=%s", i_logFilename)
         logging.debug("readDepthCutoff=%s", i_readDepthCutoff)
         logging.debug("readPerentCutoff=%s", i_readPercentCutoff)
+        logging.debug("keepPreviousFiltersFlag? %s", i_keepPreviousFiltersFlag)
             
     # check for any errors
     i_writeFilenameList = []
@@ -329,9 +333,36 @@ def main():
         vcfInfoDict["MC"] = modChanges 
          
         # if at least one passed, then set pass
-        if (not atLeastOnePass):
-            vcfFilterSet.add("pbias")
+        if (atLeastOnePass):
+            vcfFilterSet = ["PASS"]
+        else:
+            # if the user wants to keep the previous filters
+            if (i_keepPreviousFiltersFlag):
+                # if the call previous passed, then just set pbias
+                if (len(vcfFilterSet) == 1 and "PASS" in vcfFilterSet):
+                    vcfFilterSet = ["pbias"] 
+                # otherwise, add it to the previous filters
+                else:
+                    vcfFilterSet.add("pbias")
+            # otherwise, just set the pbias filter
+            else:
+                vcfFilterSet = ["pbias"]
+            
+            # update the mod filters    
+            modTypes = vcfInfoDict["MT"]
+            modChanges = vcfInfoDict["MC"]
+            origins = vcfInfoDict["ORIGIN"]
+            modFilters = [] if vcfInfoDict["MF"] is None else vcfInfoDict["MF"]
+            modFilterTypes = [] if vcfInfoDict["MFT"] is None else vcfInfoDict["MFT"]
+                    
+            for origin in origins:
+                for (modType, modChange) in izip(modTypes, modChanges):
+                    modFilterTypes.append("_".join([origin, modType, modChange]))
+                    modFilters.append("_".join(vcfFilterSet))
                 
+            vcfInfoDict["MF"] = modFilters
+            vcfInfoDict["MFT"] = modFilterTypes
+            
         output = [vcfChr, str(vcfStopCoordinate), vcfId, vcfRef, vcfAlt, vcfScore]
             
         # if there are no filters so far, then this call passes
