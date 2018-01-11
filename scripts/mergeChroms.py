@@ -221,12 +221,14 @@ def main():
     
     outputFileHandler = get_write_fileHandler(i_outputFilename)
     
-    # output the header information
-    outputFileHandler.write("\n".join(headerDict["metadata"]) + "\n")
-    outputFileHandler.write("\n".join(headerDict["filter"]) + "\n")
-    outputFileHandler.write("\n".join(headerDict["info"]) + "\n")
-    outputFileHandler.write("\n".join(headerDict["format"]) + "\n")
-    outputFileHandler.write("".join(headerDict["chrom"]) + "\n")
+    # if we have header info to output
+    if (len(headerDict["metadata"]) > 0):
+        # output the header information
+        outputFileHandler.write("\n".join(headerDict["metadata"]) + "\n")
+        outputFileHandler.write("\n".join(headerDict["filter"]) + "\n")
+        outputFileHandler.write("\n".join(headerDict["info"]) + "\n")
+        outputFileHandler.write("\n".join(headerDict["format"]) + "\n")
+        outputFileHandler.write("".join(headerDict["chrom"]) + "\n")
     
     # first output the numerical chroms in order
     numericChromKeys = coordinateDict["numbers"].keys()
