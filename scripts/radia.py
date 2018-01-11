@@ -85,17 +85,22 @@ def get_write_fileHandler(aFilename):
 
 def get_chrom_size(aChrom, anInputStream, anIsDebug):
     '''
-    ' This function reads from a FASTA index file or a tab separated file that contains 
-    ' the sizes for each chromosome. The file has a minimum of two columns:  the first 
-    ' column has the chromosome identifier, the second column has the size of the chromosome.  
-    ' The columns are separated by tabs.
+    ' This function reads from a FASTA index file.  The FASTA index file has 5 columns:  
+    ' NAME        Name of this reference sequence
+    ' LENGTH      Total length of this reference sequence, in bases
+    ' OFFSET      Offset within the FASTA file of this sequence's first base
+    ' LINEBASES   The number of bases on each line
+    ' LINEWIDTH   The number of bytes in each line, including the newline
+    '
     ' Here is an example:
-    ' chr1    249250621
-    ' chr2    243199373
+    ' 1       249250621       3       50      51
+    ' 2       243199373       254235640       50      51
+    ' 3       198022430       502299004       50      51
+    ' 4       191154276       704281886       50      51
     ' ...       ...
     '
     ' aChrom: The chrom size to return
-    ' anInputStream: The input stream for the chrom sizes file
+    ' anInputStream: The input stream for the FASTA index file
     '''
      
     for line in anInputStream:
@@ -147,11 +152,16 @@ def get_batch_end_coordinate(aStartCoordinate, anEndCoordinate, aBatchSize):
 
 def get_sam_data(aSamFile, aChrom, aStartCoordinate, aStopCoordinate, aSourcePrefix, anIsDebug):
     '''
-    ' This function is used during testing to read data from a .sam input file.  It uses the python 
-    ' generator to yield the information for one coordinate position at a time.  This function yields 
-    ' the chromosome, coordinate, reference base, number of reads, raw reads, and quality scores.
+    ' This function uses the python generator to yield the information for one coordinate at a time. 
+    ' This function is used during testing to read data from a .sam input file and can also
+    ' be used when the user specifies an mpileup file instead of a bam file as input.  This function 
+    ' yields the chromosome, coordinate, reference base, number of reads, raw reads, and quality scores.
     '
-    ' aSamFile:  A .sam file
+    ' aSamFile:              A .sam file or .mpileups file
+    ' aChrom:                The chromosome
+    ' aStartCoordinate:      The initial start coordinate (typically zero)
+    ' aStopCoordinate:       The initial stop coordinate (typically the size of the chromosome)
+    ' aSourcePrefix:         A label used when debugging to determine the input file
     '''
     
     # open the sam file
@@ -176,8 +186,13 @@ def get_sam_data(aSamFile, aChrom, aStartCoordinate, aStopCoordinate, aSourcePre
         splitLine = line.split("\t")
         
         if (len(splitLine) > 1):
-            # the coordinate is the second element
+            # make sure the chrom is the same
             chrom = splitLine[0]
+            if (chrom != aChrom):
+                continue
+            
+            # the user can specify a pileups file and only be interested in one coordinate
+            # so let them specify that one coordinate with the -a and -z params and be done
             coordinate = int(splitLine[1])
             if (coordinate < aStartCoordinate):
                 continue
@@ -214,15 +229,17 @@ def get_bam_data(aBamFile, aFastaFile, aBaseQual, aMappingQual, aChrom, aStartCo
     '
     ' This function yields the chromosome, coordinate, reference base, number of reads, raw reads, and the quality scores.
     '
-    ' aBamFile:            A .bam file to be read from
-    ' aFastaFile:          The FASTA file that should be used in the samtools command which is needed for the reference base.
-    ' aBaseQual:           The base quality score that should be used in the samtools command
-    ' aMappingQual:        The mapping quality score that should be used in the samtools command
-    ' aChrom:              The chromosome that should be used in the samtools command
-    ' aStartCoordinate:    The initial start coordinate (typically zero)
-    ' aStopCoordinate:     The initial stop coordinate (typically the size of the chromosome)
-    ' aBatchSize:          The number of coordinates to load into memory at one time
-    ' aUseChrPrefix:       Whether the 'chr' should be used in the region parameter of the samtools command
+    ' aBamFile:                              A .bam file to be read from
+    ' aFastaFile:                            The FASTA file that should be used in the samtools command which is needed for the reference base.
+    ' aBaseQual:                             The base quality score that should be used in the samtools command
+    ' aMappingQual:                          The mapping quality score that should be used in the samtools command
+    ' aChrom:                                The chromosome that should be used in the samtools command
+    ' aStartCoordinate:                      The initial start coordinate (typically zero)
+    ' aStopCoordinate:                       The initial stop coordinate (typically the size of the chromosome)
+    ' aBatchSize:                            The number of coordinates to load into memory at one time
+    ' aUseChrPrefix:                         Whether the 'chr' should be used in the region parameter of the samtools command
+    ' aSourcePrefix:                         A label used when debugging to determine the input file
+    ' anRnaIncludeSecondayAlignmentsFlag:    If you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups
     '''
     
     # initialize the first start and stop coordinates
@@ -294,14 +311,15 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aBaseQuality, aMappingQuality, aC
     ' samtools mpileup -f /path/to/fasta/hg19.fa -Q 20 -q 10 -r chr1:855155-1009900 /path/to/bams/myBam.bam
     ' samtools mpileup -f /path/to/fasta/hg19.fa -Q 20 -q 10 -r 1:855155-1009900 /path/to/bams/myBam.bam
     '
-    ' aBamFile:            A .bam file to be read from
-    ' aFastaFile:          The FASTA file which is needed for the reference base.
-    ' aBaseQuality:        The base quality score for the samtools command
-    ' aMappingQuality:     The mapping quality score for the samtools command
-    ' aChrom:              The chromosome that we are selecting from
-    ' aStartCoordinate:    The start coordinate of the selection
-    ' aStopCoordinate:     The stop coordinate of the selection
-    ' aUseChrPrefix:       Whether the 'chr' should be used in the samtools command
+    ' aBamFile:                              A .bam file to be read from
+    ' aFastaFile:                            The FASTA file which is needed for the reference base.
+    ' aBaseQuality:                          The base quality score for the samtools command
+    ' aMappingQuality:                       The mapping quality score for the samtools command
+    ' aChrom:                                The chromosome that we are selecting from
+    ' aUseChrPrefix:                         Whether the 'chr' should be used in the samtools command
+    ' aStartCoordinate:                      The start coordinate of the selection
+    ' aStopCoordinate:                       The stop coordinate of the selection
+    ' anRnaIncludeSecondayAlignmentsFlag:    If you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups
     '''
     # create the samtools command
     if (aUseChrPrefix):
@@ -348,6 +366,199 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aBaseQuality, aMappingQuality, aC
     return
 
 
+def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfRawQuals, aReferenceBase, aMinBaseQuality, anIsDebug):
+    '''
+    ' This function returns all of the valid RNA (cDNA) or DNA bases from the given pileup of read bases.
+    ' It converts all of the samtools specific characters into human-readable bases and filters out any non 
+    ' RNA/DNA characters. 
+    '
+    ' This is from the samtools documentation:
+    '
+    ' In the pileup format, each line represents a genomic position, consisting of chromosome name, 
+    ' 1-based coordinate, reference base, read bases, read qualities and alignment mapping qualities. 
+    ' Information on match, mismatch, indel, strand, mapping quality and start and end of a read are all 
+    ' encoded at the read base column. At this column, a dot stands for a match to the reference base on 
+    ' the forward strand, a comma for a match on the reverse strand, a ">" or "<" for a reference skip, 
+    ' "ACGTN" for a mismatch on the forward strand and "acgtn" for a mismatch on the reverse strand. A 
+    ' pattern "\+[0-9]+[ACGTNacgtn]+" indicates there is an insertion between this reference position and 
+    ' the next reference position. The length of the insertion is given by the integer in the pattern, 
+    ' followed by the inserted sequence. Similarly, a pattern "-[0-9]+[ACGTNacgtn]+" represents a deletion 
+    ' from the reference. The deleted bases will be presented as "*" in the following lines. Also at the 
+    ' read base column, a symbol "^" marks the start of a read. The ASCII of the character following "^" 
+    ' minus 33 gives the mapping quality. A symbol "$" marks the end of a read segment.
+    '
+    ' Note:  the samtools documentation is a bit out of date.  They now allow all of the IUPAC nucleotide
+    ' codes for INDELS:  [ACGTURYSWKMBDHVNacgturyswkmbdhvn].
+    '
+    ' We are converting all dots and commas to the upper case reference base.  Even though the comma represents 
+    ' a match on the reverse strand, there is no need to take the complement of it, since samtools does
+    ' that for us.  We are converting all mismatches on the reverse strand to upper case as well, and again 
+    ' no complement is needed.
+    '
+    ' We are ignoring the following for now:
+    ' 1) Reference skips (">" and "<")
+    '
+    ' aStringOfRawReads: A string representing the pile-up of read bases from a samtools mpileup command 
+    ' aStringOfQualScores: A string representing the raw quality scores for the read bases from the mpileup command
+    ' aReferenceBase: Used to convert "." and "," from the samtools mpileup command
+    '''
+    # Note:  Reverse strand mismatches have been reverse-complemented by samtools
+            
+    # initialize some counts
+    starts = 0
+    stops = 0
+    insertions = 0
+    deletions = 0
+    finalBases = ""
+    finalQuals = ""
+    currBaseIndex = 0
+    currQualIndex = 0
+    numBasesDict = collections.defaultdict(int)
+    sumBaseQualsDict = collections.defaultdict(int)
+    numPlusStrandDict = collections.defaultdict(int)
+    
+    # for testing:
+    #aStringOfRawReads = 'T$TT+3AGG^".GT+2AG+2AG,-2AGGG..-1A<<>>'
+    #aStringOfRawQuals = "01234567890"
+    #if (anIsDebug):
+    #    logging.debug("initBases=%s, initQuals=%s", aStringOfRawReads, aStringOfRawQuals)
+    
+    # loop over each base in the pileups
+    for index in xrange(0, len(aStringOfRawReads)):
+        
+        #if (anIsDebug):
+        #    logging.debug("index=%s, currBaseIndex=%, currQualIndex=%s", str(index), str(currBaseIndex), str(currQualIndex))
+        
+        # if we skipped ahead in the string due to an indel, then catch up here
+        if index < currBaseIndex:
+            continue;
+        
+        # get the current base and qual
+        base = aStringOfRawReads[currBaseIndex]
+        # if the currQualIndex is >= the length of qual scores,
+        # then we've reached the end of qual scores even though
+        # there could be more non-base characterss in 
+        # aStringOfRawReads to process (e.g. <>$+2AG)
+        if (currQualIndex < len(aStringOfRawQuals)):
+            rawQual = aStringOfRawQuals[currQualIndex]
+            # the scores are in ascii, so convert them to integers
+            qual = ord(rawQual)-33
+            #if (anIsDebug):
+            #    logging.debug("qual=%s, ord(qual)=%s, converted=%s", rawQual, ord(rawQual), str(qual))
+        else:
+            qual = -1
+        
+        #if (anIsDebug):
+        #    logging.debug("index=%s, currBaseIndex=%, currBase=%s, currQual=%s", str(index), str(currBaseIndex), base, str(qual))
+
+        if base in "+-":
+            # if we found an indel, count them and skip ahead to the next base in the pileup
+            # a pileup could look like:  "T$TT+3AGGGT+2AG+2AG.-2AGGG..-1A"
+            # insertions start with a "+", deletions with a "-"
+            # in theory, there could be multiple digits
+            if base == "+":
+                insertions += 1
+            else:
+                deletions += 1
+                
+            indelStart = currBaseIndex
+            digitStart = currBaseIndex + 1
+            digitEnd = currBaseIndex + 1
+            # theoretically, there could be multiple digits
+            # loop until we find the end of the digit
+            for nextBase in aStringOfRawReads[digitStart:]:
+                if nextBase.isdigit():
+                    digitEnd += 1
+                else:
+                    break    
+                
+            digit = aStringOfRawReads[digitStart:digitEnd]
+            #if (anIsDebug):
+            #    logging.debug("digitStart=%s, digitEnd=%s, digit=%s", str(digitStart), str(digitEnd), digit)
+            
+            # indelStart is where the + sign is
+            # len(digit) since there could be multiple digits
+            # int(digit) is the number of actual bases in the indel
+            # +1 due to the exclusive end on lists
+            indelEnd = indelStart + len(digit) + int(digit) + 1
+            #if (anIsDebug):
+            #    logging.debug("indelStart=%s, indelEnd=%s, indel=%s", indelStart, indelEnd, aStringOfRawReads[indelStart:indelEnd])
+            currBaseIndex = indelEnd
+        elif base == "^":
+            # skip over all start of read symbols "^" (plus the following mapping quality score)
+            # there are no base quality scores for start symbols that need to be skipped
+            currBaseIndex += 2
+            starts += 1
+        elif base == "$":
+            # skip over all end of read symbols "$"
+            # there are no base quality scores for stop symbols that need to be skipped
+            currBaseIndex += 1
+            stops += 1
+        elif base == ".":
+            # a period represents the reference base on the plus strand
+            if qual >= aMinBaseQuality:
+                base = aReferenceBase.upper()
+                finalBases += base
+                finalQuals += rawQual
+                numPlusStrandDict[base] += 1
+                numBasesDict[base] += 1
+                sumBaseQualsDict[base] += qual
+            currBaseIndex += 1
+            currQualIndex += 1
+        elif base == ",":
+            # a comma represents the reference base on the negative strand
+            if qual >= aMinBaseQuality:
+                base = aReferenceBase.upper()
+                finalBases += base
+                finalQuals += rawQual
+                numBasesDict[base] += 1
+                sumBaseQualsDict[base] += qual
+            currBaseIndex += 1
+            currQualIndex += 1
+        elif base in "AGCTN":
+            #if (anIsDebug):
+            #    logging.debug("base=%s, rawQual=%s, ord(rawQual)=%s, qual=%s, aMinBaseQual=%s", base, rawQual, ord(rawQual), str(qual), str(aMinBaseQuality))
+            
+            # a non reference on the plus strand
+            if qual >= aMinBaseQuality:
+                finalBases += base
+                finalQuals += rawQual
+                numPlusStrandDict[base] += 1
+                numBasesDict[base] += 1
+                sumBaseQualsDict[base] += qual
+            currBaseIndex += 1
+            currQualIndex += 1
+        elif base in "agctn":
+            #if (anIsDebug):
+            #    logging.debug("base=%s, rawQual=%s, ord(rawQual)=%s, qual=%s, aMinBaseQual=%s", base, rawQual, ord(rawQual), str(qual), str(aMinBaseQuality))
+            
+            # a non reference on the negative strand
+            if qual >= aMinBaseQuality:
+                base = base.upper()
+                finalBases += base
+                finalQuals += rawQual
+                numBasesDict[base] += 1
+                sumBaseQualsDict[base] += qual
+            currBaseIndex += 1
+            currQualIndex += 1
+        else:
+            currBaseIndex += 1
+            currQualIndex += 1
+            
+        if (anIsDebug):
+            logging.debug("finalBases=%s, finalQuals=%s", finalBases, finalQuals)
+    
+    # get the lengths
+    lenFinalBases = len(finalBases)
+    lenFinalQuals = len(finalQuals) 
+            
+    # at this point, the length of the pileups string should be equal to the length of the quality scores
+    if (lenFinalBases != lenFinalQuals):
+        logging.error("Traceback: convert_and_filter_raw_reads() Error at coordinate %s:%s.  The length %s of the final pileup of reads is != the length %s of the final quality scores.  Original Pileup=%s, Final Pileup=%s, Original QualScores=%s, Final QualScores=%s", aChr, str(aCoordinate), lenFinalBases, lenFinalQuals, aStringOfRawReads, finalBases, aStringOfRawQuals, finalQuals)
+     
+    return (finalBases, finalQuals, lenFinalBases, starts, stops, (insertions + deletions), numBasesDict, sumBaseQualsDict, numPlusStrandDict)     
+
+    
 def convert_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfQualScores, aReferenceBase, anIsDebug):
     '''
     ' This function returns all of the valid RNA (cDNA) or DNA bases from the given pileup of read bases.
@@ -387,12 +598,12 @@ def convert_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfQualScores,
     '''
     
     # Note:  Reverse strand mismatches have been reverse-complemented by samtools
-    
+            
     # initialize some counts
     indelCount = 0
     
     # remove insertions and deletions
-    # a read could look like:  "T$TT+3AGGGT+2AG+2AG.-2AGGG..-1A"
+    # a pileup could look like:  "T$TT+3AGGGT+2AG+2AG.-2AGGG..-1A"
     # insertions start with a "+", deletions with a "-"
     # in theory, there could be multiple digits
     # i_numOfIndelsRegEx = re.compile("[+-]{1}(\\d+)")
@@ -732,7 +943,7 @@ def get_next_pileup(aGenerator):
             return False, "", -1, "", 0, "", ""
 
 
-def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aPreviousUniqueBases, aPreviousBaseCounts, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, aRefList, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, aGainModCount, aLossModCount, aGainModType, aLossModType, anInfoDict, aMinTotalNumBases, aMinAltNumBases, aBaseQual, aBaseQualsList, aSourcePrefix, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
+def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aPreviousUniqueBases, aPreviousBaseCounts, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, aRefList, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, aGainModCount, aLossModCount, aGainModType, aLossModType, anInfoDict, aMinTotalNumBases, aMinAltNumBases, aPreviousMinAltNumBases, aBaseQual, aBaseQualsList, aSourcePrefix, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
     '''
     ' This function finds variants in BAM pileups.  This function first converts the samtools pileup of reads into 
     ' human-readable reads and then records some characteristics of the pileups.  It counts the number of bases on the 
@@ -764,7 +975,11 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
     setBelowMinAltBasesFlag = False 
     uniqueBases = ""
     baseCountsDict = collections.defaultdict(int)
+    indels = 0
+    starts = 0
+    stops = 0
     
+    '''
     # convert the raw reads into human-readable reads
     (convertedReads, convertedBaseQuals, aNumBases, starts, stops, indels) = convert_raw_reads(aChr, aCoordinate, aReads, aBaseQuals, aRefBase, anIsDebug)
     
@@ -773,15 +988,22 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
 
     if (anIsDebug):    
         logging.debug("After convert_raw_reads() on %s: %s %s %s %s %s %s %s %s %s", aSourcePrefix, aChr, aCoordinate, aRefBase, aNumBases, convertedReads, convertedBaseQuals, starts, stops, indels)
+    '''
+    if (anIsDebug):
+        logging.debug("aRefBase=%s, aDnaSet=%s, aPreviousMinAltNumBases=%s, aMinAltNumBases=%s, aPreviousBaseCounts=%s", aRefBase, aDnaSet, aPreviousMinAltNumBases, aMinAltNumBases, aPreviousBaseCounts)
     
     # if we still have some bases
     if (aNumBases > 0):
         
+        '''
         # filter out the bases that don't meet the minimum base quality scores
         (convertedReads, convertedBaseQuals, aNumBases, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict) = filter_by_base_quality(convertedReads, convertedBaseQuals, aBaseQual, anIsDebug)  
+        '''
+        
+        (convertedReads, convertedBaseQuals, aNumBases, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict) = convert_and_filter_raw_reads(aChr, aCoordinate, aReads, aBaseQuals, aRefBase, aBaseQual, anIsDebug)
         
         if (anIsDebug):
-            logging.debug("After filter_by_base_quality() on %s: %s %s %s %s %s %s %s %s %s %s %s %s", aSourcePrefix, aChr, aCoordinate, aRefBase, aNumBases, convertedReads, convertedBaseQuals, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict)
+            logging.debug("After convert_and_filter_raw_reads() on %s: %s %s %s %s %s %s %s %s %s %s %s %s", aSourcePrefix, aChr, aCoordinate, aRefBase, aNumBases, convertedReads, convertedBaseQuals, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict)
         
         # if we still have some bases
         if (aNumBases > 0):
@@ -799,12 +1021,14 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
                     # we can do this, b/c baseCountsDict gets returned as the previousCounts
                     # for this sample.  we can't do this if aPreviousBaseCounts should hold
                     # the counts for all previous samples.
-                    aPreviousBaseCounts[base] = aMinAltNumBases
+                    #aPreviousBaseCounts[base] = aMinAltNumBases
+                    aPreviousBaseCounts[base] = aPreviousMinAltNumBases
                     
             # add the reference base
             aDnaSet.add(aRefBase)
             # we always have enough of the ref base
-            aPreviousBaseCounts[aRefBase] = aMinAltNumBases
+            #aPreviousBaseCounts[aRefBase] = aMinAltNumBases
+            aPreviousBaseCounts[aRefBase] = aPreviousMinAltNumBases
             
             # for each unique base
             for base in set(convertedReads):
@@ -823,7 +1047,8 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
                     
                     # if there is a base that wasn't in the previous sample,
                     # or the base was in the previous sample, but there weren't enough to make a call
-                    if ((base not in aDnaSet) or (aPreviousBaseCounts[base] < aMinAltNumBases)):            
+                    #if ((base not in aDnaSet) or (aPreviousBaseCounts[base] < aMinAltNumBases)):            
+                    if ((base not in aDnaSet) or (aPreviousBaseCounts[base] < aPreviousMinAltNumBases)):
                         
                         # if we have enough ALT bases
                         if (baseCountsDict[base] >= aMinAltNumBases):
@@ -832,7 +1057,7 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
                             #aGainModCount += 1
                             
                             if (anIsDebug):
-                                logging.debug("Modification found!  Base '%s' from the reads does not exist in the parent DNA set %s", base, aDnaSet)
+                                logging.debug("Modification found!  Base '%s' does not exist in the parent DNA %s or the parent count %s was not above the min %s", base, aDnaSet, str(aPreviousBaseCounts[base]), str(aPreviousMinAltNumBases))
                                 
                             # if this is the first modification found, then record it in the "SS" field
                             if (len(anInfoDict["SS"]) == 0):
@@ -850,7 +1075,8 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
                             # it didn't match anything so far
                             for dna in aDnaSet:
                                 # check to see which parent bases were above the minimum
-                                if (aPreviousBaseCounts[dna] >= aMinAltNumBases):
+                                #if (aPreviousBaseCounts[dna] >= aMinAltNumBases):
+                                if (aPreviousBaseCounts[dna] >= aPreviousMinAltNumBases):
                                     anInfoDict["MT"].append(aGainModType)
                                     anInfoDict["MC"].append(dna + ">" + base)
                                     aGainModCount += 1
@@ -1022,6 +1248,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=FA,Number=1,Type=Float,Description=\"Overall fraction of reads supporting ALT\">\n"
     vcfHeader += "##INFO=<ID=MT,Number=.,Type=String,Description=\"Modification types at this position\">\n"
     vcfHeader += "##INFO=<ID=MC,Number=.,Type=String,Description=\"Modification base changes at this position\">\n"
+    vcfHeader += "##INFO=<ID=MF,Number=.,Type=String,Description=\"Modification filters applied to the filter types listed in MFT\">\n"
+    vcfHeader += "##INFO=<ID=MFT,Number=.,Type=String,Description=\"Modification filter types at this position with format origin_modType_modChange\">\n"
     vcfHeader += "##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description=\"Indicates if record is a somatic mutation\">\n"
     vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n" 
     #vcfHeader += "##INFO=<ID=DEL,Number=1,Type=Integer,Description=\"Number of deletions in all samples at this position\">\n"
@@ -1115,7 +1343,7 @@ def main():
     # add the optional parameters
     i_cmdLineParser.add_option("-b", "--batchSize", type="int", dest="batchSize", default=int(250000000), metavar="BATCH_SIZE", help="the size of the samtool selections that are loaded into memory at one time, %default by default")
     i_cmdLineParser.add_option("-o", "--outputFilename", dest="outputFilename", metavar="OUTPUT_FILE", help="the name of the output file, append .gz if the file should be gzipped, STDOUT by default")
-    i_cmdLineParser.add_option("-c", "--chromSizesFilename", dest="chromSizesFilename", metavar="CHROM_SIZES_FILE", help="the name of the file with the chromosome sizes")
+    i_cmdLineParser.add_option("-c", "--coordinatesFilename", dest="coordinatesFilename", metavar="COORDINATES_FILE", help="a tab-delimited file with 3 columns: (chr, startCoordinate, stopCoordinate) specifying coordinates or coordinate ranges to query")
     i_cmdLineParser.add_option("-f", "--fastaFilename", dest="fastaFilename", metavar="FASTA_FILE", help="the name of the fasta file that can be used on all .bams, see below for specifying individual fasta files for each .bam file")
     i_cmdLineParser.add_option("-p", "--useChrPrefix", action="store_true", default=False, dest="useChrPrefix", help="include this argument if the 'chr' prefix should be used in the samtools command for all .bams, see below for specifying the prefix for individual .bam files")
     i_cmdLineParser.add_option("-l", "--log", dest="logLevel", default="WARNING", metavar="LOG", help="the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL), %default by default")
@@ -1129,7 +1357,9 @@ def main():
     i_cmdLineParser.add_option("-q", "--sequencingPlatform", dest="sequencingPlatform", metavar="SEQ_PLATFORM", help="the sequencing platform - used in the sample VCF meta tag")
     i_cmdLineParser.add_option("-s", "--statsDir", dest="statsDir", metavar="STATS_DIR", help="a stats directory where some basic stats can be output")
     i_cmdLineParser.add_option("", "--disease", dest="disease", metavar="DISEASE", help="a disease abbreviation (i.e. BRCA) for the header")
-    i_cmdLineParser.add_option("", "--rnaIncludeSecondaryAlignments", action="store_true", default=False, dest="rnaIncludeSecondaryAlignments", help="if you use bowtie to align RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups")
+    i_cmdLineParser.add_option("", "--rnaIncludeSecondaryAlignments", action="store_true", default=False, dest="rnaIncludeSecondaryAlignments", help="if you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups")
+    i_cmdLineParser.add_option("", "--noHeader", action="store_false", default=True, dest="outputHeader", help="include this argument if the header should not be output")
+    i_cmdLineParser.add_option("", "--outputAllData", action="store_true", default=False, dest="outputAllData", help="include this argument if all data should be output regardless of the existence of a variant")
     #e,j,k,v,w,y
     
     i_cmdLineParser.add_option("", "--genotypeMinDepth", type="int", default=int(2), dest="genotypeMinDepth", metavar="GT_MIN_DP", help="the minimum number of bases required for the genotype, %default by default")
@@ -1147,7 +1377,6 @@ def main():
     i_cmdLineParser.add_option("", "--dnaNormalMitochon", default = "M", dest="dnaNormalMitochon", metavar="DNA_NORM_MITOCHON", help="the short name for the mitochondrial DNA (e.g 'M' or 'MT'), %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalDescription", default = "Normal DNA Sample", dest="dnaNormalDesc", metavar="DNA_NORM_DESC", help="the description for the sample in the VCF header, %default by default")
     #i_cmdLineParser.add_option("", "--dnaNormalLabel", default = "DNA_NORMAL", dest="dnaNormalLabel", metavar="DNA_NOR_LABEL", help="the column header for the sample in the VCF file, %default by default")
-    
     
     # params for normal RNA
     i_cmdLineParser.add_option("-x", "--rnaNormalFilename", dest="rnaNormalFilename", metavar="RNA_NORMAL_FILE", help="the name of the normal RNA-Seq .bam file")
@@ -1214,6 +1443,8 @@ def main():
     i_stopCoordinate = i_cmdLineOptions.stopCoordinate
     i_refId = i_cmdLineOptions.refId
     i_refUrl = i_cmdLineOptions.refUrl
+    i_outputHeader = i_cmdLineOptions.outputHeader
+    i_outputAllData = i_cmdLineOptions.outputAllData
     
     i_genotypeMinDepth = i_cmdLineOptions.genotypeMinDepth
     i_genotypeMinPct = i_cmdLineOptions.genotypeMinPct
@@ -1292,7 +1523,7 @@ def main():
     i_dnaTumorFastaFilename = None
     i_rnaNormalFastaFilename = None
     i_rnaTumorFastaFilename = None
-    i_chromSizesFilename = None
+    i_coordinatesFilename = None
     i_universalFastaFilename = None
     i_refFilename = None
     i_statsDir = None
@@ -1347,9 +1578,9 @@ def main():
     if (i_cmdLineOptions.logFilename != None):
         i_logFilename = str(i_cmdLineOptions.logFilename)
         i_writeFilenameList += [i_logFilename]
-    if (i_cmdLineOptions.chromSizesFilename != None):
-        i_chromSizesFilename = str(i_cmdLineOptions.chromSizesFilename)
-        i_readFilenameList += [i_chromSizesFilename]
+    if (i_cmdLineOptions.coordinatesFilename != None):
+        i_coordinatesFilename = str(i_cmdLineOptions.coordinatesFilename)
+        i_readFilenameList += [i_coordinatesFilename]
     if (i_cmdLineOptions.refFilename != None):
         i_refFilename = str(i_cmdLineOptions.refFilename)
     if (i_cmdLineOptions.statsDir != None):
@@ -1424,7 +1655,7 @@ def main():
         logging.debug("logLevel=%s" % i_logLevel)
         logging.debug("logFilename=%s" % i_logFilename)
         logging.debug("batchSize=%s" % i_batchSize)
-        logging.debug("chromSizeFile=%s" % i_chromSizesFilename)
+        logging.debug("coordinatesFile=%s" % i_coordinatesFilename)
         logging.debug("vcfFormat=%s" % i_vcfFormat)
         logging.debug("startCoordinate=%s" % i_startCoordinate)
         logging.debug("stopCoordinate=%s" % i_stopCoordinate)
@@ -1434,6 +1665,8 @@ def main():
         logging.debug("refFilename=%s" % i_refFilename)
         logging.debug("statsDir=%s" % i_statsDir)
         logging.debug("rnaIncludeSecondaryAlignments=%s" % i_rnaIncludeSecondaryAlignments)
+        logging.debug("outputHeader=%s" % i_outputHeader)
+        logging.debug("outputAllData=%s" % i_outputAllData)
         
         logging.debug("genotypeMinDepth=%s" % i_genotypeMinDepth)
         logging.debug("genotypeMinPct=%s" % i_genotypeMinPct)
@@ -1520,6 +1753,14 @@ def main():
         logging.critical("The index file for the BAM file " + i_rnaTumorFilename + " doesn't exist.  Please use the 'samtools index' command to create one.")
         sys.exit(1)
         
+    # the user cannot specify both a coordinates file and a pileups file
+    if ((i_coordinatesFilename != None and i_dnaNormalPileupsFilename != None) or
+        (i_coordinatesFilename != None and i_rnaNormalPileupsFilename != None) or
+        (i_coordinatesFilename != None and i_dnaTumorPileupsFilename != None) or
+        (i_coordinatesFilename != None and i_rnaTumorPileupsFilename != None)):
+        logging.critical("You cannot specify a coordinates file with coordinate ranges to query and a pileups file with coordinates already queried.  Please remove one or the other.")
+        sys.exit(1)
+            
     # make sure the user specified the necessary files
     if ((i_dnaNormalFilename != None and i_dnaNormalFastaFilename == None) or 
         (i_dnaTumorFilename != None and i_dnaTumorFastaFilename == None) or 
@@ -1540,144 +1781,84 @@ def main():
         logging.critical("The index file for the FASTA file " + i_rnaTumorFastaFilename + " doesn't exist.  Please use the 'samtools faidx' command to create one.")
         sys.exit(1)
    
-        
     # get the stop coordinate if it hasn't been specified
     if (i_stopCoordinate == 0):
-        if (i_universalFastaFilename == None and i_chromSizesFilename == None):
-            logging.critical("You must specify either a FASTA file or a tab separated file containing the chromosome sizes.")
+        if (i_universalFastaFilename == None):
+            logging.critical("You must specify the appropriate FASTA files when running RADIA.")
             sys.exit(1)
-        if (i_universalFastaFilename != None):
+        elif (i_universalFastaFilename != None and not os.path.isfile(i_universalFastaFilename + ".fai")):
+            logging.critical("The index file for the FASTA file " + i_universalFastaFilename + " doesn't exist.  Please use the 'samtools faidx' command to create one.")
+            sys.exit(1)
+        # if the coordinates file is not specified, then get the stop coordinate for the chrom from the fasta file
+        elif (i_coordinatesFilename == None):
             i_chromSizeFileHandler = open(i_universalFastaFilename + ".fai", "r")
-        else: 
-            i_chromSizeFileHandler = get_read_fileHandler(i_chromSizesFilename)
-        i_stopCoordinate = get_chrom_size(i_chrom, i_chromSizeFileHandler, i_debug)
-        i_chromSizeFileHandler.close()
+            i_stopCoordinate = get_chrom_size(i_chrom, i_chromSizeFileHandler, i_debug)
+            i_chromSizeFileHandler.close()
         
-    # catch some errors on the selection coordinates
-    if (i_stopCoordinate == -1):
-        logging.critical("Couldn't find chromosome '%s' in the FASTA file that was specified.", i_chrom)
-        sys.exit(1)
-    if (i_startCoordinate > i_stopCoordinate):
-        logging.critical("The start coordinate must be less than or equal to the stop coordinate %s:%s-%s", i_chrom, i_startCoordinate, i_stopCoordinate)
-        sys.exit(1)
+            # catch some errors on the selection coordinates
+            if (i_stopCoordinate == -1):
+                logging.critical("Couldn't find chromosome '%s' in the FASTA file that was specified.", i_chrom)
+                sys.exit(1)
+        
+    # create lists of overall chroms, starts, and stops
+    i_chroms = list()
+    i_starts = list()
+    i_stops = list()
+    # when a coordinates file is provided: 
+    #     - get all of the chroms, starts, stops 
+    if (i_coordinatesFilename != None):
+        coordinatesFileHandler = get_read_fileHandler(i_coordinatesFilename)  
+        for line in coordinatesFileHandler:
+            # if it is an empty line, then just continue
+            if (line.isspace() or line.startswith("#")):
+                continue;
+            # strip the carriage return and newline characters
+            line = line.rstrip("\r\n")        
+            # split the line on the tab
+            splitLine = line.split("\t")
+            # the coordinate is the second element
+            i_chroms.append(splitLine[0])
+            i_starts.append(int(splitLine[1]))
+            i_stops.append(int(splitLine[2]))
+        coordinatesFileHandler.close()
+    # otherwise, we have just one chrom, start, stop
+    #    - the user either specified a start and stop with the -a and -z params
+    #    - or they want the whole chromosome by specifying the chrom param
+    else:
+        i_chroms.append(i_chrom)
+        i_starts.append(i_startCoordinate)
+        i_stops.append(i_stopCoordinate)
         
     # EGFR chr7:55,248,979-55,259,567
     #i_startCoordinate = 55248979
     #i_stopCoordinate =  55249079
     #i_batchSize = 5
     
-    if (i_debug):
-        logging.debug("original i_startCoordinate: %s" % i_startCoordinate)
-        logging.debug("original i_stopCoordinate: %s" % i_stopCoordinate)
-        logging.debug("original i_batchSize: %s" % i_batchSize)
-            
-    # get the generators that will yield the pileups
-    # Note:  Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
-    #        Use the "get_bam_data" when running on real .bam file data
-    
-    # Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
-    if (i_dnaNormalPileupsFilename != None):
-        # some bams/references use "M", some use "MT"
-        if (i_chrom == "M" or i_chrom == "MT" and i_dnaNormMitochon != None):
-            i_dnaNormalGenerator = get_sam_data(i_dnaNormalPileupsFilename, i_dnaNormMitochon, i_startCoordinate, i_stopCoordinate, i_dnaNormLabel, i_debug)                      
-        else:
-            i_dnaNormalGenerator = get_sam_data(i_dnaNormalPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_dnaNormLabel, i_debug)                      
-    # Use the "get_bam_data" when running on real .bam file data
-    elif (i_dnaNormalFilename != None):
-        # some bams/references use "M", some use "MT"
-        if (i_chrom == "M" or i_chrom == "MT" and i_dnaNormMitochon != None):
-            i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormBaseQual, i_dnaNormMapQual, i_dnaNormMitochon, i_startCoordinate, i_stopCoordinate, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)                      
-        else:
-            i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormBaseQual, i_dnaNormMapQual, i_chrom, i_startCoordinate, i_stopCoordinate, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)                      
-  
-    # Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
-    if (i_rnaNormalPileupsFilename != None):
-        # some bams/references use "M", some use "MT"
-        if (i_chrom == "M" or i_chrom == "MT" and i_rnaNormMitochon != None):
-            i_rnaNormalGenerator = get_sam_data(i_rnaNormalPileupsFilename, i_rnaNormMitochon, i_startCoordinate, i_stopCoordinate, i_rnaNormLabel, i_debug)                      
-        else:
-            i_rnaNormalGenerator = get_sam_data(i_rnaNormalPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_rnaNormLabel, i_debug)                      
-    # Use the "get_bam_data" when running on real .bam file data
-    elif (i_rnaNormalFilename != None):
-        # some bams/reference use "M", some use "MT"
-        if (i_chrom == "M" or i_chrom == "MT" and i_rnaNormMitochon != None):
-            i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormBaseQual, i_rnaNormMapQual, i_rnaNormMitochon, i_startCoordinate, i_stopCoordinate, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
-        else:
-            i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormBaseQual, i_rnaNormMapQual, i_chrom, i_startCoordinate, i_stopCoordinate, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
-        
-    # Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
-    if (i_dnaTumorPileupsFilename != None):
-        # some bams/references use "M", some use "MT"
-        if (i_chrom == "M" or i_chrom == "MT" and i_dnaTumMitochon != None):
-            i_dnaTumorGenerator = get_sam_data(i_dnaTumorPileupsFilename, i_dnaTumMitochon, i_startCoordinate, i_stopCoordinate, i_dnaTumLabel, i_debug)                      
-        else:
-            i_dnaTumorGenerator = get_sam_data(i_dnaTumorPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_dnaTumLabel, i_debug)                      
-    # Use the "get_bam_data" when running on real .bam file data
-    elif (i_dnaTumorFilename != None):
-        # some bams/reference use "M", some use "MT"
-        if (i_chrom == "M" or i_chrom == "MT" and i_dnaTumMitochon != None):
-            i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumBaseQual, i_dnaTumMapQual, i_dnaTumMitochon, i_startCoordinate, i_stopCoordinate, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
-        else:
-            i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumBaseQual, i_dnaTumMapQual, i_chrom, i_startCoordinate, i_stopCoordinate, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)   
-    
-    # Use the "get_sam_data" when testing locally on a .sam file or using the pileups files
-    if (i_rnaTumorPileupsFilename != None):
-        # some bams/references use "M", some use "MT"
-        if (i_chrom == "M" or i_chrom == "MT" and i_rnaTumMitochon != None):
-            i_rnaTumorGenerator = get_sam_data(i_rnaTumorPileupsFilename, i_rnaTumMitochon, i_startCoordinate, i_stopCoordinate, i_rnaTumLabel, i_debug)                      
-        else:
-            i_rnaTumorGenerator = get_sam_data(i_rnaTumorPileupsFilename, i_chrom, i_startCoordinate, i_stopCoordinate, i_rnaTumLabel, i_debug)                      
-    # Use the "get_bam_data" when running on real .bam file data
-    elif (i_rnaTumorFilename != None):
-        # some bams/reference use "M", some use "MT"
-        if (i_chrom == "M" or i_chrom == "MT" and i_rnaTumMitochon != None):
-            i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumBaseQual, i_rnaTumMapQual, i_rnaTumMitochon, i_startCoordinate, i_stopCoordinate, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
-        else:
-            i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumBaseQual, i_rnaTumMapQual, i_chrom, i_startCoordinate, i_stopCoordinate, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
-
-
-    # create the VCF header 
-    platforms = [i_sequencingPlatform] * len(filenames)
-    sources = [i_dataSource] * len(filenames)
-    # we don't want the start and stop coordinates in the header
-    del i_cmdLineOptionsDict["startCoordinate"]
-    del i_cmdLineOptionsDict["stopCoordinate"]
-    vcfHeader = get_vcf_header(i_vcfFormat, i_refId, i_refUrl, i_refFilename, i_universalFastaFilename, i_radiaVersion, i_id, i_cmdLineOptionsDict, filenames, labels, descriptions, platforms, sources, analytes, i_disease, i_debug)
-    
     # open the output stream
     i_outputFileHandler = None
     if (i_outputFilename != None):
         i_outputFileHandler = get_write_fileHandler(i_outputFilename)
-        # output vcf meta information
-        i_outputFileHandler.write(vcfHeader + "\n")
-    else:
-        # output vcf meta information
-        print >> sys.stdout, vcfHeader
+            
+    # if we should output the header
+    if (i_outputHeader):
+        
+        # create the VCF header 
+        platforms = [i_sequencingPlatform] * len(filenames)
+        sources = [i_dataSource] * len(filenames)
+        # we don't want the start and stop coordinates in the header
+        del i_cmdLineOptionsDict["startCoordinate"]
+        del i_cmdLineOptionsDict["stopCoordinate"]
+        vcfHeader = get_vcf_header(i_vcfFormat, i_refId, i_refUrl, i_refFilename, i_universalFastaFilename, i_radiaVersion, i_id, i_cmdLineOptionsDict, filenames, labels, descriptions, platforms, sources, analytes, i_disease, i_debug)
+        
+        # output the header
+        if (i_outputFileHandler != None):
+            # output vcf meta information
+            i_outputFileHandler.write(vcfHeader + "\n")
+        else:
+            # output vcf meta information
+            print >> sys.stdout, vcfHeader
     
     startTime = time.time()
-     
-    # for each coordinate
-        # if we have normal dna
-            # compare to reference -> germline mutations
-            
-        # if we have normal rna-seq
-            # characterize germline variants
-            # identify normal rna-editing
-            
-        # if we have tumor dna
-            # compare to reference and normal -> somatic mutations
-        
-        # if we have tumor rna-seq
-            # characterize somatic mutations
-            # identify tumor rna-editing
-
-    
-    # get the first pileup from each file
-    # if a file is not specified, then the "moreLines" flags will be set to false and initial values will be returned
-    (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores) = get_next_pileup(i_dnaNormalGenerator)
-    (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores) = get_next_pileup(i_rnaNormalGenerator)
-    (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores) = get_next_pileup(i_dnaTumorGenerator)
-    (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)
     
     # initialize some variables
     formatString = "GT:DP:INDEL:START:STOP:AD:AF:BQ:SB"
@@ -1722,331 +1903,418 @@ def main():
     previousBaseCounts = collections.defaultdict(int)
     dnaNormalPreviousBaseCounts = collections.defaultdict(int)
     
-    # for each coordinate that we'd like to investigate
-    for currentCoordinate in xrange(i_startCoordinate, i_stopCoordinate+1):
+    # for each chrom, start, and stop
+    for (currentChrom, currentStart, currentStop) in izip(i_chroms, i_starts, i_stops):
         
+        # error checking
+        if (currentStart > currentStop):
+            logging.critical("The start coordinate must be less than or equal to the stop coordinate %s:%s-%s", currentChrom, currentStart, currentStop)
+            sys.exit(1)
+            
         if (i_debug):
-            logging.debug("currentCoordinate: %s", currentCoordinate)
-            logging.debug("Initial NormalDNAData: %s %s %s %s %s %s", dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores)
-            logging.debug("Initial NormalRNAData: %s %s %s %s %s %s", rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores)
-            logging.debug("Initial TumorDNAData: %s %s %s %s %s %s", dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores)
-            logging.debug("Initial TumorRNAData: %s %s %s %s %s %s", rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores)
-            
-        # if we don't have any more data, then break out of the loop
-        # this can happen when testing or when we've reached the end of all the data in the .mpileups files
-        if (dnaNormalCoordinate == -1 and rnaNormalCoordinate == -1 and dnaTumorCoordinate == -1 and rnaTumorCoordinate == -1):
-            break
-            
-        # empty the set of DNA for each new coordinate
-        dnaSet.clear()
-        altCountsDict.clear()
-        infoDict.clear()
-        del altList[:]
-        del refList[:]
-        del filterList[:]
-        del coordinateBaseQualsList[:]
-        
-        setMinTotalBasesFlag = True
-        setMinAltBasesFlag = True
-        shouldOutput = False
-        hasDNA = False
-        hasRNA = False
-        totalSamples = 0
-        totalReadDepth = 0
-        totalIndels = 0
-        totalStarts = 0
-        totalStops = 0
-        totalSumBaseQual = 0
-        totalSumStrandBias = 0
-        totalAltReadDepth = 0
-        
-        # create some default output in case there are no reads for one dataset but there are for others
-        #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
-        vcfOutputList = [i_chrom, str(currentCoordinate), "."]
-        formatItemCount = len(formatString.split(":"))
-        emptyFormatList = ["."] * formatItemCount
-        emptyFormatString = ":".join(emptyFormatList)
-        dnaNormalOutputString = emptyFormatString
-        dnaTumorOutputString = emptyFormatString
-        rnaNormalOutputString = emptyFormatString
-        rnaTumorOutputString = emptyFormatString
-        
-        # these are only used to determine the Germline parent of an LOH
-        # the output shows which parent base has been lost in the tumor DNA
-        # we need the 2 variables, b/c we want to skip over the normal RNA
-        # and pass the normal DNA previous bases onto the tumor DNA to look
-        # for an LOH.  in the future, we may want to output other "losses",
-        # but for now, the previousUniqueBases is just a place-holder.
-        previousUniqueBases = ""
-        dnaNormalPreviousBases = ""
+            logging.debug("processing currentChrom=%s, currentStart=%s, currentStop=%s, i_batchSize=%s", currentChrom, currentStart, currentStop, i_batchSize)    
     
-        # create the ref list for this coordinate
-        if (dnaNormalCoordinate == currentCoordinate and dnaNormalRefBase not in refList):
-            refList.append(dnaNormalRefBase)
+        # get the generators that will yield the pileups
+        # the order matters:  first check for pileups, then bams
+        # Note:  Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        #        Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params 
         
-        if (rnaNormalCoordinate == currentCoordinate and rnaNormalRefBase not in refList):
-            refList.append(rnaNormalRefBase)
+        # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        if (i_dnaNormalPileupsFilename != None):
+            i_dnaNormalGenerator = get_sam_data(i_dnaNormalPileupsFilename, currentChrom, currentStart, currentStop, i_dnaNormLabel, i_debug)  
+        # Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params
+        elif (i_dnaNormalFilename != None):
+            # some bams/references use "M", some use "MT"
+            if (i_chrom == "M" or i_chrom == "MT" and i_dnaNormMitochon != None):
+                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormBaseQual, i_dnaNormMapQual, i_dnaNormMitochon, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)                      
+            else:
+                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormBaseQual, i_dnaNormMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)                      
+      
+        # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        if (i_rnaNormalPileupsFilename != None):
+            i_rnaNormalGenerator = get_sam_data(i_rnaNormalPileupsFilename, currentChrom, currentStart, currentStop, i_rnaNormLabel, i_debug)                      
+        # Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params
+        elif (i_rnaNormalFilename != None):
+            # some bams/reference use "M", some use "MT"
+            if (i_chrom == "M" or i_chrom == "MT" and i_rnaNormMitochon != None):
+                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormBaseQual, i_rnaNormMapQual, i_rnaNormMitochon, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+            else:
+                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormBaseQual, i_rnaNormMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+            
+        # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        if (i_dnaTumorPileupsFilename != None):
+            i_dnaTumorGenerator = get_sam_data(i_dnaTumorPileupsFilename, currentChrom, currentStart, currentStop, i_dnaTumLabel, i_debug)                      
+        # Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params
+        elif (i_dnaTumorFilename != None):
+            # some bams/reference use "M", some use "MT"
+            if (i_chrom == "M" or i_chrom == "MT" and i_dnaTumMitochon != None):
+                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumBaseQual, i_dnaTumMapQual, i_dnaTumMitochon, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
+            else:
+                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumBaseQual, i_dnaTumMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)   
         
-        if (dnaTumorCoordinate == currentCoordinate and dnaTumorRefBase not in refList):
-            refList.append(dnaTumorRefBase)
+        # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        if (i_rnaTumorPileupsFilename != None):
+            i_rnaTumorGenerator = get_sam_data(i_rnaTumorPileupsFilename, currentChrom, currentStart, currentStop, i_rnaTumLabel, i_debug)                      
+        # Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params
+        elif (i_rnaTumorFilename != None):
+            # some bams/reference use "M", some use "MT"
+            if (i_chrom == "M" or i_chrom == "MT" and i_rnaTumMitochon != None):
+                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumBaseQual, i_rnaTumMapQual, i_rnaTumMitochon, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+            else:
+                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumBaseQual, i_rnaTumMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
         
-        if (rnaTumorCoordinate == currentCoordinate and rnaTumorRefBase not in refList):
-            refList.append(rnaTumorRefBase)
+        # get the first pileup from each file
+        # if a file is not specified, then the "moreLines" flags will be set to false and initial values will be returned
+        (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores) = get_next_pileup(i_dnaNormalGenerator)
+        (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores) = get_next_pileup(i_rnaNormalGenerator)
+        (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores) = get_next_pileup(i_dnaTumorGenerator)
+        (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)    
+    
+        # for each coordinate that we'd like to investigate
+        for currentCoordinate in xrange(currentStart, currentStop+1):
+            # for each coordinate
+                # if we have normal dna
+                    # compare to reference -> germline mutations
+                    
+                # if we have normal rna-seq
+                    # characterize germline variants
+                    # identify normal rna-editing
+                    
+                # if we have tumor dna
+                    # compare to reference and normal -> somatic mutations
+                
+                # if we have tumor rna-seq
+                    # characterize somatic mutations
+                    # identify tumor rna-editing
         
-        # if we aren't debugging and we have an "N" in the ref or more than one ref, then just ignore this coordinate and move on to the next
-        if (not i_debug and ("N" in refList or len(refList) > 1)):
+            if (i_debug):
+                logging.debug("currentCoordinate: %s", currentCoordinate)
+                logging.debug("Initial NormalDNAData: %s %s %s %s %s %s", dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores)
+                logging.debug("Initial NormalRNAData: %s %s %s %s %s %s", rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores)
+                logging.debug("Initial TumorDNAData: %s %s %s %s %s %s", dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores)
+                logging.debug("Initial TumorRNAData: %s %s %s %s %s %s", rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores)
+                
+            # if we don't have any more data, then break out of the loop
+            # this can happen when testing or when we've reached the end of all the data in the .mpileups files
+            if (dnaNormalCoordinate == -1 and rnaNormalCoordinate == -1 and dnaTumorCoordinate == -1 and rnaTumorCoordinate == -1):
+                break
+                
+            # empty the set of DNA for each new coordinate
+            dnaSet.clear()
+            altCountsDict.clear()
+            infoDict.clear()
+            del altList[:]
+            del refList[:]
+            del filterList[:]
+            del coordinateBaseQualsList[:]
+            
+            setMinTotalBasesFlag = True
+            setMinAltBasesFlag = True
+            shouldOutput = False
+            hasDNA = False
+            hasRNA = False
+            totalSamples = 0
+            totalReadDepth = 0
+            totalIndels = 0
+            totalStarts = 0
+            totalStops = 0
+            totalSumBaseQual = 0
+            totalSumStrandBias = 0
+            totalAltReadDepth = 0
+            
+            # create some default output in case there are no reads for one dataset but there are for others
+            #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
+            vcfOutputList = [currentChrom, str(currentCoordinate), "."]
+            formatItemCount = len(formatString.split(":"))
+            emptyFormatList = ["."] * formatItemCount
+            emptyFormatString = ":".join(emptyFormatList)
+            dnaNormalOutputString = emptyFormatString
+            dnaTumorOutputString = emptyFormatString
+            rnaNormalOutputString = emptyFormatString
+            rnaTumorOutputString = emptyFormatString
+            
+            # these are only used to determine the Germline parent of an LOH
+            # the output shows which parent base has been lost in the tumor DNA
+            # we need the 2 variables, b/c we want to skip over the normal RNA
+            # and pass the normal DNA previous bases onto the tumor DNA to look
+            # for an LOH.  in the future, we may want to output other "losses",
+            # but for now, the previousUniqueBases is just a place-holder.
+            previousUniqueBases = ""
+            dnaNormalPreviousBases = ""
+        
+            # create the ref list for this coordinate
+            if (dnaNormalCoordinate == currentCoordinate and dnaNormalRefBase not in refList):
+                refList.append(dnaNormalRefBase)
+            
+            if (rnaNormalCoordinate == currentCoordinate and rnaNormalRefBase not in refList):
+                refList.append(rnaNormalRefBase)
+            
+            if (dnaTumorCoordinate == currentCoordinate and dnaTumorRefBase not in refList):
+                refList.append(dnaTumorRefBase)
+            
+            if (rnaTumorCoordinate == currentCoordinate and rnaTumorRefBase not in refList):
+                refList.append(rnaTumorRefBase)
+            
+            # if we aren't debugging and we have an "N" in the ref or more than one ref, then just ignore this coordinate and move on to the next
+            if (not i_debug and ("N" in refList or len(refList) > 1)):
+                # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
+                if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
+                    (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores) = get_next_pileup(i_dnaNormalGenerator)                      
+                
+                if (moreRnaNormalLines and rnaNormalCoordinate <= currentCoordinate):
+                    (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores) = get_next_pileup(i_rnaNormalGenerator)                   
+                
+                if (moreDnaTumorLines and dnaTumorCoordinate <= currentCoordinate):
+                    (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores) = get_next_pileup(i_dnaTumorGenerator)                      
+                       
+                if (moreRnaTumorLines and rnaTumorCoordinate <= currentCoordinate):
+                    (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)
+                
+                # continue to the next coordinate
+                continue;
+                            
+            # if we have normal reads at the current position
+            if (dnaNormalCoordinate == currentCoordinate):
+                
+                # specify the normal constants
+                gainModType = "GERM"
+                lossModType = "NOREF"
+            
+                # process the normal DNA
+                (dnaNormalOutputString, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalGerms, totalNoRef, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores, previousUniqueBases, previousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalGerms, totalNoRef, gainModType, lossModType, infoDict, i_dnaNormMinTotalNumBases, i_dnaNormMinAltNumBases, i_dnaNormMinAltNumBases, i_dnaNormBaseQual, coordinateBaseQualsList, "DNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, dnaNormalOutputString, i_debug)
+                
+                if (numBases > 0):
+                    totalSamples += 1
+                    totalReadDepth += numBases
+                    totalIndels += indels
+                    totalStarts += starts
+                    totalStops += stops
+                    totalSumBaseQual += totalBaseQual
+                    totalSumStrandBias += totalStrandBias
+                    totalAltReadDepth += totalAltReadSupport
+                    setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
+                    setMinAltBasesFlag = (setMinAltBasesFlag and numAltBasesFilter)
+                    
+            # if we have normal rna-seq reads at the current position
+            if (rnaNormalCoordinate == currentCoordinate):
+                
+                # if either a normal or tumor file is specified, we will label them as edits
+                # if neither a normal file nor a tumor file is specified, we will label them as variants
+                if (i_dnaNormalFilename == None and i_dnaTumorFilename == None and i_dnaNormalPileupsFilename == None and i_dnaTumorPileupsFilename == None):
+                    gainModType = "RNA_NOR_VAR"
+                else:
+                    gainModType = "NOR_EDIT"    
+                lossModType = "NOTEXP"
+                
+                # this is temporary, b/c we don't want to output NOTEXP right now
+                # need to think about this in more detail
+                previousUniqueBases = ""
+                
+                (rnaNormalOutputString, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalNormEdits, totalNormNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalNormEdits, totalNormNotExp, gainModType, lossModType, infoDict, i_rnaNormMinTotalNumBases, i_rnaNormMinAltNumBases, i_dnaNormMinAltNumBases, i_rnaNormBaseQual, coordinateBaseQualsList, "RNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, rnaNormalOutputString, i_debug)    
+                
+                if (numBases > 0):
+                    totalSamples += 1
+                    totalReadDepth += numBases
+                    totalIndels += indels
+                    totalStarts += starts
+                    totalStops += stops
+                    totalSumBaseQual += totalBaseQual
+                    totalSumStrandBias += totalStrandBias
+                    totalAltReadDepth += totalAltReadSupport
+                    setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
+                    setMinAltBasesFlag = (setMinAltBasesFlag and numAltBasesFilter)
+                    
+            # if we have tumor reads at the current position
+            if (dnaTumorCoordinate == currentCoordinate):
+                    
+                # if a normal file is specified, we will label them as somatic mutations
+                # otherwise, we will just call them variants
+                if (i_dnaNormalFilename != None or i_dnaNormalPileupsFilename != None):
+                    gainModType = "SOM"
+                else:
+                    gainModType = "DNA_TUM_VAR"
+                lossModType = "LOH"
+                
+                # process the tumor DNA
+                (dnaTumorOutputString, previousUniqueBases, previousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalSoms, totalLohs, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalSoms, totalLohs, gainModType, lossModType, infoDict, i_dnaTumMinTotalNumBases, i_dnaTumMinAltNumBases, i_dnaNormMinAltNumBases, i_dnaTumBaseQual, coordinateBaseQualsList, "DNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, dnaTumorOutputString, i_debug)
+                
+                if (numBases > 0):
+                    totalSamples += 1
+                    totalReadDepth += numBases
+                    totalIndels += indels
+                    totalStarts += starts
+                    totalStops += stops
+                    totalSumBaseQual += totalBaseQual
+                    totalSumStrandBias += totalStrandBias
+                    totalAltReadDepth += totalAltReadSupport
+                    setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
+                    setMinAltBasesFlag = (setMinAltBasesFlag and numAltBasesFilter)
+                
+            # if we have tumor rna-seq reads at the current position
+            if (rnaTumorCoordinate == currentCoordinate):
+                
+                # if either a normal or tumor file is specified, we will label them as edits
+                # if neither a normal file nor a tumor file is specified, we will label them as variants
+                if (i_dnaNormalFilename == None and i_dnaTumorFilename == None and i_dnaNormalPileupsFilename == None and i_dnaTumorPileupsFilename == None):
+                    gainModType = "RNA_TUM_VAR"
+                else:
+                    gainModType = "TUM_EDIT"
+                lossModType = "NOTEXP"
+                
+                # this is temporary, b/c we don't want to output NOTEXP right now
+                # need to think about this in more detail
+                previousUniqueBases = ""
+                
+                (rnaTumorOutputString, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalTumEdits, totalTumNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalTumEdits, totalTumNotExp, gainModType, lossModType, infoDict, i_rnaTumMinTotalNumBases, i_rnaTumMinAltNumBases, i_dnaTumMinAltNumBases, i_rnaTumBaseQual, coordinateBaseQualsList, "RNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, rnaTumorOutputString, i_debug)    
+                
+                if (numBases > 0):
+                    totalSamples += 1
+                    totalReadDepth += numBases
+                    totalIndels += indels
+                    totalStarts += starts
+                    totalStops += stops
+                    totalSumBaseQual += totalBaseQual
+                    totalSumStrandBias += totalStrandBias
+                    totalAltReadDepth += totalAltReadSupport
+                    setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
+                    setMinAltBasesFlag = (setMinAltBasesFlag and numAltBasesFilter)
+                
+            # count the number of ref mismatches
+            if (len(refList) > 1):
+                countRefMismatches += 1
+                
+            # if we are outputting all data, or
+            # if we should output, or
+            # if we are debugging and we have data
+            if (i_outputAllData or 
+                shouldOutput or 
+                (i_debug and hasDNA or hasRNA)):
+                
+                # the chrom, position, and Id columns have been filled
+                #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
+                
+                # add the ref, alt, and score
+                vcfOutputList.append(",".join(refList))
+                vcfOutputList.append(",".join(altList))
+                vcfOutputList.append("0")
+                
+                # add filters
+                # if one of the references is "N", then set the filter
+                if ("N" in refList):
+                    filterList.append("noref")
+                # if there is more than one reference, then set the filter
+                if (len(refList) > 1):   
+                    filterList.append("diffref")  
+                # if there aren't enough total bases, then set the filter    
+                if (setMinTotalBasesFlag):
+                    filterList.append("mbt")
+                # if there aren't enough ALT bases, then set the filter   
+                if (setMinAltBasesFlag):
+                    filterList.append("mba")    
+                # if there are no filters thus far, then pass it    
+                if (len(filterList) == 0):
+                    filterList.append("PASS")
+                
+                # if we should output all data and pass the basic filters, or
+                # if we should output and pass the basic filters, or
+                # if we are debugging, and this call doesn't pass    
+                if ((i_outputAllData and "PASS" in filterList) or
+                    (shouldOutput and "PASS" in filterList) or 
+                    (i_debug and "PASS" not in filterList)):
+                    vcfOutputList.append(";".join(filterList))
+                    
+                    #vcfHeader += "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">\n"
+                    #vcfHeader += "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of unique alleles across all samples\">\n"
+                    #vcfHeader += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total read depth for all samples\">\n"
+                    #vcfHeader += "##INFO=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels for all samples\">\n"
+                    #vcfHeader += "##INFO=<ID=START,Number=1,Type=Integer,Description=\"Number of reads that started at this position across all samples\">\n"
+                    #vcfHeader += "##INFO=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads that stopped at this position across all samples\">\n"
+                    #vcfHeader += "##INFO=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels for all samples\">\n"
+                    #vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Float,Description=\"Overall average base quality\">\n"
+                    #vcfHeader += "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Overall average reads on plus strand\">\n"
+                    #vcfHeader += "##INFO=<ID=FA,Number=1,Type=Float,Description=\"Overall fraction of reads supporting ALT\">\n"
+                    #vcfHeader += "##INFO=<ID=MT,Number=.,Type=String,Description=\"Modification types at this position\">\n"
+                    #vcfHeader += "##INFO=<ID=MC,Number=.,Type=String,Description=\"Modification base changes at this position\">\n"
+                    
+                    # add the alt counts and frequencies in the same order as the alt list 
+                    for base in altList:
+                        infoDict["AC"].append(str(altCountsDict[base]))
+                        infoDict["AF"].append(str(round(altCountsDict[base]/float(totalReadDepth),2)))
+                    
+                    # add modTypes to info
+                    infoDict["NS"].append(str(totalSamples))
+                    infoDict["AN"].append(str(len(dnaSet)))
+                    infoDict["DP"].append(str(totalReadDepth))
+                    infoDict["INDEL"].append(str(totalIndels))
+                    infoDict["START"].append(str(totalStarts))
+                    infoDict["STOP"].append(str(totalStops))
+                    infoDict["VT"].append("SNP")
+                    if (totalReadDepth > 0):
+                        infoDict["BQ"].append(str(round(totalSumBaseQual/float(totalReadDepth),2)))
+                        infoDict["SB"].append(str(round(totalSumStrandBias/float(totalReadDepth),2)))
+                        infoDict["FA"].append(str(round(totalAltReadDepth/float(totalReadDepth),2)))
+                    
+                    # add info
+                    infoField = ""
+                    for key in sorted(infoDict.iterkeys()):
+                        if ("True" in infoDict[key]):
+                            infoField += key + ";"
+                        else:    
+                            infoField += key + "=" + ",".join(infoDict[key]) + ";"
+                    
+                    vcfOutputList.append(infoField.rstrip(";"))
+                    
+                    # add format
+                    vcfOutputList.append(formatString)
+                    
+                    # add the sample specific data
+                    if (i_dnaNormalFilename != None or i_dnaNormalPileupsFilename != None):
+                        dnaNormalOutputString = pad_output(dnaNormalOutputString, emptyFormatString, len(refList + altList))
+                        vcfOutputList.append(dnaNormalOutputString)
+                    if (i_rnaNormalFilename != None or i_rnaNormalPileupsFilename != None):
+                        rnaNormalOutputString = pad_output(rnaNormalOutputString, emptyFormatString, len(refList + altList))
+                        vcfOutputList.append(rnaNormalOutputString)
+                    if (i_dnaTumorFilename != None or i_dnaTumorPileupsFilename != None):
+                        dnaTumorOutputString = pad_output(dnaTumorOutputString, emptyFormatString, len(refList + altList))
+                        vcfOutputList.append(dnaTumorOutputString)
+                    if (i_rnaTumorFilename != None or i_rnaTumorPileupsFilename != None):
+                        rnaTumorOutputString = pad_output(rnaTumorOutputString, emptyFormatString, len(refList + altList))
+                        vcfOutputList.append(rnaTumorOutputString)
+                    
+                    # if we should output
+                    if (i_outputAllData or shouldOutput):
+                        if (i_outputFileHandler != None):
+                            i_outputFileHandler.write("\t".join(vcfOutputList) + "\n")
+                        else:
+                            print >> sys.stdout, "\t".join(vcfOutputList)    
+                    # if we're debugging
+                    elif (i_debug):
+                        logging.debug("\t".join(vcfOutputList))
+                        
+            # count coordinates when we have both DNA and RNA
+            if (hasDNA and hasRNA):
+                countRnaDnaCoordinateOverlap += 1
+            
             # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
             if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
                 (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores) = get_next_pileup(i_dnaNormalGenerator)                      
-            
             if (moreRnaNormalLines and rnaNormalCoordinate <= currentCoordinate):
                 (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores) = get_next_pileup(i_rnaNormalGenerator)                   
-            
             if (moreDnaTumorLines and dnaTumorCoordinate <= currentCoordinate):
                 (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores) = get_next_pileup(i_dnaTumorGenerator)                      
-                   
             if (moreRnaTumorLines and rnaTumorCoordinate <= currentCoordinate):
-                (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)
-            
-            # continue to the next coordinate
-            continue;
-                        
-        # if we have normal reads at the current position
-        if (dnaNormalCoordinate == currentCoordinate):
-            
-            # specify the normal constants
-            gainModType = "GERM"
-            lossModType = "NOREF"
-        
-            # process the normal DNA
-            (dnaNormalOutputString, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalGerms, totalNoRef, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores, previousUniqueBases, previousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalGerms, totalNoRef, gainModType, lossModType, infoDict, i_dnaNormMinTotalNumBases, i_dnaNormMinAltNumBases, i_dnaNormBaseQual, coordinateBaseQualsList, "DNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, dnaNormalOutputString, i_debug)
-            
-            if (numBases > 0):
-                totalSamples += 1
-                totalReadDepth += numBases
-                totalIndels += indels
-                totalStarts += starts
-                totalStops += stops
-                totalSumBaseQual += totalBaseQual
-                totalSumStrandBias += totalStrandBias
-                totalAltReadDepth += totalAltReadSupport
-                setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
-                setMinAltBasesFlag = (setMinAltBasesFlag and numAltBasesFilter)
-                
-        # if we have normal rna-seq reads at the current position
-        if (rnaNormalCoordinate == currentCoordinate):
-            
-            # if either a normal or tumor file is specified, we will label them as edits
-            # if neither a normal file nor a tumor file is specified, we will label them as variants
-            if (i_dnaNormalFilename == None and i_dnaTumorFilename == None and i_dnaNormalPileupsFilename == None and i_dnaTumorPileupsFilename == None):
-                gainModType = "RNA_NOR_VAR"
-            else:
-                gainModType = "NOR_EDIT"    
-            lossModType = "NOTEXP"
-            
-            # this is temporary, b/c we don't want to output NOTEXP right now
-            # need to think about this in more detail
-            previousUniqueBases = ""
-            
-            (rnaNormalOutputString, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalNormEdits, totalNormNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalNormEdits, totalNormNotExp, gainModType, lossModType, infoDict, i_rnaNormMinTotalNumBases, i_rnaNormMinAltNumBases, i_rnaNormBaseQual, coordinateBaseQualsList, "RNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, rnaNormalOutputString, i_debug)    
-            
-            if (numBases > 0):
-                totalSamples += 1
-                totalReadDepth += numBases
-                totalIndels += indels
-                totalStarts += starts
-                totalStops += stops
-                totalSumBaseQual += totalBaseQual
-                totalSumStrandBias += totalStrandBias
-                totalAltReadDepth += totalAltReadSupport
-                setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
-                setMinAltBasesFlag = (setMinAltBasesFlag and numAltBasesFilter)
-                
-        # if we have tumor reads at the current position
-        if (dnaTumorCoordinate == currentCoordinate):
-                
-            # if a normal file is specified, we will label them as somatic mutations
-            # otherwise, we will just call them variants
-            if (i_dnaNormalFilename != None or i_dnaNormalPileupsFilename != None):
-                gainModType = "SOM"
-            else:
-                gainModType = "DNA_TUM_VAR"
-            lossModType = "LOH"
-            
-            # process the tumor DNA
-            (dnaTumorOutputString, previousUniqueBases, previousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalSoms, totalLohs, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalSoms, totalLohs, gainModType, lossModType, infoDict, i_dnaTumMinTotalNumBases, i_dnaTumMinAltNumBases, i_dnaTumBaseQual, coordinateBaseQualsList, "DNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, dnaTumorOutputString, i_debug)
-            
-            if (numBases > 0):
-                totalSamples += 1
-                totalReadDepth += numBases
-                totalIndels += indels
-                totalStarts += starts
-                totalStops += stops
-                totalSumBaseQual += totalBaseQual
-                totalSumStrandBias += totalStrandBias
-                totalAltReadDepth += totalAltReadSupport
-                setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
-                setMinAltBasesFlag = (setMinAltBasesFlag and numAltBasesFilter)
-            
-        # if we have tumor rna-seq reads at the current position
-        if (rnaTumorCoordinate == currentCoordinate):
-            
-            # if either a normal or tumor file is specified, we will label them as edits
-            # if neither a normal file nor a tumor file is specified, we will label them as variants
-            if (i_dnaNormalFilename == None and i_dnaTumorFilename == None and i_dnaNormalPileupsFilename == None and i_dnaTumorPileupsFilename == None):
-                gainModType = "RNA_TUM_VAR"
-            else:
-                gainModType = "TUM_EDIT"
-            lossModType = "NOTEXP"
-            
-            # this is temporary, b/c we don't want to output NOTEXP right now
-            # need to think about this in more detail
-            previousUniqueBases = ""
-            
-            (rnaTumorOutputString, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalTumEdits, totalTumNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalTumEdits, totalTumNotExp, gainModType, lossModType, infoDict, i_rnaTumMinTotalNumBases, i_rnaTumMinAltNumBases, i_rnaTumBaseQual, coordinateBaseQualsList, "RNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, rnaTumorOutputString, i_debug)    
-            
-            if (numBases > 0):
-                totalSamples += 1
-                totalReadDepth += numBases
-                totalIndels += indels
-                totalStarts += starts
-                totalStops += stops
-                totalSumBaseQual += totalBaseQual
-                totalSumStrandBias += totalStrandBias
-                totalAltReadDepth += totalAltReadSupport
-                setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
-                setMinAltBasesFlag = (setMinAltBasesFlag and numAltBasesFilter)
-            
-        # count the number of ref mismatches
-        if (len(refList) > 1):
-            countRefMismatches += 1
-            
-        # if we should output, or
-        # if we are debugging and we have data
-        if (shouldOutput or (i_debug and hasDNA or hasRNA)):
-            
-            # the chrom, position, and Id columns have been filled
-            #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
-            
-            # add the ref, alt, and score
-            vcfOutputList.append(",".join(refList))
-            vcfOutputList.append(",".join(altList))
-            vcfOutputList.append("0")
-            
-            # add filters
-            # if one of the references is "N", then set the filter
-            if ("N" in refList):
-                filterList.append("noref")
-            # if there is more than one reference, then set the filter
-            if (len(refList) > 1):   
-                filterList.append("diffref")  
-            # if there aren't enough total bases, then set the filter    
-            if (setMinTotalBasesFlag):
-                filterList.append("mbt")
-            # if there aren't enough ALT bases, then set the filter   
-            if (setMinAltBasesFlag):
-                filterList.append("mba")    
-            # if there are no filters thus far, then pass it    
-            if (len(filterList) == 0):
-                filterList.append("PASS")
-            
-            # if we should output and pass the basic filters, or
-            # if we are debugging, and this call doesn't pass    
-            if ((shouldOutput and "PASS" in filterList) or (i_debug and "PASS" not in filterList)):
-                vcfOutputList.append(";".join(filterList))
-                
-                #vcfHeader += "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">\n"
-                #vcfHeader += "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Total number of unique alleles across all samples\">\n"
-                #vcfHeader += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total read depth for all samples\">\n"
-                #vcfHeader += "##INFO=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels for all samples\">\n"
-                #vcfHeader += "##INFO=<ID=START,Number=1,Type=Integer,Description=\"Number of reads that started at this position across all samples\">\n"
-                #vcfHeader += "##INFO=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads that stopped at this position across all samples\">\n"
-                #vcfHeader += "##INFO=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels for all samples\">\n"
-                #vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Float,Description=\"Overall average base quality\">\n"
-                #vcfHeader += "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Overall average reads on plus strand\">\n"
-                #vcfHeader += "##INFO=<ID=FA,Number=1,Type=Float,Description=\"Overall fraction of reads supporting ALT\">\n"
-                #vcfHeader += "##INFO=<ID=MT,Number=.,Type=String,Description=\"Modification types at this position\">\n"
-                #vcfHeader += "##INFO=<ID=MC,Number=.,Type=String,Description=\"Modification base changes at this position\">\n"
-                
-                # add the alt counts and frequencies in the same order as the alt list 
-                for base in altList:
-                    infoDict["AC"].append(str(altCountsDict[base]))
-                    infoDict["AF"].append(str(round(altCountsDict[base]/float(totalReadDepth),2)))
-                
-                # add modTypes to info
-                infoDict["NS"].append(str(totalSamples))
-                infoDict["AN"].append(str(len(dnaSet)))
-                infoDict["DP"].append(str(totalReadDepth))
-                infoDict["INDEL"].append(str(totalIndels))
-                infoDict["START"].append(str(totalStarts))
-                infoDict["STOP"].append(str(totalStops))
-                infoDict["VT"].append("SNP")
-                if (totalReadDepth > 0):
-                    infoDict["BQ"].append(str(round(totalSumBaseQual/float(totalReadDepth),2)))
-                    infoDict["SB"].append(str(round(totalSumStrandBias/float(totalReadDepth),2)))
-                    infoDict["FA"].append(str(round(totalAltReadDepth/float(totalReadDepth),2)))
-                
-                # add info
-                infoField = ""
-                for key in sorted(infoDict.iterkeys()):
-                    if ("True" in infoDict[key]):
-                        infoField += key + ";"
-                    else:    
-                        infoField += key + "=" + ",".join(infoDict[key]) + ";"
-                
-                vcfOutputList.append(infoField.rstrip(";"))
-                
-                # add format
-                vcfOutputList.append(formatString)
-                
-                # add the sample specific data
-                if (i_dnaNormalFilename != None or i_dnaNormalPileupsFilename != None):
-                    dnaNormalOutputString = pad_output(dnaNormalOutputString, emptyFormatString, len(refList + altList))
-                    vcfOutputList.append(dnaNormalOutputString)
-                if (i_rnaNormalFilename != None or i_rnaNormalPileupsFilename != None):
-                    rnaNormalOutputString = pad_output(rnaNormalOutputString, emptyFormatString, len(refList + altList))
-                    vcfOutputList.append(rnaNormalOutputString)
-                if (i_dnaTumorFilename != None or i_dnaTumorPileupsFilename != None):
-                    dnaTumorOutputString = pad_output(dnaTumorOutputString, emptyFormatString, len(refList + altList))
-                    vcfOutputList.append(dnaTumorOutputString)
-                if (i_rnaTumorFilename != None or i_rnaTumorPileupsFilename != None):
-                    rnaTumorOutputString = pad_output(rnaTumorOutputString, emptyFormatString, len(refList + altList))
-                    vcfOutputList.append(rnaTumorOutputString)
-                
-                # if we should output
-                if (shouldOutput):
-                    if (i_outputFileHandler != None):
-                        i_outputFileHandler.write("\t".join(vcfOutputList) + "\n")
-                    else:
-                        print >> sys.stdout, "\t".join(vcfOutputList)    
-                # if we're debugging
-                elif (i_debug):
-                    logging.debug("\t".join(vcfOutputList))
-                    
-        # count coordinates when we have both DNA and RNA
-        if (hasDNA and hasRNA):
-            countRnaDnaCoordinateOverlap += 1
-        
-        # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
-        if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
-            (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores) = get_next_pileup(i_dnaNormalGenerator)                      
-        if (moreRnaNormalLines and rnaNormalCoordinate <= currentCoordinate):
-            (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores) = get_next_pileup(i_rnaNormalGenerator)                   
-        if (moreDnaTumorLines and dnaTumorCoordinate <= currentCoordinate):
-            (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores) = get_next_pileup(i_dnaTumorGenerator)                      
-        if (moreRnaTumorLines and rnaTumorCoordinate <= currentCoordinate):
-            (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)   
+                (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)   
     
     if (i_statsDir != None):
         # output the variant counts
         i_variantCountsFileHandler = open(i_statsDir + "variantCounts.tab", "a")
-        #i_variantCountsFileHandler.write(i_id + "\t" + i_chrom + "\t" + str(totalGerms) + "\t" + str(totalSoms) + "\t" + str(totalNormEdits) + "\t" + str(totalTumEdits) + "\t" + str(totalLohs) + "\n")
-        i_variantCountsFileHandler.write(i_id + "\t" + i_chrom + "\t" + str(totalGerms) + "\t" + str(totalSoms) + "\t" + str(totalNormEdits) + "\t" + str(totalTumEdits) + "\n")
+        #i_variantCountsFileHandler.write(i_id + "\t" + currentChrom + "\t" + str(totalGerms) + "\t" + str(totalSoms) + "\t" + str(totalNormEdits) + "\t" + str(totalTumEdits) + "\t" + str(totalLohs) + "\n")
+        i_variantCountsFileHandler.write(i_id + "\t" + currentChrom + "\t" + str(totalGerms) + "\t" + str(totalSoms) + "\t" + str(totalNormEdits) + "\t" + str(totalTumEdits) + "\n")
         i_variantCountsFileHandler.close()
           
         # output the coordinates with data
         i_genStatsFileHandler = open(i_statsDir + "genStats.tab", "a")
-        i_genStatsFileHandler.write(i_id + "\t" + i_chrom + "\t" + str(dnaNormalCoordinateWithData) + "\t" + str(rnaNormalCoordinateWithData) + "\t" + str(dnaTumorCoordinateWithData) + "\t" + str(rnaTumorCoordinateWithData) + "\n")
+        i_genStatsFileHandler.write(i_id + "\t" + currentChrom + "\t" + str(dnaNormalCoordinateWithData) + "\t" + str(rnaNormalCoordinateWithData) + "\t" + str(dnaTumorCoordinateWithData) + "\t" + str(rnaTumorCoordinateWithData) + "\n")
         i_genStatsFileHandler.close()
     
     stopTime = time.time()  
@@ -2065,7 +2333,10 @@ def main():
     #summaryMessage += "Total coordinates with both DNA and RNA=" + str(countRnaDnaCoordinateOverlap) + ", "
     
     logging.info(summaryMessage.rstrip(", "))
-    logging.info("Chrom %s and Id %s: Total time=%s hrs, %s mins, %s secs", i_chrom, i_id, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime)) 
+    if (i_outputFilename != None):
+        logging.info("radia.py %s: Total time=%s hrs, %s mins, %s secs", os.path.basename(i_outputFilename), ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
+    else:
+        logging.info("radia.py Chrom %s and Id %s: Total time=%s hrs, %s mins, %s secs", currentChrom, i_id, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
            
     # close the files 
     if (i_outputFilename != None):
