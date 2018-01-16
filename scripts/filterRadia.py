@@ -52,16 +52,16 @@ def get_write_fileHandler(aFilename):
         return open(aFilename,'w')
 
 
-def filter_blacklist(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aBlacklistDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_blacklist(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aBlacklistDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     filterFilename = os.path.join(aBlacklistDir, "chr" + aChromId + ".bed.gz")
     if (not os.path.isfile(filterFilename)):
         filterFilename = os.path.join(aBlacklistDir, "chr" + aChromId + ".bed")
 
     if (aGzipFlag):        
-        outputFilename = os.path.join(anOutputDir, anId + "_blacklist_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_blacklist_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_blacklist_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_blacklist_chr" + aChromId + ".vcf")
 
     script = os.path.join(aScriptsDir, "filterByPybed.py")        
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " blck --includeFilterName -f \"##FILTER=<ID=blck,Description=\\\"Position overlaps 1000 Genomes Project blacklist\\\">\" -o " + outputFilename
@@ -91,16 +91,16 @@ def filter_blacklist(aPythonExecutable, anId, aChromId, anInputFilename, anOutpu
     return outputFilename
 
 
-def flag_dbSnp(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aDbSnpDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def flag_dbSnp(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aDbSnpDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
     
     filterFilename = os.path.join(aDbSnpDir, "chr" + aChromId + ".bed.gz")
     if (not os.path.isfile(filterFilename)):
         filterFilename = os.path.join(aDbSnpDir, "chr" + aChromId + ".bed")
         
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_dbsnp_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_dbsnp_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_dbsnp_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_dbsnp_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "filterByCoordinate.py")
     
@@ -131,16 +131,16 @@ def flag_dbSnp(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, 
     return outputFilename
 
 
-def flag_retroGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aRetroGeneDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def flag_retroGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aRetroGeneDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     filterFilename = os.path.join(aRetroGeneDir, "chr" + aChromId + ".bed.gz")
     if (not os.path.isfile(filterFilename)):
         filterFilename = os.path.join(aRetroGeneDir, "chr" + aChromId + ".bed")
         
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_retroGene_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_retroGene_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_retroGene_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_retroGene_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "filterByPybed.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " RTPS --includeOverlaps --includeFilterName -d INFO -f \"##INFO=<ID=RTPS,Number=0,Type=Flag,Description=\\\"Overlaps with retrotransposon or pseudogene\\\">\" -o " + outputFilename
@@ -170,16 +170,16 @@ def flag_retroGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutput
     return outputFilename
 
 
-def flag_pseudoGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPseudoGeneDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def flag_pseudoGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aPseudoGeneDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     filterFilename = os.path.join(aPseudoGeneDir, "chr" + aChromId + ".bed.gz")
     if (not os.path.isfile(filterFilename)):
         filterFilename = os.path.join(aPseudoGeneDir, "chr" + aChromId + ".bed")
     
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_pseudoGene_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_pseudoGene_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_pseudoGene_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_pseudoGene_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "filterByPybed.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " EGPS --includeOverlaps --includeFilterName -d INFO -f \"##INFO=<ID=EGPS,Number=0,Type=Flag,Description=\\\"Overlaps with ENCODE/GENCODE pseudogenes\\\">\" -o " + outputFilename
@@ -209,16 +209,16 @@ def flag_pseudoGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutpu
     return outputFilename
 
 
-def flag_cosmic(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aCosmicDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def flag_cosmic(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aCosmicDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     filterFilename = os.path.join(aCosmicDir, "chr" + aChromId + ".bed.gz")
     if (not os.path.isfile(filterFilename)):
         filterFilename = os.path.join(aCosmicDir, "chr" + aChromId + ".bed")
     
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_cosmic_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_cosmic_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_cosmic_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_cosmic_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "filterByPybed.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " COSMIC --includeOverlaps --includeFilterName -d INFO -f \"##INFO=<ID=COSMIC,Number=0,Type=Flag,Description=\\\"Overlaps with Catalogue Of Somatic Mutations In Cancer (COSMIC)\\\">\" -o " + outputFilename
@@ -248,16 +248,16 @@ def flag_cosmic(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir,
     return outputFilename
 
 
-def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aTargetDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aTargetDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     filterFilename = os.path.join(aTargetDir, "chr" + aChromId + ".bed.gz")
     if (not os.path.isfile(filterFilename)):
         filterFilename = os.path.join(aTargetDir, "chr" + aChromId + ".bed")
         
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_targets_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_targets_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_targets_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_targets_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "filterByPybed.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " ntr --includeFilterName -f \"##FILTER=<ID=ntr,Description=\\\"Position does not overlap with a TCGA target region\\\">\" -o " + outputFilename
@@ -287,7 +287,7 @@ def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputD
     return outputFilename
 
 
-def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, anOriginFlag, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, anOriginFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
     script = os.path.join(aScriptsDir, "filterByMpileupSupport.py")
     dnaParameterList = ["--genotypeMinPct=0.10", "--modMinDepth=4", "--modMinPct=0.10"]
@@ -296,9 +296,9 @@ def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename
     dnaParameterString = " ".join(dnaParameterList)
     if (anOriginFlag):
         if (aGzipFlag):
-            outputFilename = os.path.join(anOutputDir, anId + "_mpileup_dna_origin_chr" + aChromId + ".vcf.gz")
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_mpileup_dna_origin_chr" + aChromId + ".vcf.gz")
         else:
-            outputFilename = os.path.join(anOutputDir, anId + "_mpileup_dna_origin_chr" + aChromId + ".vcf")
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_mpileup_dna_origin_chr" + aChromId + ".vcf")
             
         if (aHeaderFilename != None):
             command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anInputFilename + " --addOrigin -o " + outputFilename + " -n " + aHeaderFilename + " " + dnaParameterString
@@ -306,9 +306,9 @@ def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename
             command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anInputFilename + " --addOrigin -o " + outputFilename + " " + dnaParameterString
     else:
         if (aGzipFlag):
-            outputFilename = os.path.join(anOutputDir, anId + "_mpileup_dna_chr" + aChromId + ".vcf.gz")
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_mpileup_dna_chr" + aChromId + ".vcf.gz")
         else:
-            outputFilename = os.path.join(anOutputDir, anId + "_mpileup_dna_chr" + aChromId + ".vcf")
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_mpileup_dna_chr" + aChromId + ".vcf")
             
         if (aHeaderFilename != None):
             command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anInputFilename + " -o " + outputFilename + " -n " + aHeaderFilename + " " + dnaParameterString
@@ -339,25 +339,27 @@ def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename
     return outputFilename
 
 
-def filter_mpileupSupport_rna(aPythonExecutable, anId, aChromId, anInputFilename, anOriginFlag, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_mpileupSupport_rna(aPythonExecutable, anId, aChromId, anInputFilename, anOriginFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
     script = os.path.join(aScriptsDir, "filterByMpileupSupport.py")
     rnaParameterList = ["--genotypeMinPct=0.0", "--modMinDepth=1", "--modMinPct=0.01", "--minAltAvgBaseQual=15.0"]
     rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=1.0", "--dnaNormalMinStrandBiasDepth=4"]
     rnaParameterList += ["--dnaTumorMinTotalBases=1", "--dnaTumorMinAltBases=1", "--dnaTumorMinAltPct=0.01", "--dnaTumorMaxErrPct=1.0", "--dnaTumorMinStrandBiasDepth=4"]
+    #rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=0.01", "--dnaNormalMinStrandBiasDepth=4"]
+    #rnaParameterList += ["--dnaTumorMinTotalBases=1", "--dnaTumorMinAltBases=1", "--dnaTumorMinAltPct=0.01", "--dnaTumorMaxErrPct=0.01", "--dnaTumorMinStrandBiasDepth=4"]
     rnaParameterList += ["--rnaTumorMinTotalBases=10", "--rnaTumorMinAltBases=4", "--rnaTumorMinAltPct=0.10", "--rnaTumorMaxErrPct=0.01", "--rnaTumorMinStrandBiasDepth=4"]
     rnaParameterString = " ".join(rnaParameterList)
     if (anOriginFlag):
         if (aGzipFlag):
-            outputFilename = os.path.join(anOutputDir, anId + "_mpileup_rna_origin_chr" + aChromId + ".vcf.gz")
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_mpileup_rna_origin_chr" + aChromId + ".vcf.gz")
         else:
-            outputFilename = os.path.join(anOutputDir, anId + "_mpileup_rna_origin_chr" + aChromId + ".vcf")
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_mpileup_rna_origin_chr" + aChromId + ".vcf")
         command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anInputFilename + " --addOrigin --filterUsingRNA -o " + outputFilename + " " + rnaParameterString
     else:
         if (aGzipFlag):
-            outputFilename = os.path.join(anOutputDir, anId + "_mpileup_rna_chr" + aChromId + ".vcf.gz")
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_mpileup_rna_chr" + aChromId + ".vcf.gz")
         else:
-            outputFilename = os.path.join(anOutputDir, anId + "_mpileup_rna_chr" + aChromId + ".vcf")
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_mpileup_rna_chr" + aChromId + ".vcf")
         command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anInputFilename + " --filterUsingRNA -o " + outputFilename + " " + rnaParameterString
     
     if (anIsDebug):
@@ -384,17 +386,17 @@ def filter_mpileupSupport_rna(aPythonExecutable, anId, aChromId, anInputFilename
     return outputFilename
 
 
-def radia_compare(aPythonExecutable, anId, aChromId, anRnaFilename, aDnaFilename, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def radia_compare(aPythonExecutable, anId, aChromId, anRnaFilename, aDnaFilename, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
     
     if (aGzipFlag):
-        overlapFilename = os.path.join(anOutputDir, anId + "_overlap_chr" + aChromId + ".vcf.gz")
+        overlapFilename = os.path.join(anOutputDir, aPrefix + "_overlap_chr" + aChromId + ".vcf.gz")
     else:
-        overlapFilename = os.path.join(anOutputDir, anId + "_overlap_chr" + aChromId + ".vcf")
+        overlapFilename = os.path.join(anOutputDir, aPrefix + "_overlap_chr" + aChromId + ".vcf")
     
     if (aGzipFlag):
-        nonOverlapFilename = os.path.join(anOutputDir, anId + "_nonoverlap_chr" + aChromId + ".vcf.gz")
+        nonOverlapFilename = os.path.join(anOutputDir, aPrefix + "_nonoverlap_chr" + aChromId + ".vcf.gz")
     else:
-        nonOverlapFilename = os.path.join(anOutputDir, anId + "_nonoverlap_chr" + aChromId + ".vcf")
+        nonOverlapFilename = os.path.join(anOutputDir, aPrefix + "_nonoverlap_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "radiaCompare.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anRnaFilename + " " + aDnaFilename + " -c \"SOM=SOM,NOR_EDIT=NOR_EDIT,TUM_EDIT=TUM_EDIT\" -o " + overlapFilename + " -n " + nonOverlapFilename 
@@ -423,14 +425,14 @@ def radia_compare(aPythonExecutable, anId, aChromId, anRnaFilename, aDnaFilename
     return overlapFilename, nonOverlapFilename
 
 
-def filter_rnaOnly(anId, aChromId, anInputFilename, anOutputDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_rnaOnly(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_dnaFiltered_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_dnaFiltered_chr" + aChromId + ".vcf.gz")
         #command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB;\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | gzip > " + outputFilename
         command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | gzip > " + outputFilename
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_dnaFiltered_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_dnaFiltered_chr" + aChromId + ".vcf")
         #command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB;\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" > " + outputFilename
         command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" > " + outputFilename
   
@@ -461,13 +463,13 @@ def filter_rnaOnly(anId, aChromId, anInputFilename, anOutputDir, aJobListFileHan
     return outputFilename
 
 
-def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_passing_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_passing_chr" + aChromId + ".vcf.gz")
         command = "zcat " + anInputFilename + " | grep \"PASS\" " + " | gzip > " + outputFilename
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_passing_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_passing_chr" + aChromId + ".vcf")
         command = "grep \"PASS\" " + anInputFilename + " > " + outputFilename
   
     if (anIsDebug):
@@ -497,20 +499,20 @@ def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aJobListFileHa
     return outputFilename
 
 
-def filter_runSnpEff(anId, aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome, aSnpEffCanonical, anOutputDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_runSnpEff(anId, aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome, aSnpEffCanonical, anOutputDir, aPrefix, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     snpEffJar = os.path.join(aSnpEffDir, "snpEff.jar")
     snpEffConfig = os.path.join(aSnpEffDir, "snpEff.config")
     
     # the output from snpEff is not gzipped
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_snpEff_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_snpEff_chr" + aChromId + ".vcf.gz")
         if (aSnpEffCanonical):
             command = "zcat " + anInputFilename + " | java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -canon -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " - | gzip > " + outputFilename
         else:
             command = "zcat " + anInputFilename + " | java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " - | gzip > " + outputFilename
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_snpEff_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_snpEff_chr" + aChromId + ".vcf")
         if (aSnpEffCanonical):
             command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -canon -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
         else:
@@ -545,13 +547,20 @@ def filter_runSnpEff(anId, aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome,
     return outputFilename
 
 
-def filter_createBlatInput(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, anOutputDir, aScriptsDir, aJobListFileHandler, anIsDebug):
+def filter_createBlatInput(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, aTranscriptNameTag, aTranscriptCoordinateTag, aTranscriptStrandTag, anRnaIncludeSecondaryAlignmentsFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, anIsDebug):
 
     # we can't gzip the blat input file
-    outputFilename = os.path.join(anOutputDir, anId + "_blatInput_chr" + aChromId + ".fa")
+    outputFilename = os.path.join(anOutputDir, aPrefix + "_blatInput_chr" + aChromId + ".fa")
         
     script = os.path.join(aScriptsDir, "createBlatFile.py")
-    command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aHeaderFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
+    
+    if (aTranscriptNameTag != None and aTranscriptCoordinateTag != None):
+        command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aHeaderFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads --transcriptNameTag " + aTranscriptNameTag + " --transcriptCoordinateTag " + aTranscriptCoordinateTag + " --transcriptStrandTag " + aTranscriptStrandTag
+    else:
+        command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aHeaderFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
+    
+    if (anRnaIncludeSecondaryAlignmentsFlag):
+        command += " --rnaIncludeSecondaryAlignments"
     
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -578,9 +587,9 @@ def filter_createBlatInput(aPythonExecutable, anId, aChromId, anInputFilename, a
     return outputFilename
 
 
-def filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aJobListFileHandler, anIsDebug):
+def filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug):
 
-    blatOutputFilename = anOutputDir + anId + "_blatOutput_chr" + aChromId + ".blast"    
+    blatOutputFilename = anOutputDir + aPrefix + "_blatOutput_chr" + aChromId + ".blast"    
     #command = "blat -stepSize=5 -repMatch=2253 -minScore=0 -minIdentity=0 -t=dna -q=rna " + aFastaFile + " " + aBlatInputFilename + " -out=blast8 " + blatOutputFilename
     command = "blat -stepSize=5 -repMatch=2253 -t=dna -q=rna " + aFastaFile + " " + aBlatInputFilename + " -out=blast8 " + blatOutputFilename
 
@@ -607,7 +616,7 @@ def filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, 
     return blatOutputFilename
 
 
-def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, aBlatInputFilename, aFastaFile, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
     
     # if no fasta file was specified, try to get it from the header file
     if (aFastaFile == None):
@@ -644,11 +653,11 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
                 sys.exit(1) 
         
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_blatFiltered_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_blatFiltered_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_blatFiltered_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_blatFiltered_chr" + aChromId + ".vcf")
 
-    blatOutputFilename = filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aJobListFileHandler, anIsDebug)
+    blatOutputFilename = filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug)
     
     script = os.path.join(aScriptsDir, "filterByBlat.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " " + blatOutputFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
@@ -676,15 +685,18 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
     return (blatOutputFilename, outputFilename)
 
 
-def filter_positionalBias(aPythonExecutable, anId, aChromId, anInputFilename, aBlatInputFilename, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_positionalBias(aPythonExecutable, anId, aChromId, anInputFilename, aBlatInputFilename, aKeepPreviousFiltersFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_pbias_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_pbias_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_pbias_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_pbias_chr" + aChromId + ".vcf")
         
     script = os.path.join(aScriptsDir, "filterByPositionalBias.py")
-    command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " -o " + outputFilename
+    if (aKeepPreviousFiltersFlag):
+        command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " -o " + outputFilename + " --keepPreviousFilters"
+    else:
+        command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " -o " + outputFilename
     
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -711,12 +723,12 @@ def filter_positionalBias(aPythonExecutable, anId, aChromId, anInputFilename, aB
     return outputFilename
 
 
-def filter_rnaBlacklist(aPythonExecutable, anId, aChromId, anInputFilename, aGeneBlckFilename, aGeneFamilyBlckFilename, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_rnaBlacklist(aPythonExecutable, anId, aChromId, anInputFilename, aGeneBlckFilename, aGeneFamilyBlckFilename, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_rna_genes_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_rna_genes_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_rna_genes_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_rna_genes_chr" + aChromId + ".vcf")
         
     script = os.path.join(aScriptsDir, "filterByRnaBlacklist.py")
     command = aPythonExecutable + " " + script + " " + anInputFilename + " " + aGeneBlckFilename + " " + aGeneFamilyBlckFilename + " -o " + outputFilename
@@ -747,18 +759,18 @@ def filter_rnaBlacklist(aPythonExecutable, anId, aChromId, anInputFilename, aGen
     return outputFilename
 
 
-def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename, anRnaOverlapsFilname, anRnaNonoverlapsFilename, aDnaHeaderOnlyFlag, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename, anRnaFilename, anRnaOverlapsFilname, anRnaNonoverlapsFilename, aDnaHeaderOnlyFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_merged_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_merged_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_merged_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_merged_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "mergeRnaAndDnaFiles.py")
     if (aDnaHeaderOnlyFlag):
-        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaOverlapsFilname + " " + anRnaNonoverlapsFilename + " " + outputFilename + " --dnaHeaderOnly"
+        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaFilename + " " + anRnaOverlapsFilname + " " + anRnaNonoverlapsFilename + " " + outputFilename + " --dnaHeaderOnly"
     else:
-        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaOverlapsFilname + " " + anRnaNonoverlapsFilename + " " + outputFilename
+        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaFilename + " " + anRnaOverlapsFilname + " " + anRnaNonoverlapsFilename + " " + outputFilename
         
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -784,12 +796,12 @@ def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename, anRnaOverla
     return outputFilename
 
 
-def merge_passingAndOriginals(aPythonExecutable, anId, aChromId, aPassingCallsFilename, anOriginalFilname, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def merge_passingAndOriginals(aPythonExecutable, anId, aChromId, aPassingCallsFilename, anOriginalFilname, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_mergedFinal_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_mergedFinal_chr" + aChromId + ".vcf.gz")
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_mergedFinal_chr" + aChromId + ".vcf")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_mergedFinal_chr" + aChromId + ".vcf")
     script = os.path.join(aScriptsDir, "mergePassingAndOriginals.py")
     command = aPythonExecutable + " " + script + " " + aPassingCallsFilename + " " + anOriginalFilname + " " + outputFilename
         
@@ -817,16 +829,27 @@ def merge_passingAndOriginals(aPythonExecutable, anId, aChromId, aPassingCallsFi
     return outputFilename
 
 
-def filter_readSupport(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_readSupport(aPythonExecutable, anId, aChromId, anInputFilename, aTranscriptNameTag, aTranscriptCoordinateTag, aTranscriptStrandTag, anRnaIncludeSecondaryAlignmentsFlag, aMinMapQual, anOutputDir, aPrefix, anOutputFilename, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     script = os.path.join(aScriptsDir, "filterByReadSupport.py")
-    if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, anId + "_chr" + aChromId + ".vcf.gz")
-        #command = aPythonExecutable + " " + script + " " + anInputFilename + " | gzip > " + outputFilename
+    
+    if (anOutputFilename != None):
+        outputFilename = anOutputFilename
     else:
-        outputFilename = os.path.join(anOutputDir, anId + "_chr" + aChromId + ".vcf")
-        #command = aPythonExecutable + " " + script + " " + anInputFilename + " > " + outputFilename
-    command = aPythonExecutable + " " + script + " " + anInputFilename + " -o " + outputFilename
+        if (aGzipFlag):
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_chr" + aChromId + ".vcf.gz")
+            #command = aPythonExecutable + " " + script + " " + anInputFilename + " | gzip > " + outputFilename
+        else:
+            outputFilename = os.path.join(anOutputDir, aPrefix + "_chr" + aChromId + ".vcf")
+            #command = aPythonExecutable + " " + script + " " + anInputFilename + " > " + outputFilename
+        
+    if (aTranscriptNameTag != None and aTranscriptCoordinateTag != None):
+        command = aPythonExecutable + " " + script + " " + anInputFilename + " -o " + outputFilename + " --transcriptNameTag " + aTranscriptNameTag + " --transcriptCoordinateTag " + aTranscriptCoordinateTag + " --transcriptStrandTag " + aTranscriptStrandTag + " --minMapQual " + str(aMinMapQual) + " --log=INFO"
+    else:
+        command = aPythonExecutable + " " + script + " " + anInputFilename + " -o " + outputFilename + " --minMapQual " + str(aMinMapQual) + " --log=INFO"
+        
+    if (anRnaIncludeSecondaryAlignmentsFlag):
+        command += " --rnaIncludeSecondaryAlignments"
     
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -896,9 +919,11 @@ def main():
     #i_cmdLineParser.add_option("-j", "--joblistDir", dest="joblistDir", metavar="JOBLIST_DIR", help="the joblist directory")
     #i_cmdLineParser.add_option("-s", "--shebang", dest="shebang", metavar="SHEBANG", help="the shebang that should be added to the beginning of the joblist filename")
     i_cmdLineParser.add_option("-f", "--blatFastaFilename", dest="blatFastaFilename", metavar="FASTA_FILE", help="the fasta file that can be used during the BLAT filtering, default is the one specified in the VCF header")
+    i_cmdLineParser.add_option("-o", "--outputFilename", dest="outputFilename", metavar="OUTPUT_FILE", help="the name of the output file, otherwise a file will be automatically created in the outputDir with the following format:  patientId + '_chr' + chrom + '.vcf')")
     
     i_cmdLineParser.add_option("", "--rnaGeneBlckFile", dest="rnaGeneBlckFile", metavar="RNA_GENE_FILE", help="the RNA gene blacklist file")
     i_cmdLineParser.add_option("", "--rnaGeneFamilyBlckFile", dest="rnaGeneFamilyBlckFile", metavar="RNA_GENE_FAMILY_FILE", help="the RNA gene family blacklist file")
+    i_cmdLineParser.add_option("", "--prefix", dest="prefix", metavar="UNIQUE_FILE_PREFIX", default=None, help="a prefix to be added to all temp and output files to ensure they are unique, otherwise all files will be automatically created in the outputDir with the following format:  patientId + '_chr' + chrom + '.vcf'")
     
     # we do all filtering by default, so it's better for the user to specify --no flags to disable some filters
     # but internally, the code is nicer if we can avoid the double negatives, so store true by default and drop the "no" in the flag name
@@ -915,12 +940,17 @@ def main():
     i_cmdLineParser.add_option("", "--dnaOnly", action="store_true", default=False, dest="dnaOnly", help="include this argument if you only have DNA or filtering should only be done on the DNA")
     i_cmdLineParser.add_option("", "--rnaOnly", action="store_true", default=False, dest="rnaOnly", help="include this argument if the filtering should only be done on the RNA")
     i_cmdLineParser.add_option("", "--gzip", action="store_true", default=False, dest="gzip", help="include this argument if the final VCF should be compressed with gzip")
+    i_cmdLineParser.add_option("", "--transcriptNameTag", dest="transcriptNameTag", help="the INFO key where the original transcript name can be found")
+    i_cmdLineParser.add_option("", "--transcriptCoordinateTag", dest="transcriptCoordinateTag", help="the INFO key where the original transcript coordinate can be found")
+    i_cmdLineParser.add_option("", "--transcriptStrandTag", dest="transcriptStrandTag", help="the INFO key where the original transcript strand can be found")
+    i_cmdLineParser.add_option("", "--rnaIncludeSecondaryAlignments", action="store_true", default=False, dest="rnaIncludeSecondaryAlignments", help="if you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups")
+    i_cmdLineParser.add_option("", "--readSupportMinMapQual", type="int", default=int(10), dest="readSupportMinMapQual", metavar="READ_SUPPORT_MIN_MAP_QUAL", help="the minimum mapping quality for reads supporting the ALT, %default by default")
     
     i_cmdLineParser.add_option("-l", "--log", dest="logLevel", default="WARNING", metavar="LOG", help="the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL), %default by default")
     i_cmdLineParser.add_option("-g", "--logFilename", dest="logFilename", metavar="LOG_FILE", help="the name of the log file, STDOUT by default")
     
     # range(inclusiveFrom, exclusiveTo, by)
-    i_possibleArgLengths = range(5,50,1)
+    i_possibleArgLengths = range(5,56,1)
     i_argLength = len(sys.argv)
     
     # check if this is one of the possible correct commands
@@ -959,8 +989,12 @@ def main():
     i_gzip = i_cmdLineOptions.gzip
     i_snpEffGenome = i_cmdLineOptions.snpEffGenome
     i_snpEffCanonical = i_cmdLineOptions.canonical
+    i_rnaIncludeSecondaryAlignments = i_cmdLineOptions.rnaIncludeSecondaryAlignments
+    i_readSupportMinMapQual = i_cmdLineOptions.readSupportMinMapQual
     
-    # try to get any optional parameters with no defaults    
+    # try to get any optional parameters with no defaults 
+    i_prefix = i_id   
+    i_outputFilename = None
     i_blacklistDir = None
     i_targetDir = None
     i_dbSnpDir = None
@@ -974,6 +1008,9 @@ def main():
     i_snpEffDir = None
     i_rnaGeneBlckFilename = None
     i_rnaGeneFamilyBlckFilename = None
+    i_transcriptNameTag = None
+    i_transcriptCoordinateTag = None
+    i_transcriptStrandTag = None
     readFilenameList = [i_inputFilename]  
     writeFilenameList = [i_outputDir]
     dirList = [i_scriptsDir]
@@ -1003,6 +1040,9 @@ def main():
         dirList += [i_snpEffDir]
     #if (i_cmdLineOptions.shebang != None):
     #    i_shebang = str(i_cmdLineOptions.shebang)
+    if (i_cmdLineOptions.outputFilename != None):
+        i_outputFilename = str(i_cmdLineOptions.outputFilename)
+        writeFilenameList += [i_outputFilename]
     if (i_cmdLineOptions.logFilename != None):
         i_logFilename = str(i_cmdLineOptions.logFilename)
         writeFilenameList += [i_logFilename]
@@ -1015,7 +1055,14 @@ def main():
     if (i_cmdLineOptions.rnaGeneFamilyBlckFile != None):
         i_rnaGeneFamilyBlckFilename = str(i_cmdLineOptions.rnaGeneFamilyBlckFile)
         readFilenameList += [i_rnaGeneFamilyBlckFilename]
-        
+    if (i_cmdLineOptions.transcriptNameTag != None):
+        i_transcriptNameTag = i_cmdLineOptions.transcriptNameTag
+    if (i_cmdLineOptions.transcriptCoordinateTag != None):
+        i_transcriptCoordinateTag = i_cmdLineOptions.transcriptCoordinateTag
+    if (i_cmdLineOptions.transcriptStrandTag != None):
+        i_transcriptStrandTag = i_cmdLineOptions.transcriptStrandTag
+    if (i_cmdLineOptions.prefix != None):
+        i_prefix = i_cmdLineOptions.prefix    
     # assuming loglevel is bound to the string value obtained from the
     # command line argument. Convert to upper case to allow the user to
     # specify --log=DEBUG or --log=debug
@@ -1038,11 +1085,13 @@ def main():
         logging.debug("id=%s", i_id)
         logging.debug("chr=%s", i_chr)
         logging.debug("inputFilename=%s", i_inputFilename)
+        logging.debug("outputFilename=%s", i_outputFilename)
         logging.debug("outputDir=%s", i_outputDir)
         logging.debug("scriptsDir=%s", i_scriptsDir)
         logging.debug("logLevel=%s", i_logLevel)
         logging.debug("gzip=%s", i_gzip)
         logging.debug("logFile=%s", i_logFilename)
+        logging.debug("prefix=%s", i_prefix)
         logging.debug("blatfastaFile=%s", i_blatFastaFilename)
         logging.debug("rnaGeneBlckFilename=%s", i_rnaGeneBlckFilename)
         logging.debug("rnaGeneFamilyBlckFilename=%s", i_rnaGeneFamilyBlckFilename)
@@ -1068,6 +1117,11 @@ def main():
         logging.debug("pseudoGenesDir %s", i_pseudoGenesDir)
         logging.debug("cosmicDir %s", i_cosmicDir)
         logging.debug("joblistDir %s", i_joblistDir)
+        logging.debug("transcriptNameTag %s", i_transcriptNameTag)
+        logging.debug("transcriptCoordinateTag %s", i_transcriptCoordinateTag)
+        logging.debug("transcriptStrandTag %s", i_transcriptStrandTag)
+        logging.debug("rnaIncludeSecondaryAlignments=%s" % i_rnaIncludeSecondaryAlignments)
+        logging.debug("readSupportMinMapQual=%s" % i_readSupportMinMapQual)
      
     if (i_dnaOnlyFlag):
         i_rnaBlacklistFlag = False
@@ -1131,90 +1185,93 @@ def main():
     if (i_dnaOnlyFlag):
         # filter by blacklist
         if (i_blacklistFlag):
-            previousFilename = filter_blacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_blacklistDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = filter_blacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_blacklistDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
            
         # flag snp
         if (i_dbSnpFlag):
-            previousFilename = flag_dbSnp(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_dbSnpDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = flag_dbSnp(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_dbSnpDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # flag retro genes
         if (i_retroGenesFlag):                
-            previousFilename = flag_retroGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_retroGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = flag_retroGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_retroGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
     
         # flag pseudo genes
         if (i_pseudoGenesFlag):
-            previousFilename = flag_pseudoGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_pseudoGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = flag_pseudoGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_pseudoGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
     
         # flag cosmic
         if (i_cosmicFlag):                
-            previousFilename = flag_cosmic(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_cosmicDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = flag_cosmic(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_cosmicDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # filter targets
         if (i_targetsFlag):            
-            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # filter mpileup
-        previousFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, previousFilename, None, True, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+        previousFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, previousFilename, None, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
         
     else:        
         # filter by blacklist
         if (i_blacklistFlag):    
-            previousFilename = filter_blacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_blacklistDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = filter_blacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_blacklistDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
             
         # filter by dbsnp
         if (i_dbSnpFlag):
-            previousFilename = flag_dbSnp(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_dbSnpDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = flag_dbSnp(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_dbSnpDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
 
         # flag retro genes
         if (i_retroGenesFlag):
-            previousFilename = flag_retroGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_retroGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = flag_retroGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_retroGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
     
         # flag pseudo genes
         if (i_pseudoGenesFlag):
-            previousFilename = flag_pseudoGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_pseudoGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = flag_pseudoGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_pseudoGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # flag cosmic
         if (i_cosmicFlag):
-            previousFilename = flag_cosmic(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_cosmicDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = flag_cosmic(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_cosmicDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # filter targets
         if (i_targetsFlag):
-            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
     
         # filter RNA mpileup
-        rnaFilename = filter_mpileupSupport_rna(i_pythonExecutable, i_id, i_chr, previousFilename, True, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+        # the output file contains all filters for all possible mod types and no final mod type is chosen
+        rnaFilename = filter_mpileupSupport_rna(i_pythonExecutable, i_id, i_chr, previousFilename, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(rnaFilename)
         
         # filter DNA mpileup
-        dnaFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, previousFilename, None, True, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+        # the output file contains all filters for all possible mod types and no final mod type is chosen
+        dnaFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, previousFilename, None, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(dnaFilename)
         
         # compare the rna and dna
         # calls that pass in both the DNA and RNA will be in the overlaps file
         # calls that don't pass in the DNA but pass in the RNA are in the non-overlaps file - these are the RNA Rescue and RNA Editing calls
-        (overlapFilename, nonoverlapFilename) = radia_compare(i_pythonExecutable, i_id, i_chr, rnaFilename, dnaFilename, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+        (overlapFilename, nonoverlapFilename) = radia_compare(i_pythonExecutable, i_id, i_chr, rnaFilename, dnaFilename, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(overlapFilename)
         rmTmpFilesList.append(nonoverlapFilename)
         
         # filter DNA mpileup
-        previousFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, nonoverlapFilename, dnaFilename, False, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+        # filter the RNA Rescue and RNA Editing calls based on the DNA to get rid of any possible germline calls
+        previousFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, nonoverlapFilename, dnaFilename, False, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
         
-        # filter out germlines
-        previousFilename = filter_rnaOnly(i_id, i_chr, previousFilename, i_outputDir, i_joblistFileHandler, i_gzip, i_debug)
+        # filter out possible germline calls
+        previousFilename = filter_rnaOnly(i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
         
         # if we have something to blat
@@ -1223,30 +1280,36 @@ def main():
             # the blat input is needed for the blat and pbias filters
             if (i_blatFlag or i_pbiasFlag):
                 # create blat input
-                blatInputFilename = filter_createBlatInput(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_debug)
+                blatInputFilename = filter_createBlatInput(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, i_rnaIncludeSecondaryAlignments, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_debug)
                 rmTmpFilesList.append(blatInputFilename)
             
             # filter by BLAT
             if (i_blatFlag):    
-                (blatOutputFilename, previousFilename) = filter_blat(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, blatInputFilename, i_blatFastaFilename, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+                (blatOutputFilename, previousFilename) = filter_blat(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, blatInputFilename, i_blatFastaFilename, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
                 rmTmpFilesList.append(blatOutputFilename)
                 rmTmpFilesList.append(previousFilename)
             
             # the blat input is needed
             if (i_pbiasFlag and os.path.isfile(previousFilename) and os.stat(previousFilename).st_size > 20):
-                # filter by positional bias
-                previousFilename = filter_positionalBias(i_pythonExecutable, i_id, i_chr, previousFilename, blatInputFilename, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+                # if we filtered via blat, then keep the previous filters so that the blat filter gets passed on
+                if (i_blatFlag):
+                    # filter by positional bias
+                    previousFilename = filter_positionalBias(i_pythonExecutable, i_id, i_chr, previousFilename, blatInputFilename, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+                # if we didn't filter via blat, then don't keep the previous filters
+                else:
+                    # filter by positional bias
+                    previousFilename = filter_positionalBias(i_pythonExecutable, i_id, i_chr, previousFilename, blatInputFilename, False, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
                 rmTmpFilesList.append(previousFilename)
-        
+                
         # if RNA only, just merge the RNA Confirmation and RNA Rescue calls
         if (i_rnaOnlyFlag):
             # the dnaFilename and --dnaHeaderOnly=True means that we only extract the header from the dnaFilename and ignore the rest
-            previousFilename = merge_rnaAndDna(i_pythonExecutable, i_id, i_chr, dnaFilename, overlapFilename, previousFilename, True, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = merge_rnaAndDna(i_pythonExecutable, i_id, i_chr, dnaFilename, rnaFilename, overlapFilename, previousFilename, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         else:
             # merge RNA and DNA
             # the dnaFilename and --dnaHeaderOnly=False means that we merge the header and the results in the dnaFilename
-            previousFilename = merge_rnaAndDna(i_pythonExecutable, i_id, i_chr, dnaFilename, overlapFilename, previousFilename, False, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = merge_rnaAndDna(i_pythonExecutable, i_id, i_chr, dnaFilename, rnaFilename, overlapFilename, previousFilename, False, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
     if (i_snpEffFlag):
@@ -1254,23 +1317,23 @@ def main():
         preSnpEffFilename = previousFilename
         
         # extracting passing calls
-        previousFilename = extract_passing(i_id, i_chr, previousFilename, i_outputDir, i_joblistFileHandler, i_gzip, i_debug)
+        previousFilename = extract_passing(i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
       
-        previousFilename = filter_runSnpEff(i_id, i_chr, previousFilename, i_snpEffDir, i_snpEffGenome, i_snpEffCanonical, i_outputDir, i_joblistFileHandler, i_gzip, i_debug)
+        previousFilename = filter_runSnpEff(i_id, i_chr, previousFilename, i_snpEffDir, i_snpEffGenome, i_snpEffCanonical, i_outputDir, i_prefix, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
     
         if (not i_dnaOnlyFlag and i_rnaBlacklistFlag):
             # filter RNA by geneNames/Families
-            previousFilename = filter_rnaBlacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_rnaGeneBlckFilename, i_rnaGeneFamilyBlckFilename, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = filter_rnaBlacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_rnaGeneBlckFilename, i_rnaGeneFamilyBlckFilename, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
     
         # merge passing with snpEff back with originals 
-        previousFilename = merge_passingAndOriginals(i_pythonExecutable, i_id, i_chr, previousFilename, preSnpEffFilename, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+        previousFilename = merge_passingAndOriginals(i_pythonExecutable, i_id, i_chr, previousFilename, preSnpEffFilename, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
                     
     # everything gets run through the read support filter
-    previousFilename = filter_readSupport(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+    previousFilename = filter_readSupport(i_pythonExecutable, i_id, i_chr, previousFilename, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, i_rnaIncludeSecondaryAlignments, i_readSupportMinMapQual, i_outputDir, i_prefix, i_outputFilename, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
     
     # if we aren't debugging, then remove all the tmp files
     if (not i_debug):
