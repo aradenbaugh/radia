@@ -15,7 +15,7 @@ import gzip
 
 '''
 '    RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.
-'    Copyright (C) 2010-2015  Amie Radenbaugh
+'    Copyright (C) 2010-2018  Amie Radenbaugh
 '
 '    This program is free software: you can redistribute it and/or modify
 '    it under the terms of the GNU Affero General Public License as
@@ -30,7 +30,6 @@ import gzip
 '    You should have received a copy of the GNU Affero General Public License
 '    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
 
 # this regular expression is used to remove insertions and deletions from raw reads
 # a read could look like:  "T$TT+3AGGGT+2AG+2AG.-2AGGG..-1A"

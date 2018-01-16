@@ -180,7 +180,7 @@ LICENSE
 =========
 
 RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.
-Copyright (C) 2010-2015  Amie Radenbaugh
+Copyright (C) 2010-2018  Amie Radenbaugh
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
