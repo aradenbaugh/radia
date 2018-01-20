@@ -36,7 +36,7 @@
 "select chrom,chromStart,chromEnd,name from snp150Common where chrom = 'chrM'" > /path/to/radia/data/hg38/snp150/chrM_unsorted.bed
 "select chrom,chromStart,chromEnd,name from snp150Common where chrom = 'chrM'" > /path/to/radia/data/hg38/snp150/chrMT_unsorted.bed
 
-# 2) delete the header line consisting of chrom chromStart chromEnd name from each file
+# 2) delete the header line consisting of 'chrom chromStart chromEnd name' from each file
 
 # 3) sort and gzip the files with commands like these:
 
