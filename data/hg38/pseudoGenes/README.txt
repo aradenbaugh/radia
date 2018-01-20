@@ -31,7 +31,7 @@
 "select chrom,txStart,txEnd from wgEncodeGencodePseudoGeneV27 where chrom = 'chrM'" > /path/to/radia/data/hg38/pseudoGenes/chrM_unsorted.bed
 "select chrom,txStart,txEnd from wgEncodeGencodePseudoGeneV27 where chrom = 'chrM'" > /path/to/radia/data/hg38/pseudoGenes/chrMT_unsorted.bed
 
-# 2) delete the header line consisting of 'chrom txStart txEnd name' from each file
+# 2) delete the header line consisting of 'chrom txStart txEnd' from each file
 
 # 3) sort and gzip the files with commands like these:
 
