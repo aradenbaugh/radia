@@ -145,7 +145,7 @@ Many of the filters rely on data that is provided in the radia/data/ directory. 
 dependencies are on the pysam API and external programs such as BLAT and SnpEff.
 
 Here is an example filtering command:<br>
-python filterRadia.py patientId 22 /radia/raw/patientId_chr22.vcf /radia/filtered/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase1/ -d /radiaDir/data/hg19/snp135/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gaf/2_1/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
+python filterRadia.py patientId 22 /radia/raw/patientId_chr22.vcf /radia/filtered/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase3/ -d /radiaDir/data/hg19/snp150/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gencode/basic/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
 
 Some default parameters to watch out for:<br>
 - The default SnpEff genome is set to "GRCh37.69".<br>
@@ -154,7 +154,7 @@ can overwrite it with the -f parameter.  We recommend that you use a fasta file 
 the chrUn_gl000 contigs, chr_gl000_random contigs and the hap contigs (e.g. chr6_apd_hap1, 
 chr6_cox_hap2, etc).  Often times, the fasta files that are used during the alignment process of
 the bams exclude these contigs.<br>
-- By default, the calls are filtered by the GAF 2.1 target regions.  If you don't want to filter
+- By default, the calls are filtered by the GENCODE basic gene regions.  If you don't want to filter
 by target regions, then use the --noTargets flag.<br>
 
 For the full list of optional parameters, type:<br>
