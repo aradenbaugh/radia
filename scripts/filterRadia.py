@@ -914,7 +914,7 @@ def main():
     i_cmdLineParser.add_option("-p", "--pseudoGenesDir", dest="pseudoGenesDir", metavar="PSEUDO_DIR", help="the path to the pseudogenes directory")
     i_cmdLineParser.add_option("-c", "--cosmicDir", dest="cosmicDir", metavar="COSMIC_DIR", help="the path to the cosmic directory")
     i_cmdLineParser.add_option("-s", "--snpEffDir", dest="snpEffDir", metavar="SNP_EFF_DIR", help="the path to the snpEff directory")
-    i_cmdLineParser.add_option("-e", "--snpEffGenome", dest="snpEffGenome", default="GRCh37.69", metavar="SNP_EFF_GENOME", help="the snpEff Genome, %default by default")
+    i_cmdLineParser.add_option("-e", "--snpEffGenome", dest="snpEffGenome", default="GRCh37.75", metavar="SNP_EFF_GENOME", help="the snpEff Genome, %default by default")
     i_cmdLineParser.add_option("", "--canonical", action="store_true", default=False, dest="canonical", metavar="CANONICAL", help="include this argument if only the canonical transcripts from snpEff should be used, %default by default")
     #i_cmdLineParser.add_option("-j", "--joblistDir", dest="joblistDir", metavar="JOBLIST_DIR", help="the joblist directory")
     #i_cmdLineParser.add_option("-s", "--shebang", dest="shebang", metavar="SHEBANG", help="the shebang that should be added to the beginning of the joblist filename")

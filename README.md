@@ -29,9 +29,9 @@ PREREQUISITES
 The RADIA code is written and compiled in python.  In order to run the commands, 
 you'll need python (version 2.7).
 
-2) samtools (version 0.1.18)<br>
-RADIA uses samtools (version 0.1.18 or higher) to examine pileups of reads across
-each sample in parallel.  You must install samtools prior to running RADIA.
+2) samtools (tested on version 0.1.18 and 0.1.19)<br>
+RADIA uses samtools to examine pileups of reads across each sample in parallel.  
+You must install samtools prior to running RADIA.
 
 3) pysam API (version 0.8.1 and higher)<br>
 RADIA uses the pysam API during the filtering process.
@@ -39,7 +39,7 @@ RADIA uses the pysam API during the filtering process.
 4) BLAT<br>
 RADIA uses BLAT to check the mapping of reads for all Triple BAM calls.
 
-5) SnpEff (version 3.3) <br>
+5) SnpEff (tested on version 3.3 and 4.3) <br>
 RADIA uses SnpEff to annotate passing variants and to filter out calls from the 
 Triple BAM method that land in genes with high sequence similarity.
 
@@ -148,7 +148,7 @@ Here is an example filtering command:<br>
 python filterRadia.py patientId 22 /radia/raw/patientId_chr22.vcf /radia/filtered/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase3/ -d /radiaDir/data/hg19/snp150/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gencode/basic/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
 
 Some default parameters to watch out for:<br>
-- The default SnpEff genome is set to "GRCh37.69".<br>
+- The default SnpEff genome is set to "GRCh37.75".<br>
 - BLAT FASTA filename:  by default the fasta file specified in the BAM header will be used.  You
 can overwrite it with the -f parameter.  We recommend that you use a fasta file that includes
 the chrUn_gl000 contigs, chr_gl000_random contigs and the hap contigs (e.g. chr6_apd_hap1, 
