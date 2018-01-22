@@ -1083,47 +1083,6 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
                         else:
                             setBelowMinAltBasesFlag = True
                      
-                    '''            
-                    # check for LOH's
-                    if ("GERM" in anInfoDict["MT"]):
-                        for base in aPreviousUniqueBases:
-                            
-                            # if we had enough previous germline bases, and they are now below the minimum
-                            if ((aPreviousBaseCounts[base] >= aMinAltNumBases) and (baseCountsDict[base] < aMinAltNumBases)):
-                                aShouldOutput = True
-                                aLossModCount += 1
-                                
-                                if (anIsDebug):
-                                    logging.debug("Loss found!  Base '%s' from the parent DNA set no longer exists in the child reads %s", base, convertedReads)
-                                
-                                # remove the previous germline SS
-                                if ("1" in anInfoDict["SS"]):
-                                    germIndex = anInfoDict["SS"].index("1")
-                                    anInfoDict["SS"].pop(germIndex)
-                                
-                                # set the SS to LOH
-                                if (aLossModType == "LOH"):
-                                    anInfoDict["SS"].append("3")
-                                else:
-                                    anInfoDict["SS"].append("4")
-                            
-                                # there could be more than one germline, so just remove them all
-                                while ("GERM" in anInfoDict["MT"]):
-                                    # remove the previous germline mutations       
-                                    germIndex = anInfoDict["MT"].index("GERM")
-                                    anInfoDict["MT"].pop(germIndex)
-                                    anInfoDict["MC"].pop(germIndex)
-                                    
-                                # add the LOH
-                                anInfoDict["MT"].append(aLossModType)
-                                previousBasesAboveCutoff = ""
-                                for previousBase in aPreviousUniqueBases:
-                                    if (aPreviousBaseCounts[previousBase] >= aMinAltNumBases):
-                                        previousBasesAboveCutoff += previousBase
-                                
-                                # output the previous bases and the current unique bases
-                                anInfoDict["MC"].append(previousBasesAboveCutoff + ">" + uniqueBases)
-                    '''  
             # add the unique reads for the next step
             aDnaSet = aDnaSet.union(set(convertedReads))
             
