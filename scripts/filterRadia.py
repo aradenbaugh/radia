@@ -499,26 +499,20 @@ def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobL
     return outputFilename
 
 
-def filter_runSnpEff(anId, aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome, aSnpEffCanonical, anOutputDir, aPrefix, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_runSnpEff(anId, aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome, aSnpEffCanonical, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug):
 
     snpEffJar = os.path.join(aSnpEffDir, "snpEff.jar")
     snpEffConfig = os.path.join(aSnpEffDir, "snpEff.config")
     
-    # the output from snpEff is not gzipped
-    if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, aPrefix + "_snpEff_chr" + aChromId + ".vcf.gz")
-        if (aSnpEffCanonical):
-            command = "zcat " + anInputFilename + " | java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -canon -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " - | gzip > " + outputFilename
-        else:
-            command = "zcat " + anInputFilename + " | java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " - | gzip > " + outputFilename
+    # by default, snpEff does not gzip the output
+    # if we pipe the snpEff output to gzip, the return code and error messages from snpEff
+    # get overwritten by gzip, and we no longer detect when there's a problem with snpEff
+    outputFilename = os.path.join(anOutputDir, aPrefix + "_snpEff_chr" + aChromId + ".vcf")
+    if (aSnpEffCanonical):
+        command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -canon -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
     else:
-        outputFilename = os.path.join(anOutputDir, aPrefix + "_snpEff_chr" + aChromId + ".vcf")
-        if (aSnpEffCanonical):
-            command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -canon -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
-        else:
-            command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
-        
-        
+        command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
+            
     if (anIsDebug):
         logging.debug("Input: %s", anInputFilename)
         logging.debug("SnpEff: %s", snpEffJar)
@@ -652,12 +646,12 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
                 logging.critical("The FASTA file specified in the header does not exist: %s", aFastaFile, ". Specify a FASTA file for the RNA using the -f option.")
                 sys.exit(1) 
         
+    blatOutputFilename = filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug)
+        
     if (aGzipFlag):
         outputFilename = os.path.join(anOutputDir, aPrefix + "_blatFiltered_chr" + aChromId + ".vcf.gz")
     else:
         outputFilename = os.path.join(anOutputDir, aPrefix + "_blatFiltered_chr" + aChromId + ".vcf")
-
-    blatOutputFilename = filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug)
     
     script = os.path.join(aScriptsDir, "filterByBlat.py")
     command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " " + blatOutputFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
