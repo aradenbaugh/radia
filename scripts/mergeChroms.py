@@ -70,8 +70,13 @@ def get_vcf_data(anId, anInputDir, anIsDebug):
     coordinateDict["numbers"] = dict()
     coordinateDict["letters"] = dict()
     
+    # if the input directory doesn't end with a forward slash,
+    # then add one so that glob.glob will work
+    if (not anInputDir.endswith("/")):
+        anInputDir = anInputDir + "/"
+    
     # for each vcf file
-    # they might be gzipped, they might not
+    # they might be gzipped, they might not    
     for vcfFile in (glob.glob(anInputDir + anId + "_chr*.vcf*")):
         # open the file
         vcfFileHandler = get_read_fileHandler(vcfFile)
