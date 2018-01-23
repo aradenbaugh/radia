@@ -1061,16 +1061,19 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
                                 
                             # if this is the first modification found, then record it in the "SS" field
                             if (len(anInfoDict["SS"]) == 0):
+                                # germline
                                 if (aGainModType == "GERM"):
                                     anInfoDict["SS"].append("1")
+                                # somatic
                                 elif (aGainModType == "SOM"):
                                     anInfoDict["SS"].append("2")
                                     anInfoDict["SOMATIC"].append("True")
+                                # rna-editing
                                 elif (aGainModType.find("EDIT") != -1):
-                                    anInfoDict["SS"].append("5")
-                                # other
-                                else:
                                     anInfoDict["SS"].append("4")
+                                # unknown
+                                else:
+                                    anInfoDict["SS"].append("5")
                             
                             # it didn't match anything so far
                             for dna in aDnaSet:
@@ -1202,7 +1205,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this position across all samples\">\n"
     vcfHeader += "##INFO=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position across all samples\">\n"
     vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Float,Description=\"Overall average base quality\">\n"
-    #vcfHeader += "##INFO=<ID=MQ,Number=1,Type=Float,Description=\"Overall average mapping quality\">\n"
+    #vcfHeader += "##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Overall average mapping quality\">\n"
+    #vcfHeader += "##INFO=<ID=MQ0,Number=1,Type=Integer,Description=\"Total Mapping Quality Zero Reads\">\n"
     vcfHeader += "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Overall strand bias\">\n"
     vcfHeader += "##INFO=<ID=FA,Number=1,Type=Float,Description=\"Overall fraction of reads supporting ALT\">\n"
     vcfHeader += "##INFO=<ID=MT,Number=.,Type=String,Description=\"Modification types at this position\">\n"
@@ -1210,11 +1214,10 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=MF,Number=.,Type=String,Description=\"Modification filters applied to the filter types listed in MFT\">\n"
     vcfHeader += "##INFO=<ID=MFT,Number=.,Type=String,Description=\"Modification filter types at this position with format origin_modType_modChange\">\n"
     vcfHeader += "##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description=\"Indicates if record is a somatic mutation\">\n"
-    vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n" 
-    #vcfHeader += "##INFO=<ID=DEL,Number=1,Type=Integer,Description=\"Number of deletions in all samples at this position\">\n"
-    #vcfHeader += "##INFO=<ID=INS,Number=1,Type=Integer,Description=\"Number of insertions in all samples at this position\">\n"
-    #vcfHeader += "##INFO=<ID=VC,Number=1,Type=String,Description=\"Somatic variant classification (Intergenic, DEL, INS)\">\n"
-
+    vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n"
+    #vcfHeader += "##INFO=<ID=DEL,Number=1,Type=Integer,Description=\"Number of small deletions at this location in all samples\">\n"
+    #vcfHeader += "##INFO=<ID=INS,Number=1,Type=Integer,Description=\"Number of small insertions at this location in all samples\">\n"
+    
     # get the filter fields
     vcfHeader += "##FILTER=<ID=noref,Description=\"Position skipped, reference=N\">\n"
     vcfHeader += "##FILTER=<ID=diffref,Description=\"Position skipped, different references in files\">\n"
@@ -1228,12 +1231,15 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##FORMAT=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels\">\n"
     vcfHeader += "##FORMAT=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this position\">\n"
     vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position\">\n"
-    vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Depth of reads supporting alleles\">\n"
-    vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting alleles\">\n"
-    vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Float,Description=\"Avg base quality for reads supporting alleles\">\n"
-    #vcfHeader += "##FORMAT=<ID=MQ,Number=.,Type=Float,Description=\"Avg mapping quality for reads supporting alleles\">\n"
-    vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting alleles\">\n"
-    vcfHeader += "##FORMAT=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal, 0=wildtype,1=germline,2=somatic,3=LOH,4=unknown,5=rnaEditing\">\n"
+    vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Depth of reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Float,Description=\"Avg base quality for reads supporting allele (in order specified by GT)\">\n"
+    #vcfHeader += "##FORMAT=<ID=MQ,Number=.,Type=Integer,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
+    #vcfHeader += "##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
+    #vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
+    #vcfHeader += "##FORMAT=<ID=MMQS,Number=.,Type=Float,Description=\"Average mismatch quality sum of reads harboring allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal, 0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
     vcfHeader += "##FORMAT=<ID=SSC,Number=1,Type=Integer,Description=\"Somatic score between 0 and 255\">\n"
     
     vcfHeader += "#" + "\t".join(columnHeaders)

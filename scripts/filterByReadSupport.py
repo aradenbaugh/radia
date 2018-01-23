@@ -693,7 +693,7 @@ class Club():
                 fasta = self.fastafile
                 if (self.tumorchrprefix == "True"):
                     aChrom = "chr" + aChrom
-        elif (mutSS == "5"):
+        elif (mutSS == "4"):
             if (mutType == "NOR_EDIT"):
                 bamfile = self.rnanormalbamfile
                 fasta = self.rnanormalfastafile
@@ -871,8 +871,8 @@ class Club():
             if (aBamOrigin == "DNA" and not alignedread.is_proper_pair):
                 improperPairs += 1
                 perfect = False
-            # RNA editing events with mutSS=5 occur in clusters, so only apply this filter when mutSS!=5
-            if mutSS != "5" and m >= aParamsDict["maxMutsPerRead"]:
+            # RNA editing events with mutSS=4 occur in clusters, so only apply this filter when mutSS!=4
+            if mutSS != "4" and m >= aParamsDict["maxMutsPerRead"]:
                 maxMuts += 1
                 perfect = False
             
@@ -1160,7 +1160,7 @@ if __name__ == '__main__':
             curr_data = currVCF.make_data(dataAsList)
             
             # if this is a somatic mutation or an RNA editing event
-            if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "Somatic" or curr_data.info["SS"] == "2" or curr_data.info["SS"] == "5"):
+            if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "Somatic" or curr_data.info["SS"] == "2" or curr_data.info["SS"] == "4"):
     
                 # Pebbles doesn't have the ORIGIN flag
                 if (curr_data.info["ORIGIN"] == None):

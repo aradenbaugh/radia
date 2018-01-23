@@ -441,18 +441,22 @@ def get_final_mod_type(aRefPlusAltList, anInfoDict, aDNANormalAFs, anRNANormalAF
     # set the final call
     anInfoDict["SS"] = []
     anInfoDict["SOMATIC"] = []
+    # germline
     if (finalModType == "GERM"):
         anInfoDict["SS"].append("1")
+    # somatic
     elif (finalModType == "SOM"):
         anInfoDict["SS"].append("2")
         anInfoDict["SOMATIC"].append("True")
+    # rna-editing
     elif (finalModType.find("EDIT") != -1):
-        anInfoDict["SS"].append("5")
+        anInfoDict["SS"].append("4")
+    # unknown
     elif (finalModType.find("RNA_NOR_VAR") != -1 or finalModType.find("RNA_TUM_VAR") != 1):
-        anInfoDict["SS"].append("4")
-    # other
+        anInfoDict["SS"].append("5")
+    # unknown
     else:
-        anInfoDict["SS"].append("4")
+        anInfoDict["SS"].append("5")
     
     anInfoDict["MT"] = finalModTypeList
     anInfoDict["MC"] = finalModChangeList
