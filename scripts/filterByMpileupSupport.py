@@ -191,7 +191,7 @@ def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aGTMinDepth, 
     return genotypes
 
 
-def pre_filter_mod_types(aLine, aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANormalDepths, anRNANormalDepths, aDNATumorDepths, anRNATumorDepths, aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct):
+def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANormalDepths, anRNANormalDepths, aDNATumorDepths, anRNATumorDepths, aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct):
     
     aModTypeList = anInfoDict["MT"]
     aModChangeList = anInfoDict["MC"]
@@ -397,7 +397,7 @@ def pre_filter_mod_types(aLine, aRefPlusAltList, anAllFiltersSet, anInfoDict, aD
         return (anInfoDict, anAllFiltersSet)
 
 
-def get_final_mod_type(aRefPlusAltList, anInfoDict, aDNANormalAFs, anRNANormalAFs, aDNATumorAFs, anRNATumorAFs):
+def get_final_mod_type(anInfoDict, anIsDebug):
     
     aModTypeList = anInfoDict["MT"]
     aModChangeList = anInfoDict["MC"]
@@ -683,20 +683,20 @@ def filter_by_base_quality(aStringOfReads, aStringOfQualScores, aMinBaseQualityS
     return (pileups, qualScores, len(pileups), numBasesDict, sumBaseQualsDict, numPlusStrandDict)               
 
     
-def format_bam_output(aChrom, aRefList, anAltList, anOverallAltCountsDict, aStringReads, aStringQualScores, aNumBases, aBaseCountsDict, aQualitySumsOfBasesDict, aPlusStrandCountsDict, anIsDebug):
+def format_bam_output(aRefList, anAltList, anOverallAltCountsDict, aNumBases, aBaseCountsDict, aQualitySumsOfBasesDict, aPlusStrandCountsDict, anIsDebug):
     '''
     ' This function converts information from a .bam mpileup coordinate into a format that can be output to a VCF formatted file.
     ' This function calculates the average overall base quality score, strand bias, and fraction of reads supporting the alternative.
     ' It also calculates the allele specific depth, average base quality score, strand bias, and fraction of reads supporting the alternative.
     ' The format for the output in VCF is:  GT:DP:INDEL:START:STOP:AD:AF:BQ:SB.
     '
-    ' aDnaSet:  A set of dna found at this position
-    ' anAltList: A list of alternative alleles found thus far
-    ' aStringReads:  A string of reads that have been converted from raw format and filtered
-    ' aStringQualScores: A string of quality scores for the reads
-    ' aBaseCountsDict:  A dictionary with the number of bases of each type
-    ' aQualitySumsOfBasesDict:  A dictionary with the sum of all quality scores for each type of base
-    ' aPlusStrandCountsDict:  The number of bases that occurred on the plus strand
+    ' aRefList:                 A list of reference alleles
+    ' anAltList:                A list of alternative alleles found thus far
+    ' anOverallAltCountsDict:   A dictionary of overall counts for each alternative allele 
+    ' aNumBases:                The total number of bases
+    ' aBaseCountsDict:          A dictionary with the number of bases for each allele
+    ' aQualitySumsOfBasesDict:  A dictionary with the sum of all quality scores for each allele
+    ' aPlusStrandCountsDict:    The number of bases that occurred on the plus strand
     '''
     
     # initialize the return variables
@@ -826,8 +826,8 @@ def fix_base_qualities(aChrom, aStopCoordinate, aVCFGeneratorPrefix, aVCFGenerat
             if (anIsDebug):
                 logging.debug("After filter_by_base_quality(): %s %s %s %s %s %s %s %s %s %s %s %s", aChrom, aStopCoordinate, reference, numBases, convertedReads, convertedBaseQuals, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict)
             
-            # format the bam output         
-            (depths, readSupports, baseQuals, strandBias, anOverallAltCountsDict, sumAltReadSupport) = format_bam_output(aChrom, aRefList, anAltList, anOverallAltCountsDict, convertedReads, convertedBaseQuals, numBases, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict, anIsDebug)
+            # format the bam output
+            (depths, readSupports, baseQuals, strandBias, anOverallAltCountsDict, sumAltReadSupport) = format_bam_output(aRefList, anAltList, anOverallAltCountsDict, numBases, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict, anIsDebug)
             
             if (anIsDebug):
                 logging.debug("After format_bam_output(): %s %s %s %s %s %s %s %s %s %s", aChrom, aStopCoordinate, reference, numBases, depths, readSupports, baseQuals, strandBias, anOverallAltCountsDict, sumAltReadSupport)
@@ -931,33 +931,28 @@ def get_sample_columns(aFilename, anIsDebug):
     return
 
 
-def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutputFilename, aFilterUsingRNAFlag, anAddOriginFlag, aMinAltAvgBaseQual, aStatsDir, aCmdLineParams, aDnaNormParamsDict, aDnaTumParamsDict, anRnaNormParamsDict, anRnaTumParamsDict, aGTMinDepth, aGTMinPct, aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct, anIsDebug):
+def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOutputFilename, aFilterUsingRNAFlag, anAddOriginFlag, aMinAltAvgBaseQual, aCmdLineParams, aDnaNormParamsDict, aDnaTumParamsDict, anRnaNormParamsDict, anRnaTumParamsDict, aGTMinDepth, aGTMinPct, aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct, anIsDebug):
     '''
     ' This function filters based on the mpileup read support.
     '
-    ' aTCGAId: The TCGA Id for this sample
-    ' aChrom: The chromosome being filtered
-    ' aVCFFilename: The filename to be filtered
-    ' aHeaderFilename: The filename with full header info
-    ' anOutputFilename: The output filename that will include the filters
-    ' aFilterUsingRNAFlag: If the calls should be filtered by the RNA as well
-    ' anAddOriginFlag: If the origin (DNA or RNA) of the call should be added to the INFO tag
-    ' aMinAltAvgBaseQual: The minimum alternative allele average base quality
-    ' aStatsDir: A directory to output stats on the calls
-    ' aCmdLineParams: All the parameters specified by the user
-    ' aDnaNormParamsDict: The parameters for the normal DNA
-    ' aDnaTumParamsDict: The parameters for the tumor DNA
-    ' anRnaNormParamsDict: The parameters for the normal RNA
-    ' anRnaTumParamsDict: The parameters for the tumor RNA
-    ' aGTMinDepth: The minimum depth needed for the genotype
-    ' aGTMinPct: The minimum percent needed for the genotype
-    ' aModMinDepth: The minimum depth needed to make a call
-    ' aModMinPct: The minimum percent needed to make a call
-    ' anLohMaxDepth: 
-    ' anLohMaxPct:
-    ' aMaxAltDepth:
-    ' aMaxAltPct:
-    ' anIsDebug: A flag for outputting debug messages to STDERR
+    ' anId:                    The Id for this sample
+    ' aChrom:                  The chromosome being filtered
+    ' aVCFFilename:            The filename to be filtered
+    ' aHeaderFilename:         The filename with full header info
+    ' anOutputFilename:        The output filename that will include the filters
+    ' aFilterUsingRNAFlag:     If the calls should be filtered by the RNA as well
+    ' anAddOriginFlag:         If the origin (DNA or RNA) of the call should be added to the INFO tag
+    ' aMinAltAvgBaseQual:      The minimum alternative allele average base quality
+    ' aCmdLineParams:          All the parameters specified by the user
+    ' aDnaNormParamsDict:      The parameters for the normal DNA
+    ' aDnaTumParamsDict:       The parameters for the tumor DNA
+    ' anRnaNormParamsDict:     The parameters for the normal RNA
+    ' anRnaTumParamsDict:      The parameters for the tumor RNA
+    ' aGTMinDepth:             The minimum depth needed for the genotype
+    ' aGTMinPct:               The minimum percent needed for the genotype
+    ' aModMinDepth:            The minimum depth needed to make a call
+    ' aModMinPct:              The minimum percent needed to make a call
+    ' anIsDebug:               A flag for outputting debug messages to STDERR
     '''
     
     # initialize some variables
@@ -1285,7 +1280,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
             allFiltersSet = set()
             
             # get rid of bad mod types that don't meet the minimum requirements
-            (event_infoDict, allFiltersSet) = pre_filter_mod_types(line, refPlusAltList, allFiltersSet, event_infoDict, map(int, event_dnaNormalDict["AD"]), map(int, event_rnaNormalDict["AD"]), map(int, event_dnaTumorDict["AD"]), map(int, event_rnaTumorDict["AD"]), aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct)
+            (event_infoDict, allFiltersSet) = pre_filter_mod_types(refPlusAltList, allFiltersSet, event_infoDict, map(int, event_dnaNormalDict["AD"]), map(int, event_rnaNormalDict["AD"]), map(int, event_dnaTumorDict["AD"]), map(int, event_rnaTumorDict["AD"]), aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct)
             logging.debug("modTypes=%s, modChanges=%s", list(event_infoDict["MT"]), list(event_infoDict["MC"]))
             
             # make copies of the lists to manipulate
@@ -1671,7 +1666,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                 event_infoDict["MC"] = modChangesList
                 
                 # if an event passed, get the final mod type
-                event_infoDict = get_final_mod_type(refPlusAltList, event_infoDict, map(float, event_dnaNormalDict["AF"]), map(float, event_rnaNormalDict["AF"]), map(float, event_dnaTumorDict["AF"]), map(float, event_rnaTumorDict["AF"]))              
+                event_infoDict = get_final_mod_type(event_infoDict, anIsDebug)              
             
             # otherwise add the appropriate filters
             else:
@@ -1900,8 +1895,8 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
             else:
                 print >> sys.stdout, "\t".join(vcfOutputList)
                 
-    logging.info("Chrom %s and Id %s: %s events passed out of %s total events", aChrom, aTCGAId, includedEvents, totalEvents)
-    logging.info("\t".join([aTCGAId, aChrom, str(somEventsPassing), str(somEventsWithTumorRna), str(somEventsWithTumorAltRna)]))
+    logging.info("Chrom %s and Id %s: %s events passed out of %s total events", aChrom, anId, includedEvents, totalEvents)
+    logging.info("\t".join([anId, aChrom, str(somEventsPassing), str(somEventsWithTumorRna), str(somEventsWithTumorAltRna)]))
     
     # close the files 
     if (anOutputFilename != None):
@@ -2145,7 +2140,7 @@ def main():
     if (not radiaUtil.check_for_argv_errors(i_dirList, i_readFilenameList, i_writeFilenameList)):
         sys.exit(1)
     
-    extract_read_support(i_id, i_chrom, i_vcfFilename, i_headerFilename, i_outputFilename, i_filterUsingRNA, i_addOrigin, i_minAltAvgBaseQual, i_statsDir, i_cmdLineOptionsDict, i_dnaNormParams, i_dnaTumParams, i_rnaNormParams, i_rnaTumParams, i_genotypeMinDepth, i_genotypeMinPct, i_modMinDepth, i_modMinPct, i_lohMaxDepth, i_lohMaxPct, i_debug)
+    filter_by_mpileup_support(i_id, i_chrom, i_vcfFilename, i_headerFilename, i_outputFilename, i_filterUsingRNA, i_addOrigin, i_minAltAvgBaseQual, i_cmdLineOptionsDict, i_dnaNormParams, i_dnaTumParams, i_rnaNormParams, i_rnaTumParams, i_genotypeMinDepth, i_genotypeMinPct, i_modMinDepth, i_modMinPct, i_lohMaxDepth, i_lohMaxPct, i_debug)
     return
 
 main()
