@@ -136,8 +136,8 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
     for line in dnaFileHandler:
           
         # here are some examples of .vcf lines:
-        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31.4;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
-        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0:35.5:0.0      0/0:1:0:0:0:1:1.0:39.0:1.0      0/1:50:0:2:0:48,2:0.96,0.04:31.65,17.5:0.75,0.5
+        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
+        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0,0.0:36,0:0.0,0.0      0/0:1:0:0:0:1:1.0,0.0:39,0:1.0,0.0      0/1:50:0:2:0:48,2:0.96,0.04:32,18:0.75,0.5
         
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
@@ -217,20 +217,20 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
     #
     # mpileup_rna_origin:
     # 9       17464495        .       G       A       0.0     PASS    
-    #    AC=5;AF=0.1;AN=2;BQ=38.59;DP=49;FA=0.1;INDEL=0;MC=G>A;MT=TUM_EDIT;NS=3;ORIGIN=RNA;SB=0.73;SS=5;START=0;STOP=5;VT=SNP    
+    #    AC=5;AF=0.1;AN=2;BQ=39;DP=49;FA=0.1;INDEL=0;MC=G>A;MT=TUM_EDIT;NS=3;ORIGIN=RNA;SB=0.73;SS=5;START=0;STOP=5;VT=SNP    
     #    GT:DP:INDEL:START:STOP:AD:AF:BQ:SB 
-    #    0/0:22:0:0:1:22,0:1.0,0.0:31.91,0.0:0.68,0.0    
-    #    0/0:10:0:0:0:9,1:0.9,0.1:29.33,13.0:0.67,1.0    
-    #    0/1:17:0:0:4:13,4:0.76,0.24:60.31,32.0:0.92,0.5
+    #    0/0:22:0:0:1:22,0:1.0,0.0:32,0:0.68,0.0    
+    #    0/0:10:0:0:0:9,1:0.9,0.1:29,13:0.67,1.0    
+    #    0/1:17:0:0:4:13,4:0.76,0.24:60,32:0.92,0.5
     # vs.
     # mpileup_rna_origin->dnaFiltered->blat->pbias:
     # 9       17464495        .       G       A       0.0     PASS    
-    #    AC=5;AF=0.1;AN=2;BQ=38.59;DP=49;FA=0.1;INDEL=0;MC=G>A,G>A;MF=rnacall,dtmnab_dtmnbq;
+    #    AC=5;AF=0.1;AN=2;BQ=39;DP=49;FA=0.1;INDEL=0;MC=G>A,G>A;MF=rnacall,dtmnab_dtmnbq;
     #    MFT=DNA_TUM_EDIT_G>A,DNA_SOM_G>A;MT=TUM_EDIT,SOM;NS=3;ORIGIN=RNA;SB=0.73;SS=5;START=0;STOP=5;VT=SNP     
     #    GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      
-    #    0/0:22:0:0:1:22,0:1.0,0.0:31.91,0.0:0.68,0.0    
-    #    0/0:10:0:0:0:9,1:0.9,0.1:29.33,13.0:0.67,1.0    
-    #    0/1:17:0:0:4:13,4:0.76,0.24:60.31,32.0:0.92,0.5
+    #    0/0:22:0:0:1:22,0:1.0,0.0:32,0:0.68,0.0    
+    #    0/0:10:0:0:0:9,1:0.9,0.1:29,13:0.67,1.0    
+    #    0/1:17:0:0:4:13,4:0.76,0.24:60,32:0.92,0.5
     # when merging a call that passes in the non-overlaps (pbias) file, 
     # replace the DNA call, with the original RNA mpileup passing call
     # 
@@ -351,21 +351,21 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
                         else:
                             # this call passed in both:
                             # DNALine: 17 4857042 .   T   A,G,C   0.0 PASS    
-                            #    AB=A,G,C;AC=10,5,8211;AF=0.0,0.0,0.98;AN=4;BQ=30.86;DP=8379;FA=0.98;INDEL=0;MC=T>A;MT=GERM;NS=3;
+                            #    AB=A,G,C;AC=10,5,8211;AF=0.0,0.0,0.98;AN=4;BQ=31;DP=8379;FA=0.98;INDEL=0;MC=T>A;MT=GERM;NS=3;
                             #    ORG_ISO_AD=16_2_1_2615,18_3_1_2791,18_1_2_2805;ORIGIN=DNA;RS_GEN_POS=17:4854383-4860426,17:4854383-4860426,17:4854383-4860426;
                             #    RS_NAME=NM_001193503,NM_001976,NM_053013;RS_ORG_POS=313,484,442;RS_STRAND=+,+,+;SB=0.74;SS=1;START=1;STOP=0;VT=SNP    
                             #    GT:DP:INDEL:START:STOP:AD:AF:BQ:SB  
-                            #    0/1:36:0:1:0:31,4,1,0:0.86,0.11,0.03,0.0:29.32,28.25,3.0,0.0:0.39,0.5,1.0,0.0   
-                            #    0/0:70:0:0:0:70,0,0,0:1.0,0.0,0.0,0.0:30.66,0.0,0.0,0.0:0.56,0.0,0.0,0.0    
-                            #    3/3:8273:0:0:0:52,6,4,8211:0.01,0.0,0.0,0.99:44.95,12.0,12.0,58.27:0.94,1.0,1.0,0.97
+                            #    0/1:36:0:1:0:31,4,1,0:0.86,0.11,0.03,0.0:29,28,3,0:0.39,0.5,1.0,0.0   
+                            #    0/0:70:0:0:0:70,0,0,0:1.0,0.0,0.0,0.0:31,0,0,0:0.56,0.0,0.0,0.0    
+                            #    3/3:8273:0:0:0:52,6,4,8211:0.01,0.0,0.0,0.99:45,12,12,58:0.94,1.0,1.0,0.97
                             # RNALine: 17    4857042 .   T   A,G,C   0.0 PASS    
-                            #    AB=A,G,C;AC=10,5,8211;AF=0.0,0.0,0.98;AN=4;BQ=30.86;DP=8379;FA=0.98;INDEL=0;MC=T>C;MT=TUM_EDIT;NS=3;
+                            #    AB=A,G,C;AC=10,5,8211;AF=0.0,0.0,0.98;AN=4;BQ=31;DP=8379;FA=0.98;INDEL=0;MC=T>C;MT=TUM_EDIT;NS=3;
                             #    ORG_ISO_AD=16_2_1_2615,18_3_1_2791,18_1_2_2805;ORIGIN=RNA;RS_GEN_POS=17:4854383-4860426,17:4854383-4860426,17:4854383-4860426;
                             #    RS_NAME=NM_001193503,NM_001976,NM_053013;RS_ORG_POS=313,484,442;RS_STRAND=+,+,+;SB=0.74;SS=5;START=1;STOP=0;VT=SNP    
                             #    GT:DP:INDEL:START:STOP:AD:AF:BQ:SB  
-                            #    0/1:36:0:1:0:31,4,1,0:0.86,0.11,0.03,0.0:29.32,28.25,3.0,0.0:0.39,0.5,1.0,0.0   
-                            #    0/0:70:0:0:0:70,0,0,0:1.0,0.0,0.0,0.0:30.66,0.0,0.0,0.0:0.56,0.0,0.0,0.0    
-                            #    3/3:8273:0:0:0:52,6,4,8211:0.01,0.0,0.0,0.99:44.95,12.0,12.0,58.27:0.94,1.0,1.0,0.97
+                            #    0/1:36:0:1:0:31,4,1,0:0.86,0.11,0.03,0.0:29,28,3,0:0.39,0.5,1.0,0.0   
+                            #    0/0:70:0:0:0:70,0,0,0:1.0,0.0,0.0,0.0:31,0,0,0:0.56,0.0,0.0,0.0    
+                            #    3/3:8273:0:0:0:52,6,4,8211:0.01,0.0,0.0,0.99:45,12,12,58:0.94,1.0,1.0,0.97
                             logging.warning("RNANoPass:  Call passed in both RNA and DNA but they probably don't have the same modType \nDNALine: %s RNALine: %s\n", dnaLine, line)
                             # at this point, there are multiple events that pass all the filters
                             # in this case, pick the passing event in the following order:  GERM, NOR_EDIT, SOM, TUM_EDIT, RNA_TUM_VAR, LOH

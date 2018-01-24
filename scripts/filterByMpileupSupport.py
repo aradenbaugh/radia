@@ -718,7 +718,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anOverallAltCountsDict, aStri
         #vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position\">\n"
         #vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Float,Description=\"Depth of reads supporting alleles 0/1/2/3\">\n"
         #vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting alleles 0/1/2/3\">\n"
-        #vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Float,Description=\"Avg base quality for reads supporting alleles 0/1/2/3\">\n"
+        #vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting alleles 0/1/2/3\">\n"
         #vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting alleles 0/1/2/3\">\n"
         
         # for each base in the ref list and alt list
@@ -739,10 +739,10 @@ def format_bam_output(aChrom, aRefList, anAltList, anOverallAltCountsDict, aStri
                 
             # calculate the allele specific avg quality and plus strand scores
             if (count > 0):
-                avgBaseQuality = round(aQualitySumsOfBasesDict[base]/float(count),2)
+                avgBaseQuality = int(round(aQualitySumsOfBasesDict[base]/float(count),0))
                 avgPlusStrandBias = round(aPlusStrandCountsDict[base]/float(count),2)
             else:
-                avgBaseQuality = 0.0
+                avgBaseQuality = 0
                 avgPlusStrandBias = 0.0
                 
             baseQuals.append(avgBaseQuality)
@@ -1036,8 +1036,8 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
     # for each event in the vcf file 
     for line in i_vcfFileHandler:
         # here are some examples of .vcf lines:
-        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31.4;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
-        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0:35.5:0.0      0/0:1:0:0:0:1:1.0:39.0:1.0      0/1:50:0:2:0:48,2:0.96,0.04:31.65,17.5:0.75,0.5
+        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
+        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0,0.0:36,0:0.0,0.0      0/0:1:0:0:0:1:1.0,0.0:39,0:1.0,0.0      0/1:50:0:2:0:48,2:0.96,0.04:32,18:0.75,0.5
         
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
@@ -1139,8 +1139,8 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
             splitLine = line.split("\t")
     
             # sample VCF line
-            # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31.4;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
-            # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0:35.5:0.0      0/0:1:0:0:0:1:1.0:39.0:1.0      0/1:50:0:2:0:48,2:0.96,0.04:31.65,17.5:0.75,0.5
+            # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
+            # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0,0.0:36,0:0.0,0.0      0/0:1:0:0:0:1:1.0,0.0:39,0:1.0,0.0      0/1:50:0:2:0:48,2:0.96,0.04:32,18:0.75,0.5
             
             # the coordinate is the second element
             event_chr = splitLine[0]
@@ -1328,7 +1328,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                         filterSet.add("dnmnap")
                         
                     # check to make sure the normal DNA sample average base quality for ALT bases is above the min
-                    if (float(event_dnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                    if (int(event_dnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                         isValidMod = False
                         filterSet.add("dnmnbq")
                        
@@ -1366,7 +1366,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                                 filterSet.add("rnmnap")
                                 
                             # check to make sure the normal RNA sample average base quality for ALT bases is above the min
-                            if (float(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                            if (int(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                                 isValidMod = False
                                 filterSet.add("rnmnbq")
                             
@@ -1432,7 +1432,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                             filterSet.add("rnmnap")
                             
                         # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
-                        if (float(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                        if (int(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                             isValidMod = False
                             filterSet.add("rnmnbq")
                         
@@ -1473,7 +1473,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                         filterSet.add("dtmnap")
                         
                     # check to make sure the tumor DNA sample average base quality for ALT bases is above the min
-                    if (float(event_dnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                    if (int(event_dnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                         isValidMod = False
                         filterSet.add("dtmnbq")
                     
@@ -1536,7 +1536,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                                 filterSet.add("rtmnap")
                                 
                             # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
-                            if (float(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                            if (int(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                                 isValidMod = False
                                 filterSet.add("rtmnbq")
                     
@@ -1621,7 +1621,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                             filterSet.add("rtmnap")
                             
                         # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
-                        if (float(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                        if (int(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                             isValidMod = False
                             filterSet.add("rtmnbq")
                         
@@ -1780,7 +1780,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                 # re-calculate with new totals
                 event_infoDict["DP"].append(str(totalReadDepth))
                 if (totalReadDepth > 0):
-                    event_infoDict["BQ"].append(str(round(totalSumBaseQual/float(totalReadDepth),2)))
+                    event_infoDict["BQ"].append(str(int(round(totalSumBaseQual/float(totalReadDepth),0))))
                     event_infoDict["SB"].append(str(round(totalSumStrandBias/float(totalReadDepth),2)))
                     event_infoDict["FA"].append(str(round(totalAltReadDepth/float(totalReadDepth),2)))
                     
@@ -1801,7 +1801,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                         targetIndex = refPlusAltList.index(target)
                         
                         # check to make sure the normal DNA sample average base quality for ALT bases is above the min
-                        if (float(event_dnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                        if (int(event_dnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                             event_filterSet.add("dnmnbq")
                             
                         # if we are also filtering using the RNA
@@ -1810,7 +1810,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                             if (haveRnaNormData):
                                 
                                 # check to make sure the normal RNA sample average base quality for ALT bases is above the min
-                                if (float(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                                if (int(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                                     event_filterSet.add("rnmnbq")
                                     
                     elif (modType == "SOM"):
@@ -1818,7 +1818,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                         targetIndex = refPlusAltList.index(target)
                                 
                         # check to make sure the tumor DNA sample average base quality for ALT bases is above the min
-                        if (float(event_dnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                        if (int(event_dnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                             event_filterSet.add("dtmnbq")
                                                                             
                         # if we are also filtering using the RNA
@@ -1826,7 +1826,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                             # check to make sure the tumor RNA sample has data and is between the min and the max of total bases
                             if (haveRnaTumData):
                                 # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
-                                if (float(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                                if (int(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                                     event_filterSet.add("rtmnbq")
                                 
                     elif (modType.find("NOR_EDIT") != -1):
@@ -1834,7 +1834,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                         targetIndex = refPlusAltList.index(target)
                         
                         # check to make sure the normal RNA sample average base quality for ALT bases is above the min
-                        if (float(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                        if (int(event_rnaNormalDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                             event_filterSet.add("rnmnbq")
                         
                     elif (modType.find("TUM_EDIT") != -1 or modType.find("RNA_TUM_VAR") != -1):
@@ -1842,7 +1842,7 @@ def extract_read_support(aTCGAId, aChrom, aVCFFilename, aHeaderFilename, anOutpu
                         targetIndex = refPlusAltList.index(target)
                                   
                         # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
-                        if (float(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
+                        if (int(event_rnaTumorDict["BQ"][targetIndex]) < aMinAltAvgBaseQual):
                             event_filterSet.add("rtmnbq")
                                 
             # create the output list                        
@@ -1937,7 +1937,7 @@ def main():
     i_cmdLineParser.add_option("", "--lohMaxPct", type="float", default=float(0.02), dest="lohMaxPct", metavar="LOH_MAX_PCT", help="the maximum percentage of reads in the tumor DNA for an LOH, %default by default")
     #i_cmdLineParser.add_option("", "--maxAltDepth", type="int", default=int(2), dest="maxAltDepth", metavar="MAX_ALT_DP", help="the maximum number of alterative bases allowed in the normal DNA when a call is somatic, %default by default")
     #i_cmdLineParser.add_option("", "--maxAltPct", type="float", default=float(0.01), dest="maxAltPct", metavar="MAX_ALT_PCT", help="the maximum percentage of reads allowed in the normal DNA when a call is somatic, %default by default")
-    i_cmdLineParser.add_option("", "--minAltAvgBaseQual", type="float", default=float(20.0), dest="minAltAvgBaseQual", metavar="MIN_ALT_AVG_BQ", help="the minimum average base quality for the ALT reads, %default by default")
+    i_cmdLineParser.add_option("", "--minAltAvgBaseQual", type="int", default=int(20), dest="minAltAvgBaseQual", metavar="MIN_ALT_AVG_BQ", help="the minimum average base quality for the ALT reads, %default by default")
     
     i_cmdLineParser.add_option("", "--dnaNormalMinTotalBases", type="int", default=int(10), dest="dnaNormalMinTotalNumBases", metavar="DNA_NOR_MIN_TOTAL_BASES", help="the minimum number of overall normal DNA reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMaxTotalBases", type="int", default=int(20000), dest="dnaNormalMaxTotalNumBases", metavar="DNA_NOR_MAX_TOTAL_BASES", help="the maximum number of overall normal DNA reads covering a position, %default by default")

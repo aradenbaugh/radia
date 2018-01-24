@@ -755,7 +755,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
         #vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position\">\n"
         #vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Float,Description=\"Depth of reads supporting alleles 0/1/2/3\">\n"
         #vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting alleles 0/1/2/3\">\n"
-        #vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Float,Description=\"Avg base quality for reads supporting alleles 0/1/2/3\">\n"
+        #vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting alleles 0/1/2/3\">\n"
         #vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting alleles 0/1/2/3\">\n"
             
         # initialize some lists
@@ -784,12 +784,12 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
                 # we need just the alt counts for the genotypes code below
                 altCountsDict[base] = count
             
-            # calculate the allele specific avg quality and plus strand scores
+            # calculate the allele specific avg base quality and plus strand scores
             if (count > 0):
-                avgBaseQuality = round(aQualitySumsOfBasesDict[base]/float(count),2)
+                avgBaseQuality = int(round(aQualitySumsOfBasesDict[base]/float(count),0))
                 avgPlusStrandBias = round(aPlusStrandCountsDict[base]/float(count),2)
             else:
-                avgBaseQuality = 0.0
+                avgBaseQuality = 0
                 avgPlusStrandBias = 0.0
                 
             baseQuals.append(avgBaseQuality)
@@ -1204,7 +1204,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels across all samples\">\n"
     vcfHeader += "##INFO=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this position across all samples\">\n"
     vcfHeader += "##INFO=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position across all samples\">\n"
-    vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Float,Description=\"Overall average base quality\">\n"
+    vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Integer,Description=\"Overall average base quality\">\n"
     #vcfHeader += "##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Overall average mapping quality\">\n"
     #vcfHeader += "##INFO=<ID=MQ0,Number=1,Type=Integer,Description=\"Total Mapping Quality Zero Reads\">\n"
     vcfHeader += "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Overall strand bias\">\n"
@@ -1214,6 +1214,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=MF,Number=.,Type=String,Description=\"Modification filters applied to the filter types listed in MFT\">\n"
     vcfHeader += "##INFO=<ID=MFT,Number=.,Type=String,Description=\"Modification filter types at this position with format origin_modType_modChange\">\n"
     vcfHeader += "##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description=\"Indicates if record is a somatic mutation\">\n"
+    vcfHeader += "##INFO=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal,0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
     vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n"
     #vcfHeader += "##INFO=<ID=DEL,Number=1,Type=Integer,Description=\"Number of small deletions at this location in all samples\">\n"
     #vcfHeader += "##INFO=<ID=INS,Number=1,Type=Integer,Description=\"Number of small insertions at this location in all samples\">\n"
@@ -1233,8 +1234,10 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position\">\n"
     vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Depth of reads supporting allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting allele (in order specified by GT)\">\n"
-    vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Float,Description=\"Avg base quality for reads supporting allele (in order specified by GT)\">\n"
-    #vcfHeader += "##FORMAT=<ID=MQ,Number=.,Type=Integer,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting allele (in order specified by GT)\">\n"
+    
+    #vcfHeader += "##FORMAT=<ID=MQ,Number=1,Type=Integer,Description=\"Phred style probability score that the variant is novel with respect to the genome's ancestor\">\n"            
+    #vcfHeader += "##FORMAT=<ID=MQA,Number=.,Type=Float,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
     #vcfHeader += "##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
     #vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
     #vcfHeader += "##FORMAT=<ID=MMQS,Number=.,Type=Float,Description=\"Average mismatch quality sum of reads harboring allele (in order specified by GT)\">\n"
@@ -1279,7 +1282,7 @@ def pad_output(anOutput, anEmptyOutput, anAlleleLength):
     if (len(alleleDepthList) < anAlleleLength):
         alleleDepthList = pad(alleleDepthList, "0", anAlleleLength)
         alleleFractionList = pad(alleleFractions.split(","), "0.0", anAlleleLength)
-        baseQualityList = pad(baseQualities.split(","), "0.0", anAlleleLength)
+        baseQualityList = pad(baseQualities.split(","), "0", anAlleleLength)
         strandBiasList = pad(strandBiases.split(","), "0.0", anAlleleLength)
         
         outputList = (genotypes, depths, indels, starts, stops, ",".join(alleleDepthList), ",".join(alleleFractionList), ",".join(baseQualityList), ",".join(strandBiasList))
@@ -2195,7 +2198,7 @@ def main():
                     #vcfHeader += "##INFO=<ID=START,Number=1,Type=Integer,Description=\"Number of reads that started at this position across all samples\">\n"
                     #vcfHeader += "##INFO=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads that stopped at this position across all samples\">\n"
                     #vcfHeader += "##INFO=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels for all samples\">\n"
-                    #vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Float,Description=\"Overall average base quality\">\n"
+                    #vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Integer,Description=\"Overall average base quality\">\n"
                     #vcfHeader += "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Overall average reads on plus strand\">\n"
                     #vcfHeader += "##INFO=<ID=FA,Number=1,Type=Float,Description=\"Overall fraction of reads supporting ALT\">\n"
                     #vcfHeader += "##INFO=<ID=MT,Number=.,Type=String,Description=\"Modification types at this position\">\n"
@@ -2215,7 +2218,7 @@ def main():
                     infoDict["STOP"].append(str(totalStops))
                     infoDict["VT"].append("SNP")
                     if (totalReadDepth > 0):
-                        infoDict["BQ"].append(str(round(totalSumBaseQual/float(totalReadDepth),2)))
+                        infoDict["BQ"].append(str(int(round(totalSumBaseQual/float(totalReadDepth),0))))
                         infoDict["SB"].append(str(round(totalSumStrandBias/float(totalReadDepth),2)))
                         infoDict["FA"].append(str(round(totalAltReadDepth/float(totalReadDepth),2)))
                     

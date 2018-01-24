@@ -103,8 +103,8 @@ def get_vcf_data(aVcfFile, aHeaderFile, aPassOnlyFlag, anIsDebug):
     for line in fileHandler:
           
         # here are some examples of .vcf lines:
-        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31.4;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
-        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0:35.5:0.0      0/0:1:0:0:0:1:1.0:39.0:1.0      0/1:50:0:2:0:48,2:0.96,0.04:31.65,17.5:0.75,0.5
+        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
+        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0,0.0:36,0:0.0,0.0      0/0:1:0:0:0:1:1.0,0.0:39,0:1.0,0.0      0/1:50:0:2:0:48,2:0.96,0.04:32,18:0.75,0.5
         
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
@@ -154,8 +154,8 @@ def get_vcf_data(aVcfFile, aHeaderFile, aPassOnlyFlag, anIsDebug):
     for line in fileHandler:
           
         # here are some examples of .vcf lines:
-        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31.4;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
-        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0:35.5:0.0      0/0:1:0:0:0:1:1.0:39.0:1.0      0/1:50:0:2:0:48,2:0.96,0.04:31.65,17.5:0.75,0.5
+        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
+        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0,0.0:36,0:0.0,0.0      0/0:1:0:0:0:1:1.0,0.0:39,0:1.0,0.0      0/1:50:0:2:0:48,2:0.96,0.04:32,18:0.75,0.5
         
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
