@@ -1242,8 +1242,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     #vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
     #vcfHeader += "##FORMAT=<ID=MMQS,Number=.,Type=Float,Description=\"Average mismatch quality sum of reads harboring allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting allele (in order specified by GT)\">\n"
-    vcfHeader += "##FORMAT=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal, 0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
-    vcfHeader += "##FORMAT=<ID=SSC,Number=1,Type=Integer,Description=\"Somatic score between 0 and 255\">\n"
+    #vcfHeader += "##FORMAT=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal, 0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
+    #vcfHeader += "##FORMAT=<ID=SSC,Number=1,Type=Integer,Description=\"Somatic score between 0 and 255\">\n"
     
     vcfHeader += "#" + "\t".join(columnHeaders)
     return vcfHeader
@@ -1994,7 +1994,11 @@ def main():
             #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
             vcfOutputList = [currentChrom, str(currentCoordinate), "."]
             formatItemCount = len(formatString.split(":"))
-            emptyFormatList = ["."] * formatItemCount
+            # the default genotype should be '.' for haploid calls (e.g. chrom Y) and './.' for diploid calls
+            if (currentChrom != "Y"):
+                emptyFormatList = ["./."] + ["."] * (formatItemCount - 1)
+            else:
+                emptyFormatList = ["."] * formatItemCount   
             emptyFormatString = ":".join(emptyFormatList)
             dnaNormalOutputString = emptyFormatString
             dnaTumorOutputString = emptyFormatString
