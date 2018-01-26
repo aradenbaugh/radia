@@ -1128,16 +1128,16 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
             haveRnaTumData = True
             
             # if there is no data, then set the flag
-            if (event_dnaNormalList == None or event_dnaNormalList[0] == "."):
+            if (event_dnaNormalList == None or event_dnaNormalList[0] == "." or event_dnaNormalList[0] == "./."):
                 haveDnaNormData = False
             # if there is no data, then set the flag
-            if (event_rnaNormalList == None or event_rnaNormalList[0] == "."):
+            if (event_rnaNormalList == None or event_rnaNormalList[0] == "." or event_rnaNormalList[0] == "./."):
                 haveRnaNormData = False
             # if there is no data, then set the flag
-            if (event_dnaTumorList == None or event_dnaTumorList[0] == "."):
+            if (event_dnaTumorList == None or event_dnaTumorList[0] == "." or event_dnaTumorList[0] == "./."):
                 haveDnaTumData = False
             # if there is no data, then set the flag
-            if (event_rnaTumorList == None or event_rnaTumorList[0] == "."):
+            if (event_rnaTumorList == None or event_rnaTumorList[0] == "." or event_rnaTumorList[0] == "./."):
                 haveRnaTumData = False
                          
             # parse the dna and rna columns and create dicts for each
