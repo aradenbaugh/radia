@@ -342,7 +342,7 @@ def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename
 def filter_mpileupSupport_rna(aPythonExecutable, anId, aChromId, anInputFilename, anOriginFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
     script = os.path.join(aScriptsDir, "filterByMpileupSupport.py")
-    rnaParameterList = ["--genotypeMinPct=0.0", "--modMinDepth=1", "--modMinPct=0.01", "--minAltAvgBaseQual=15.0"]
+    rnaParameterList = ["--genotypeMinPct=0.0", "--modMinDepth=1", "--modMinPct=0.01", "--minAltAvgBaseQual=15"]
     rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=1.0", "--dnaNormalMinStrandBiasDepth=4"]
     rnaParameterList += ["--dnaTumorMinTotalBases=1", "--dnaTumorMinAltBases=1", "--dnaTumorMinAltPct=0.01", "--dnaTumorMaxErrPct=1.0", "--dnaTumorMinStrandBiasDepth=4"]
     #rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=0.01", "--dnaNormalMinStrandBiasDepth=4"]
