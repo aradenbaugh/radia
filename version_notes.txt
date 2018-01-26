@@ -1,0 +1,409 @@
+01/15/18:
+
+- Updated copyright for 2018
+
+- filterRadia.py
+    - In order to merge the RNA and DNA filters, we need to pass 
+      through the filtered RNA calls from the 
+      filterByMpileupSupport.py command by adding
+      anRnaFilename to the mergeRnaAndDnaFiles.py command
+
+    - The user can specify a prefix for the temporary files, 
+      this is useful when filtering on parts of chromosomes
+    
+    - The user can specify an outputFilename, otherwise a file 
+      will be automatically created in the outputDir. The file 
+      format will be (prefix + '_chr' + chrom + '.vcf') if a 
+      prefix is specified or (patientId + '_chr' + chrom + '.vcf')
+    
+    - Added the --readSupportMinMapQual parameter to pass through 
+      to the filterByReadSupport.py command
+    
+    - Added the transcript name, coordinate, and strand tags to 
+      the createBlatFile.py and filterByReadSupport.py commands 
+    
+    - Added --rnaIncludeSecondaryAlignments to the createBlatFile.py 
+      and filterByReadSupport.py commands
+    
+    - Added a --keepPreviousFilters option to the 
+      filterByPositionalBias.py command
+
+- mergeRnaAndDnaFiles.py
+    - Add the RNA file with the mpileup filters and output the 
+      superset of all RNA and DNA filters for a call that doesn't 
+      pass
+    
+    - Merge the modification filters and filter types in the INFO
+
+- filterByBlat.py
+    - Update the modification filters and filter types with the 
+      blat filter as well
+
+- filterByPositionalBias.py
+    - Added ability to keep the previous filters.  This is needed 
+      in the pipeline in order to output the superset of all filters 
+      applied to this call.
+    
+    - Update the modification filters and filter types with the 
+      pbias filter as well
+
+- createBlatFile.py:
+    - Deal with overlapping read-pairs and avoid double counting
+    
+    - Added ability to include RNA secondary alignments
+    
+    - Added the transcript name, coordinate, and strand when 
+      processing the transcriptome
+    
+    - Fix for issue #4: hard-clipping does not add to the cigarList, 
+      so skipsBeforeFirstMatch should not be incremented
+
+- filterByReadSupport.py
+    - Deal with overlapping read-pairs and avoid double counting
+    
+    - Added ability to include RNA secondary alignments
+    
+    - Added the transcript name, coordinate, and strand when 
+      processing the transcriptome
+    
+    - Return all filters that apply to a call, instead of just the 
+      first filter
+    
+    - Added logging to the script
+    
+    - Fixed a bug that affects how the germline SNPs were counted: 
+	
+	- A read can only have a certain number of mismatches across 
+	  its entirety, but we don't want to count legitimate 
+	  mismatches from germline SNPs.  
+	
+	- Keep track of the transcript germline SNPs separately.
+    
+    - Made several parameters user-defined:  
+    	- minBaseQual
+	- minMapQual
+	- numNeighborBases
+	- minNeighborBaseQual
+	- maxMutsPerRead
+	- maxReadSoftClipPct
+	- maxStrandBias
+	- minStrandBiasDepth
+	- minPerfectReads
+	- minPerfectReadsPct
+    
+    - Added a perfect read percent filter
+    
+    - Added a maximum percentage of bases that can be soft-clipped 
+      for a read to be considered perfect, default = 10%
+    
+    - Added a positional bias on perfect reads after a certain 
+      depth is reached
+    
+    - Fixed how the header is output so that INFO and FILTER 
+      are grouped together
+
+- filterByMpileupSupport.py
+
+    - Merge the new INFO and FILTER headers with the existing ones
+    
+    - Output the superset of all filters for all modification types 
+      in the FILTER column
+    
+    - Add modification types and filters for each mod type to the 
+      INFO column
+    
+    - Always allow one error read before appling the MaxErrPct filter
+    
+    - Added ability to filter based on the RNA_NOR_VAR and RNA_TUM_VAR 
+      types
+    
+    - Insert dummy filters for things that don't make sense:
+	
+	- Now that we are outputting the superset of filters, 
+	  it will be easier to see why a call failed
+	
+	- We need the dummy filters so that the calls fail 
+	  and are not processed any further in the pipeline.
+	
+	- If you have a NOR_EDIT or RNA_NOR_VAR mod type but 
+	  the --filterUsingRNA flag is not set, then the filter 
+	  was set to 'rnmntb'. This filter is misleading and 
+	  has been changed to 'rnacall'.
+	
+	- If you have a TUM_EDIT or RNA_TUM_VAR mod type but 
+	  the --filterUsingRNA flag is not set, then the filter 
+	  was set to 'rtmntb'. This filter is misleading and 
+	  has been changed to 'rnacall'. 
+	
+	- If you have a GERM call and the --filterUsingRNA flag 
+	  is set, but no normal RNA exists, then the filter was 
+	  set to 'rnmntb'. This filter is misleading and has 
+	  been changed to 'dnacall'.
+    
+    - In pre_filter_mod_types:
+	
+	- If the radia.py script is run with lower variant
+	  allele depth and percent requirements than the 
+	  filterByMpileupSupport.py script (default), 
+	  then you can have situations where calls were 
+	  mis-labeled and should be considered as a 
+	  different modification type.
+	
+	- If RADIA is first run on the RNA alone (e.g. if 
+	  the RNA is aligned to the transcript first for 
+	  variant calling), and then filtered on the DNA 
+	  plus RNA, then all RNA calls will be labeled as 
+	  RNA_NOR_VAR and RNA_TUM_VAR, and we need 
+	  to re-classify them using the DNA and RNA).
+	    
+	      - Check to see if an RNA_NOR_VAR could be a 
+	        GERM or NOR_EDIT
+	      
+	      - Check to see if an RNA_TUM_VAR could be a 
+	        SOM or TUM_EDIT
+	      
+	      - Check to see if a NOR_EDIT could be a GERM (a lot 
+	        of support in the normal RNA and a little support 
+		in the normal DNA)
+	      
+	      - Check to see if a NOR_EDIT could be a TUM_EDIT (not 
+	        enough support for a GERM or NOR_EDIT, but enough 
+		support in the tumor RNA)
+
+-radia.py
+    - Completely changed how the selection and processing of 
+      coordinates is done:
+        
+	- If only a chromosome is specified, then the 
+	  selection is done on the whole chromosome
+	
+	- If a chromosome, start and stop are specified, 
+	  then the selection is done only on the region 
+	  on the chromosome for the start and stop
+	
+	- If a coordinatesFilename is specified, then selection 
+	  is done on each (chrom, start, stop) specified
+    
+    - Added ability to input a coordinates file that specifies 
+      single coordinates or coordinate ranges to query 
+      (3 column tab delimited (chr, start, stop)).  
+    
+    - The -c or --chromSizesFilename has been deprecated.  
+    	
+	- The user has to specify at least one fasta file with the 
+	  fasta index file that contains the lengths of the 
+	  chromosome sizes, so this parameter is not needed.  
+    	
+	- Instead, the -c or --coordinatesFilename are now used to 
+	  specify single coordinates or coordinate ranges to query 
+	  (3 column tab delimited (chr, start, stop)).
+    
+    - Fixed problem with user specifying .mpileup files as input. 
+      The .mpileup files were ignored and instead the .bam files 
+      were queried.
+    
+    - If we find a variant, make sure the possible parent allele 
+      count is above the previous aMinAltNumBases
+    
+    - To improve performance, added new processing of raw reads 
+      that significantly reduces runtime
+    
+    - Added a break for the case when no more data is available
+    
+    - Added the modification filters 'MF' and modification filter 
+      types 'MFT' to the header
+    
+    - Added an option to suppress the outputting of the header
+    
+    - Added an option to output all data at a position, no matter 
+      if a variant is present or not
+    
+    - Added some flags for outputting VCF lines when debugging
+    
+    - Added ability to query one single position. 
+    
+    - Added ability to include RNA secondary alignments. 
+    
+    - Added analyte to the SAMPLE tag in the header. 
+    
+    - The AD format field should be an Integer instead of a Float.
+
+
+01/11/18:
+
+- mergeChroms.py
+    - Only output header information if it exists
+
+
+04/12/17:
+- Delete the temporary files when filtering and not debugging
+  The debug flag was set for both log==DEBUG and log==INFO.  
+  This was useful when debugging to allow another layer of 
+  granularity where some info messages were only output while 
+  debugging.  Ultimately, this becomes convoluted, so all 
+  'info while debugging' messages got changed to regular 
+  debug messages, and the overall debug flag is set when 
+  the user specifies log==DEBUG.
+
+- Changes to radia.py
+    - Fixed problem with user specifying .mpileup files as input
+        - The .mpileup files were ignored and instead the 
+	  .bam files were queried. Now a user can specify 
+	  an .mpileup file, and it will be used instead of the .bam file
+	
+	- Added a break for the case when no more data is available
+	
+	- Added some flags for outputting VCF lines when debugging
+
+
+04/06/17:
+- Changes to radia.py
+	- Added ability to query one single position:
+	
+	- Added ability to include secondary alignments
+	
+	- Added analyte to the SAMPLE tag in the header
+	
+	- The AD format field should be an Integer instead of a Float
+
+- Changes to filterByMpileup.py
+	- Added ability to filter based on the RNA_NOR_VAR and 
+	  RNA_TUM_VAR types
+
+
+04/04/17:
+- createBlatFile.py
+
+    - Deal with the samtools subprocess command in a better way by 
+      using the communicate() method. The error messages weren't 
+      getting raised due to the debug flag.  Now they are returned 
+      to the filterRadia.py calling script.  Also, there was a 
+      problem using the samtoolsCall.kill() method.  Not 100% sure 
+      why, but it probably had to do with the environment changes 
+      on the server.
+
+- radia.py 
+    
+    - Changed the entries with no data from '.' to 
+      '.:.:.:.:.:.:.:.:.'. This is TCGA compliant.
+
+    - Added an --outputFilename option to the 
+      filterByReadSupport.py script and changed 
+      the command in the filterRadia.py script to 
+      use it. Now error messages will be returned 
+      to the filterRadia.py script.
+
+    - The filterRadia.py script should call the .py 
+      files instead of the .pyc files.
+
+
+10/16/15:
+- samtools now allows for all IUPAC nucleotide codes for INDELs.  We 
+  need to account for that in the convert_raw_reads(...) method.  
+  Users reported the following error:
+      ERROR   Traceback: convert_raw_reads() Error at coordinate 
+      hs37d5:31525191. The length 32 of the final pileup of reads 
+      is != the length 9 of the final quality scores.  Original 
+      Pileup=TTTT-2MWT-2MWT-2MWt-2mwT-2MWT-2MWT-2MWt-2mwTTTTTtTTTTT
+      tttttTTTTt, Final Pileup=TTTTTTtTTTtTTTTTtTTTTTtttttTTTTt, 
+      Original QualScores=888;;;;;;CB;BBCA;ABAABAAA@@@<>A@, Final 
+      QualScores=888;;BBA<
+
+
+10/15/15:
+- Starting with pysam version 0.8.3, the query_position attribute 
+  for a PileupRead is None if is_del or is_refskip are true.  This 
+  lead to the following error:
+  
+  Traceback (most recent call last):
+    File "filterByReadSupport.py", line 524, in <module>
+        rnaFilter += club.checkfilter(curr_data.chrom, curr_data.pos-1, 
+	curr_data.alt, curr_data.info["SS"], modType, "RNA")
+    File "filterByReadSupport.py", line 386, in checkfilter
+	if ismut(pileupread, chrom, pos, fasta, alt) and 
+	checkread(pileupread):
+    File "filterByReadSupport.py", line 217, in ismut
+        if pileupread.alignment.seq[pileupread.query_position] == 
+	fastafile.fetch(chrom, pos, pos+1):
+    TypeError: string indices must be integers, not NoneType
+
+
+06/10/15:
+- Changed all versions to 1.1.3
+
+- Added source code to public repo
+
+- Tagged 1.1.3
+
+
+05/12/15:
+- Tagged 1.1.2
+
+- Changed all versions to 1.1.2
+
+- Require pysam version 0.8.1 or higher to deal with API 
+  inconsistencies
+
+- filterByReadSupport.py uses query_position instead of 
+  qpos to deal with pysam API inconsistencies
+
+- Added ability to specify pileups as input instead of bams 
+
+
+03/15/15:
+- Committed version 1.1.1
+
+- Require pysam version 0.7.5 to stick with code using qpos
+
+
+02/23/15:
+- Changed RADIA VCF header version to 1.1.1 
+
+- Added mageTab.py (tagged as v1.1.1)
+
+
+02/06/15:
+- Tagged v1.1.1
+
+- Changed BLAT filter to use both the e-value and the identity 
+  scores.  A read is valid if it has the highest of either of 
+  the scores.
+
+- Changed mpileup filter to re-classify germline mutations without 
+  a high enough alternative allele percentage as possibly somatic.
+
+
+12/05/14:
+- Tagged v1.1.0
+
+- Removed LOH code from radia.py
+
+- Added script to merge all chroms
+
+- Removed start and stop coordinates from header
+
+- Fixed the summary numbers from radia mod types
+
+- Fixed radia.py so that the version string will be printed when 
+  --version is specified
+
+- Added the source prefix (e.g. "DNA_NORMAL") to the debug messages 
+  so you can see which file is being referenced
+
+- Changed error message in radia.py that -a and -z cannot be equal, 
+  -z must be larger
+
+
+11/18/14:
+- Removed dbSNP 130, 132
+
+
+11/03/14:
+- Tagged v1.0.0
+
+- Added ability to include the number of filters that a variant 
+  overlaps with (e.g. number of self-chains)
+
+- Added BLAT bug fix
+
+- Added RNA editing filtering
