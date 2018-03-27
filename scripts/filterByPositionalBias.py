@@ -338,7 +338,7 @@ def main():
         else:
             # if the user wants to keep the previous filters
             if (i_keepPreviousFiltersFlag):
-                # if the call previous passed, then just set pbias
+                # if the call previously passed, then just set pbias
                 if (len(vcfFilterSet) == 1 and "PASS" in vcfFilterSet):
                     vcfFilterSet = ["pbias"] 
                 # otherwise, add it to the previous filters
