@@ -201,18 +201,19 @@ def get_sam_data(aSamFile, aChrom, aStartCoordinate, aStopCoordinate, aSourcePre
             reference = splitLine[2].upper()
             numOfReads = int(splitLine[3])
             reads = splitLine[4]
-            qualScores = splitLine[5]
+            baseQuals = splitLine[5]
+            mapQuals = splitLine[6]
         else:
             continue
        
         # yield all the information about the current coordinate
-        yield (chrom, coordinate, reference, numOfReads, reads, qualScores)
+        yield (chrom, coordinate, reference, numOfReads, reads, baseQuals, mapQuals)
 
     samFileHandler.close()
     return
 
 
-def get_bam_data(aBamFile, aFastaFile, aBaseQual, aMappingQual, aChrom, aStartCoordinate, aStopCoordinate, aBatchSize, aUseChrPrefix, aSourcePrefix, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
+def get_bam_data(aBamFile, aFastaFile, aMinBaseQual, aMinMapQual, aChrom, aStartCoordinate, aStopCoordinate, aBatchSize, aUseChrPrefix, aSourcePrefix, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
     '''
     ' This function uses the python generator to yield the information for one coordinate at a time.
     ' In order to reduce the time and memory overhead of loading the entire .bam file into memory at
@@ -231,8 +232,8 @@ def get_bam_data(aBamFile, aFastaFile, aBaseQual, aMappingQual, aChrom, aStartCo
     '
     ' aBamFile:                              A .bam file to be read from
     ' aFastaFile:                            The FASTA file that should be used in the samtools command which is needed for the reference base.
-    ' aBaseQual:                             The base quality score that should be used in the samtools command
-    ' aMappingQual:                          The mapping quality score that should be used in the samtools command
+    ' aMinBaseQual:                          The base quality score that should be used in the samtools command
+    ' aMinMapQual:                           The mapping quality score that should be used in the samtools command
     ' aChrom:                                The chromosome that should be used in the samtools command
     ' aStartCoordinate:                      The initial start coordinate (typically zero)
     ' aStopCoordinate:                       The initial stop coordinate (typically the size of the chromosome)
@@ -251,7 +252,7 @@ def get_bam_data(aBamFile, aFastaFile, aBaseQual, aMappingQual, aChrom, aStartCo
     while (currentStartCoordinate <= aStopCoordinate):
         
         # execute the samtools command
-        pileups = execute_samtools_cmd(aBamFile, aFastaFile, aBaseQual, aMappingQual, aChrom, aUseChrPrefix, currentStartCoordinate, currentStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug)
+        pileups = execute_samtools_cmd(aBamFile, aFastaFile, aMinBaseQual, aMinMapQual, aChrom, aUseChrPrefix, currentStartCoordinate, currentStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug)
         
         numPileups = 0
         
@@ -281,12 +282,13 @@ def get_bam_data(aBamFile, aFastaFile, aBaseQual, aMappingQual, aChrom, aStartCo
                 reference = splitLine[2].upper()
                 numOfReads = int(splitLine[3])
                 reads = splitLine[4]
-                qualScores = splitLine[5]
+                baseQualScores = splitLine[5]
+                mapQualScores = splitLine[6]
             else:
                 continue
                     
             # yield all the information about the current coordinate
-            yield (chrom, coordinate, reference, numOfReads, reads, qualScores)
+            yield (chrom, coordinate, reference, numOfReads, reads, baseQualScores, mapQualScores)
             numPileups += 1
 
         if (anIsDebug):        
@@ -299,7 +301,7 @@ def get_bam_data(aBamFile, aFastaFile, aBaseQual, aMappingQual, aChrom, aStartCo
     return
 
 
-def execute_samtools_cmd(aBamFile, aFastaFile, aBaseQuality, aMappingQuality, aChrom, aUseChrPrefix, aStartCoordinate, aStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
+def execute_samtools_cmd(aBamFile, aFastaFile, aMinBaseQuality, aMinMapQuality, aChrom, aUseChrPrefix, aStartCoordinate, aStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
     '''
     ' This function executes an external command.  The command is the "samtools mpileup" command which returns all 
     ' the information about the sequencing reads for specific coordinates.  There are two things to be careful about
@@ -313,8 +315,8 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aBaseQuality, aMappingQuality, aC
     '
     ' aBamFile:                              A .bam file to be read from
     ' aFastaFile:                            The FASTA file which is needed for the reference base.
-    ' aBaseQuality:                          The base quality score for the samtools command
-    ' aMappingQuality:                       The mapping quality score for the samtools command
+    ' aMinBaseQuality:                       The base quality score for the samtools command
+    ' aMinMapQuality:                        The mapping quality score for the samtools command
     ' aChrom:                                The chromosome that we are selecting from
     ' aUseChrPrefix:                         Whether the 'chr' should be used in the samtools command
     ' aStartCoordinate:                      The start coordinate of the selection
@@ -323,9 +325,9 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aBaseQuality, aMappingQuality, aC
     '''
     # create the samtools command
     if (aUseChrPrefix):
-        samtoolsSelectStatement = "samtools mpileup -E -f " + aFastaFile + " -Q " + str(aBaseQuality) + " -q " + str(aMappingQuality) + " -r chr" + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
+        samtoolsSelectStatement = "samtools mpileup -E -s -f " + aFastaFile + " -Q " + str(aMinBaseQuality) + " -q " + str(aMinMapQuality) + " -r chr" + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
     else:
-        samtoolsSelectStatement = "samtools mpileup -E -f " + aFastaFile + " -Q " + str(aBaseQuality) + " -q " + str(aMappingQuality) + " -r " + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
+        samtoolsSelectStatement = "samtools mpileup -E -s -f " + aFastaFile + " -Q " + str(aMinBaseQuality) + " -q " + str(aMinMapQuality) + " -r " + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
     
     # -ff (exclude flags):  unmapped reads, reads that fail quality checks, pcr duplicates
     # -rf (include flags):  everything else (including secondary alignments)
@@ -366,7 +368,7 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aBaseQuality, aMappingQuality, aC
     return
 
 
-def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfRawQuals, aReferenceBase, aMinBaseQuality, anIsDebug):
+def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfRawBaseQuals, aStringOfRawMapQuals, aReferenceBase, aMinBaseQuality, aMinMapQuality, anIsDebug):
     '''
     ' This function returns all of the valid RNA (cDNA) or DNA bases from the given pileup of read bases.
     ' It converts all of the samtools specific characters into human-readable bases and filters out any non 
@@ -399,7 +401,8 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
     ' 1) Reference skips (">" and "<")
     '
     ' aStringOfRawReads: A string representing the pile-up of read bases from a samtools mpileup command 
-    ' aStringOfQualScores: A string representing the raw quality scores for the read bases from the mpileup command
+    ' aStringOfRawBaseQuals: A string representing the raw base quality scores for the read bases from the mpileup command
+    ' aStringOfRawMapQuals: A string representing the raw mapping quality scores for the reads from the mpileup command
     ' aReferenceBase: Used to convert "." and "," from the samtools mpileup command
     '''
     # Note:  Reverse strand mismatches have been reverse-complemented by samtools
@@ -410,46 +413,59 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
     insertions = 0
     deletions = 0
     finalBases = ""
-    finalQuals = ""
+    finalBaseQuals = ""
+    finalMapQuals = ""
     currBaseIndex = 0
-    currQualIndex = 0
+    currBaseQualIndex = 0
+    currMapQualIndex = 0
     numBasesDict = collections.defaultdict(int)
     sumBaseQualsDict = collections.defaultdict(int)
+    sumMapQualsDict = collections.defaultdict(int)
     numPlusStrandDict = collections.defaultdict(int)
+    maxMapQualsDict = collections.defaultdict(int)
+    sumMapQualZeroesDict = collections.defaultdict(int)
     
     # for testing:
     #aStringOfRawReads = 'T$TT+3AGG^".GT+2AG+2AG,-2AGGG..-1A<<>>'
-    #aStringOfRawQuals = "01234567890"
-    #if (anIsDebug):
-    #    logging.debug("initBases=%s, initQuals=%s", aStringOfRawReads, aStringOfRawQuals)
+    #aStringOfRawBaseQuals = "01234567890"
+    #aStringOfRawMapQuals = "01234567890"
+    if (anIsDebug):
+        logging.debug("initBases=%s, initBaseQuals=%s, initMapQuals=%s", aStringOfRawReads, aStringOfRawBaseQuals, aStringOfRawMapQuals)
     
     # loop over each base in the pileups
     for index in xrange(0, len(aStringOfRawReads)):
         
-        #if (anIsDebug):
-        #    logging.debug("index=%s, currBaseIndex=%, currQualIndex=%s", str(index), str(currBaseIndex), str(currQualIndex))
+        if (anIsDebug):
+            logging.debug("index=%s, currBaseIndex=%s, currBaseQualIndex=%s, currMapQualIndex=%s", str(index), str(currBaseIndex), str(currBaseQualIndex), str(currMapQualIndex))
         
         # if we skipped ahead in the string due to an indel, then catch up here
         if index < currBaseIndex:
             continue;
         
-        # get the current base and qual
+        # get the current base
         base = aStringOfRawReads[currBaseIndex]
-        # if the currQualIndex is >= the length of qual scores,
-        # then we've reached the end of qual scores even though
-        # there could be more non-base characterss in 
-        # aStringOfRawReads to process (e.g. <>$+2AG)
-        if (currQualIndex < len(aStringOfRawQuals)):
-            rawQual = aStringOfRawQuals[currQualIndex]
-            # the scores are in ascii, so convert them to integers
-            qual = ord(rawQual)-33
-            #if (anIsDebug):
-            #    logging.debug("qual=%s, ord(qual)=%s, converted=%s", rawQual, ord(rawQual), str(qual))
-        else:
-            qual = -1
         
-        #if (anIsDebug):
-        #    logging.debug("index=%s, currBaseIndex=%, currBase=%s, currQual=%s", str(index), str(currBaseIndex), base, str(qual))
+        # if the currBaseQualIndex is >= the length of base qual 
+        # scores, then we've reached the end of base qual scores, 
+        # even though there could be more non-base characters in 
+        # aStringOfRawReads to process (e.g. <>$+2AG)
+        if (currBaseQualIndex < len(aStringOfRawBaseQuals)):
+            # the scores are in ascii, so convert them to integers
+            rawBaseQual = aStringOfRawBaseQuals[currBaseQualIndex]
+            convertedBaseQual = ord(rawBaseQual)-33
+            
+            # the scores are in ascii, so convert them to integers
+            rawMapQual = aStringOfRawMapQuals[currMapQualIndex]
+            convertedMapQual = ord(rawMapQual)-33
+            
+            if (anIsDebug):
+                logging.debug("baseQual=%s, ord(baseQual)=%s, convertedBaseQual=%s, mapQual=%s, ord(mapQual)=%s, convertedMapQual=%s", rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), rawMapQual, ord(rawMapQual), str(convertedMapQual))
+        else:
+            convertedBaseQual = -1
+            convertedMapQual = -1
+        
+        if (anIsDebug):
+            logging.debug("index=%s, currBaseIndex=%s, currBase=%s, currBaseQual=%s, currMapQual=%s", str(index), str(currBaseIndex), base, str(convertedBaseQual), str(convertedMapQual))
 
         if base in "+-":
             # if we found an indel, count them and skip ahead to the next base in the pileup
@@ -486,77 +502,129 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             currBaseIndex = indelEnd
         elif base == "^":
             # skip over all start of read symbols "^" (plus the following mapping quality score)
-            # there are no base quality scores for start symbols that need to be skipped
+            # there are no base or mapping quality scores for start symbols that need to be skipped
             currBaseIndex += 2
             starts += 1
         elif base == "$":
             # skip over all end of read symbols "$"
-            # there are no base quality scores for stop symbols that need to be skipped
+            # there are no base or mapping quality scores for stop symbols that need to be skipped
             currBaseIndex += 1
             stops += 1
         elif base == ".":
             # a period represents the reference base on the plus strand
-            if qual >= aMinBaseQuality:
+            if convertedBaseQual >= aMinBaseQuality and convertedMapQual >= aMinMapQuality:
                 base = aReferenceBase.upper()
                 finalBases += base
-                finalQuals += rawQual
+                finalBaseQuals += rawBaseQual
+                finalMapQuals += rawMapQual
                 numPlusStrandDict[base] += 1
                 numBasesDict[base] += 1
-                sumBaseQualsDict[base] += qual
+                sumBaseQualsDict[base] += convertedBaseQual
+                sumMapQualsDict[base] += convertedMapQual
+                
+                # count the number of mapping qualities that are zero per allele
+                if (convertedMapQual == 0):
+                    sumMapQualZeroesDict[base] += 1
+                
+                # keep track of the max mapping quality per allele
+                if (convertedMapQual > maxMapQualsDict[base]):
+                    maxMapQualsDict[base] = convertedMapQual
+                    
             currBaseIndex += 1
-            currQualIndex += 1
+            currBaseQualIndex += 1
+            currMapQualIndex += 1
         elif base == ",":
             # a comma represents the reference base on the negative strand
-            if qual >= aMinBaseQuality:
+            if convertedBaseQual >= aMinBaseQuality and convertedMapQual >= aMinMapQuality:
                 base = aReferenceBase.upper()
                 finalBases += base
-                finalQuals += rawQual
+                finalBaseQuals += rawBaseQual
+                finalMapQuals += rawMapQual
                 numBasesDict[base] += 1
-                sumBaseQualsDict[base] += qual
+                sumBaseQualsDict[base] += convertedBaseQual
+                sumMapQualsDict[base] += convertedMapQual
+                
+                # count the number of mapping qualities that are zero per allele
+                if (convertedMapQual == 0):
+                    sumMapQualZeroesDict[base] += 1
+                
+                # keep track of the max mapping quality per allele
+                if (convertedMapQual > maxMapQualsDict[base]):
+                    maxMapQualsDict[base] = convertedMapQual
+                
             currBaseIndex += 1
-            currQualIndex += 1
+            currBaseQualIndex += 1
+            currMapQualIndex += 1
         elif base in "AGCTN":
             #if (anIsDebug):
-            #    logging.debug("base=%s, rawQual=%s, ord(rawQual)=%s, qual=%s, aMinBaseQual=%s", base, rawQual, ord(rawQual), str(qual), str(aMinBaseQuality))
+            #    logging.debug("base=%s, rawBaseQual=%s, ord(rawBaseQual)=%s, convertedBaseQual=%s, aMinBaseQual=%s", base, rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), str(aMinBaseQuality))
             
             # a non reference on the plus strand
-            if qual >= aMinBaseQuality:
+            if convertedBaseQual >= aMinBaseQuality and convertedMapQual >= aMinMapQuality:
                 finalBases += base
-                finalQuals += rawQual
+                finalBaseQuals += rawBaseQual
+                finalMapQuals += rawMapQual
                 numPlusStrandDict[base] += 1
                 numBasesDict[base] += 1
-                sumBaseQualsDict[base] += qual
+                sumBaseQualsDict[base] += convertedBaseQual
+                sumMapQualsDict[base] += convertedMapQual
+                
+                # count the number of mapping qualities that are zero per allele
+                if (convertedMapQual == 0):
+                    sumMapQualZeroesDict[base] += 1
+                
+                # keep track of the max mapping quality per allele
+                if (convertedMapQual > maxMapQualsDict[base]):
+                    maxMapQualsDict[base] = convertedMapQual
+                
             currBaseIndex += 1
-            currQualIndex += 1
+            currBaseQualIndex += 1
+            currMapQualIndex += 1
         elif base in "agctn":
             #if (anIsDebug):
-            #    logging.debug("base=%s, rawQual=%s, ord(rawQual)=%s, qual=%s, aMinBaseQual=%s", base, rawQual, ord(rawQual), str(qual), str(aMinBaseQuality))
+            #    logging.debug("base=%s, rawBaseQual=%s, ord(rawBaseQual)=%s, convertedBaseQual=%s, aMinBaseQual=%s", base, rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), str(aMinBaseQuality))
             
             # a non reference on the negative strand
-            if qual >= aMinBaseQuality:
+            if convertedBaseQual >= aMinBaseQuality and convertedMapQual >= aMinMapQuality:
                 base = base.upper()
                 finalBases += base
-                finalQuals += rawQual
+                finalBaseQuals += rawBaseQual
+                finalMapQuals += rawMapQual
                 numBasesDict[base] += 1
-                sumBaseQualsDict[base] += qual
+                sumBaseQualsDict[base] += convertedBaseQual
+                sumMapQualsDict[base] += convertedMapQual
+                
+                # count the number of mapping qualities that are zero per allele
+                if (convertedMapQual == 0):
+                    sumMapQualZeroesDict[base] += 1
+                
+                # keep track of the max mapping quality per allele
+                if (convertedMapQual > maxMapQualsDict[base]):
+                    maxMapQualsDict[base] = convertedMapQual
+                
             currBaseIndex += 1
-            currQualIndex += 1
+            currBaseQualIndex += 1
+            currMapQualIndex += 1
         else:
             currBaseIndex += 1
-            currQualIndex += 1
+            currBaseQualIndex += 1
+            currMapQualIndex += 1
             
         if (anIsDebug):
-            logging.debug("finalBases=%s, finalQuals=%s", finalBases, finalQuals)
+            logging.debug("finalBases=%s, finalBaseQuals=%s, finalMapQuals=%s", finalBases, finalBaseQuals, finalMapQuals)
     
     # get the lengths
     lenFinalBases = len(finalBases)
-    lenFinalQuals = len(finalQuals) 
+    lenFinalBaseQuals = len(finalBaseQuals)
+    lenFinalMapQuals = len(finalMapQuals)
             
     # at this point, the length of the pileups string should be equal to the length of the quality scores
-    if (lenFinalBases != lenFinalQuals):
-        logging.error("Traceback: convert_and_filter_raw_reads() Error at coordinate %s:%s.  The length %s of the final pileup of reads is != the length %s of the final quality scores.  Original Pileup=%s, Final Pileup=%s, Original QualScores=%s, Final QualScores=%s", aChr, str(aCoordinate), lenFinalBases, lenFinalQuals, aStringOfRawReads, finalBases, aStringOfRawQuals, finalQuals)
+    if (lenFinalBases != lenFinalBaseQuals):
+        logging.error("Traceback: convert_and_filter_raw_reads() Error at coordinate %s:%s.  The length %s of the final pileup of reads is != the length %s of the final base quality scores.  Original Pileup=%s, Final Pileup=%s, Original BaseQualScores=%s, Final BaseQualScores=%s", aChr, str(aCoordinate), lenFinalBases, lenFinalBaseQuals, aStringOfRawReads, finalBases, aStringOfRawBaseQuals, finalBaseQuals)
+    if (lenFinalBases != lenFinalMapQuals):
+        logging.error("Traceback: convert_and_filter_raw_reads() Error at coordinate %s:%s.  The length %s of the final pileup of reads is != the length %s of the final mapping quality scores.  Original Pileup=%s, Final Pileup=%s, Original MapQualScores=%s, Final MapQualScores=%s", aChr, str(aCoordinate), lenFinalBases, lenFinalBaseQuals, aStringOfRawReads, finalBases, aStringOfRawMapQuals, finalMapQuals)
      
-    return (finalBases, finalQuals, lenFinalBases, starts, stops, (insertions + deletions), numBasesDict, sumBaseQualsDict, numPlusStrandDict)     
+    return (finalBases, finalBaseQuals, finalMapQuals, lenFinalBases, starts, stops, (insertions + deletions), numBasesDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict, numPlusStrandDict)
 
     
 def convert_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfQualScores, aReferenceBase, anIsDebug):
@@ -682,12 +750,12 @@ def convert_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfQualScores,
 
 def filter_by_base_quality(aStringOfReads, aStringOfQualScores, aMinBaseQualityScore, anIsDebug):
     '''
-    ' This function filters out all the bases that don't meet the user-specified minimum 
-    ' base quality score which is specified here with the "aMinBaseQualityScore" parameter.
+    ' This function filters out all the bases that don't meet the minimum base quality 
+    ' score which is specified here with the "aMinBaseQualityScore" parameter.
     '
     ' aStringOfReads: A string representing the pile-up of reads from a samtools mpileup command
     ' aStringOfQualScores: A string representing the raw quality scores for the read bases from the mpileup command 
-    ' aMinBaseQualityScore: An integer with the user-specified minimum base quality score (also used as -Q parameter to samtools mpileup command)
+    ' aMinBaseQualityScore: An integer with the minimum base quality score (also used as -Q parameter to samtools mpileup command)
     '''
     
     # create strings consisting of just the reads that are greater than or equal to the minimum base quality score 
@@ -721,23 +789,26 @@ def filter_by_base_quality(aStringOfReads, aStringOfQualScores, aMinBaseQualityS
     return (pileups, qualScores, len(pileups), numBasesDict, sumBaseQualsDict, numPlusStrandDict)               
 
 
-def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict, aStringReads, aStringQualScores, aNumBases, aStartsCount, aStopsCount, anIndelCount, aBaseCountsDict, aQualitySumsOfBasesDict, aPlusStrandCountsDict, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
+def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict, aNumBases, aStartsCount, aStopsCount, anIndelCount, aBaseCountsDict, aBaseQualSumsDict, aMapQualSumsDict, aMapQualZeroesDict, aMapQualMaxesDict, aPlusStrandCountsDict, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
     '''
     ' This function converts information from a .bam mpileup coordinate into a format that can be output to a VCF formatted file.
     ' This function calculates the average overall base quality score, strand bias, and fraction of reads supporting the alternative.
     ' It also calculates the allele specific depth, average base quality score, strand bias, and fraction of reads supporting the alternative.
-    ' The format for the output in VCF is:  GT:DP:INDEL:START:STOP:AD:AF:BQ:SB.
+    ' The format for the output in VCF is:  GT:DP:INDEL:START:STOP:MQ0:MMQ:MQ:AD:AF:BQ:SB.
     '
-    ' aDnaSet:  A set of dna found at this position
-    ' anAltList: A list of alternative alleles found thus far
-    ' aStringReads:  A string of reads that have been converted from raw format and filtered
-    ' aStringQualScores: A string of quality scores for the reads
-    ' aStartsCount:  The number of bases that were at the start of the read
-    ' aStopsCount:  The number of bases that were at the stop of the read
-    ' anIndelCount:  The number of indels at this position
-    ' aBaseCountsDict:  A dictionary with the number of bases of each type
-    ' aQualitySumsOfBasesDict:  A dictionary with the sum of all quality scores for each type of base
-    ' aPlusStrandCountsDict:  The number of bases that occurred on the plus strand
+    ' aDnaSet:                  A set of dna found at this position
+    ' anAltList:                A list of alternative alleles found thus far
+    ' aStringReads:             A string of reads that have been converted from raw format and filtered
+    ' aStringQualScores:        A string of quality scores for the reads
+    ' aStartsCount:             The number of bases that were at the start of the read
+    ' aStopsCount:              The number of bases that were at the stop of the read
+    ' anIndelCount:             The number of indels at this position
+    ' aBaseCountsDict:          A dictionary with the number of bases of each type
+    ' aBaseQualSumsDict:        A dictionary with the sum of all base quality scores for each allele
+    ' aMapQualSumsDict:         A dictionary with the sum of all map quality scores for each allele
+    ' aMapQualMaxesDict:        A dictionary with the maximum mapping quality for each allele
+    ' aMapQualZeroesDict:       A dictionary with the number of reads with a mapping score of zero for each allele
+    ' aPlusStrandCountsDict:    The number of bases that occurred on the plus strand
     '''
     
     # initialize the return variables
@@ -746,22 +817,28 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
     # if we have reads at this position
     if (aNumBases > 0):
         
-        #format = "GT:DP:INDEL:START:STOP:AD:AF:BQ:SB"
+        #format = "GT:DP:INDEL:START:STOP:MQ0:MMQ:MQA:AD:AF:BQ:SB"
         
         #vcfHeader += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
         #vcfHeader += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read depth\">\n"
         #vcfHeader += "##FORMAT=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels\">\n"
         #vcfHeader += "##FORMAT=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this position\">\n"
         #vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position\">\n"
-        #vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Float,Description=\"Depth of reads supporting alleles 0/1/2/3\">\n"
-        #vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting alleles 0/1/2/3\">\n"
-        #vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting alleles 0/1/2/3\">\n"
-        #vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting alleles 0/1/2/3\">\n"
+        #vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Float,Description=\"Depth of reads supporting alleles (in order specified by GT)\">\n"
+        #vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting alleles (in order specified by GT)\">\n"
+        #vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting alleles (in order specified by GT)\">\n"
+        #vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting alleles (in order specified by GT)\">\n"
+        #vcfHeader += "##FORMAT=<ID=MQA,Number=.,Type=Integer,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
+        #vcfHeader += "##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
+        #vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
             
         # initialize some lists
         depths = list()
         readSupports = list()
         baseQuals = list()
+        mapQuals = list()
+        mapQualZeroes = list()
+        mapQualMaxes = list()
         strandBias = list()
         altCountsDict = {}
         
@@ -786,13 +863,18 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
             
             # calculate the allele specific avg base quality and plus strand scores
             if (count > 0):
-                avgBaseQuality = int(round(aQualitySumsOfBasesDict[base]/float(count),0))
+                avgBaseQuality = int(round(aBaseQualSumsDict[base]/float(count),0))
+                avgMapQuality = int(round(aMapQualSumsDict[base]/float(count),0))
                 avgPlusStrandBias = round(aPlusStrandCountsDict[base]/float(count),2)
             else:
                 avgBaseQuality = 0
+                avgMapQuality = 0
                 avgPlusStrandBias = 0.0
                 
             baseQuals.append(avgBaseQuality)
+            mapQuals.append(avgMapQuality)
+            mapQualMaxes.append(aMapQualMaxesDict[base])
+            mapQualZeroes.append(aMapQualZeroesDict[base])
             strandBias.append(avgPlusStrandBias)
 
             
@@ -915,7 +997,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
             genotypes = sorted([max1DepthIndex, max2DepthIndex])
         
         # create a list of each of the elements, then join them by colon
-        outputList = ("/".join(map(str, genotypes)), str(aNumBases), str(anIndelCount), str(aStartsCount), str(aStopsCount), ",".join(map(str, depths)), ",".join(map(str, readSupports)), ",".join(map(str, baseQuals)), ",".join(map(str, strandBias)))
+        outputList = ("/".join(map(str, genotypes)), str(aNumBases), str(anIndelCount), str(aStartsCount), str(aStopsCount), ",".join(map(str, mapQualZeroes)), ",".join(map(str, mapQualMaxes)), ",".join(map(str, mapQuals)), ",".join(map(str, depths)), ",".join(map(str, readSupports)), ",".join(map(str, baseQuals)), ",".join(map(str, strandBias)))
         aBamOutputString = ":".join(outputList)
         
     # return the string representation and overall calculations       
@@ -933,17 +1015,17 @@ def get_next_pileup(aGenerator):
     '''
     
     if (aGenerator == None):
-        return False, "", -1, "", 0, "", ""
+        return False, "", -1, "", 0, "", "", ""
     else:
         try:
             # get the next line
-            (chrom, coordinate, refBase, numReads, reads, qualScores) = aGenerator.next() 
-            return True, chrom, int(coordinate), refBase, int(numReads), reads, qualScores                     
+            (chrom, coordinate, refBase, numReads, reads, baseQuals, mapQuals) = aGenerator.next()
+            return True, chrom, int(coordinate), refBase, int(numReads), reads, baseQuals, mapQuals
         except StopIteration:
-            return False, "", -1, "", 0, "", ""
+            return False, "", -1, "", 0, "", "", ""
 
 
-def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aPreviousUniqueBases, aPreviousBaseCounts, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, aRefList, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, aGainModCount, aLossModCount, aGainModType, aLossModType, anInfoDict, aMinTotalNumBases, aMinAltNumBases, aPreviousMinAltNumBases, aBaseQual, aBaseQualsList, aSourcePrefix, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
+def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aMapQuals, aPreviousUniqueBases, aPreviousBaseCounts, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, aRefList, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, aGainModCount, aLossModCount, aGainModType, aLossModType, anInfoDict, aMinTotalNumBases, aMinAltNumBases, aPreviousMinAltNumBases, aMinBaseQual, aMinMapQual, aBaseQualsList, aSourcePrefix, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
     '''
     ' This function finds variants in BAM pileups.  This function first converts the samtools pileup of reads into 
     ' human-readable reads and then records some characteristics of the pileups.  It counts the number of bases on the 
@@ -969,6 +1051,8 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
     
     # default outputs
     sumOfBaseQuals = 0
+    sumOfMapQuals = 0
+    sumOfMapQualZeroes = 0
     sumOfStrandBiases = 0
     sumOfAltReads = 0
     oneAboveMinAltBasesFlag = False
@@ -1000,10 +1084,10 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
         (convertedReads, convertedBaseQuals, aNumBases, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict) = filter_by_base_quality(convertedReads, convertedBaseQuals, aBaseQual, anIsDebug)  
         '''
         
-        (convertedReads, convertedBaseQuals, aNumBases, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict) = convert_and_filter_raw_reads(aChr, aCoordinate, aReads, aBaseQuals, aRefBase, aBaseQual, anIsDebug)
+        (convertedReads, convertedBaseQuals, convertedMapQuals, aNumBases, starts, stops, indels, baseCountsDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict, plusStrandCountsDict) = convert_and_filter_raw_reads(aChr, aCoordinate, aReads, aBaseQuals, aMapQuals, aRefBase, aMinBaseQual, aMinMapQual, anIsDebug)
         
         if (anIsDebug):
-            logging.debug("After convert_and_filter_raw_reads() on %s: %s %s %s %s %s %s %s %s %s %s %s %s", aSourcePrefix, aChr, aCoordinate, aRefBase, aNumBases, convertedReads, convertedBaseQuals, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict)
+            logging.debug("After convert_and_filter_raw_reads() on %s: %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s %s", aSourcePrefix, aChr, aCoordinate, aRefBase, aNumBases, convertedReads, convertedBaseQuals, convertedMapQuals, starts, stops, indels, baseCountsDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict, plusStrandCountsDict)
         
         # if we still have some bases
         if (aNumBases > 0):
@@ -1090,12 +1174,14 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aP
             aDnaSet = aDnaSet.union(set(convertedReads))
             
             # get the summary output for the pileups at this position
-            (aBamOutputString, anAltCountsDict, anAltPerDict, sumOfAltReads) = format_bam_output(aChr, aRefList, anAltList, anAltCountsDict, anAltPerDict, convertedReads, convertedBaseQuals, aNumBases, starts, stops, indels, baseCountsDict, qualitySumsOfBasesDict, plusStrandCountsDict, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug)
+            (aBamOutputString, anAltCountsDict, anAltPerDict, sumOfAltReads) = format_bam_output(aChr, aRefList, anAltList, anAltCountsDict, anAltPerDict, aNumBases, starts, stops, indels, baseCountsDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict, plusStrandCountsDict, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug)
             
-            sumOfBaseQuals = sum(qualitySumsOfBasesDict.itervalues())
+            sumOfBaseQuals = sum(sumBaseQualsDict.itervalues())
+            sumOfMapQuals = sum(sumMapQualsDict.itervalues())
+            sumOfMapQualZeroes = sum(sumMapQualZeroesDict.itervalues())
             sumOfStrandBiases = sum(plusStrandCountsDict.itervalues())
                  
-    return (aBamOutputString, uniqueBases, baseCountsDict, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, (aNumBases < aMinTotalNumBases), (not oneAboveMinAltBasesFlag and setBelowMinAltBasesFlag), aGainModCount, aLossModCount, anInfoDict, aNumBases, indels, starts, stops, sumOfBaseQuals, sumOfStrandBiases, sumOfAltReads, aBaseQualsList)
+    return (aBamOutputString, uniqueBases, baseCountsDict, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, (aNumBases < aMinTotalNumBases), (not oneAboveMinAltBasesFlag and setBelowMinAltBasesFlag), aGainModCount, aLossModCount, anInfoDict, aNumBases, indels, starts, stops, sumOfBaseQuals, sumOfMapQuals, sumOfMapQualZeroes, sumOfStrandBiases, sumOfAltReads, aBaseQualsList)
         
         
 def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aRadiaVersion, aPatientId, aParamDict, aFilenameList, aLabelList, aDescList, aPlatformList, aSourceList, anAnalytesList, aDisease, anIsDebug):
@@ -1103,7 +1189,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     ' This function creates a VCF header that is used for the output.
     '
     ' aVCFFormat - The current file format version
-    ' aRefId - The short reference id such hg18, hg19, GRCh37
+    ' aRefId - The short reference id such hg18, hg19, GRCh37, hg38, GRCh38
     ' aRefURL - The URL for the reference file provided
     ' aRefFilename - The filename of the reference
     ' aRadiaVersion - The version of RADIA
@@ -1205,8 +1291,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this position across all samples\">\n"
     vcfHeader += "##INFO=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position across all samples\">\n"
     vcfHeader += "##INFO=<ID=BQ,Number=1,Type=Integer,Description=\"Overall average base quality\">\n"
-    #vcfHeader += "##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Overall average mapping quality\">\n"
-    #vcfHeader += "##INFO=<ID=MQ0,Number=1,Type=Integer,Description=\"Total Mapping Quality Zero Reads\">\n"
+    vcfHeader += "##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Overall average mapping quality\">\n"
+    vcfHeader += "##INFO=<ID=MQ0,Number=1,Type=Integer,Description=\"Total Mapping Quality Zero Reads\">\n"
     vcfHeader += "##INFO=<ID=SB,Number=1,Type=Float,Description=\"Overall strand bias\">\n"
     vcfHeader += "##INFO=<ID=FA,Number=1,Type=Float,Description=\"Overall fraction of reads supporting ALT\">\n"
     vcfHeader += "##INFO=<ID=MT,Number=.,Type=String,Description=\"Modification types at this position\">\n"
@@ -1215,6 +1301,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=MFT,Number=.,Type=String,Description=\"Modification filter types at this position with format origin_modType_modChange\">\n"
     vcfHeader += "##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description=\"Indicates if record is a somatic mutation\">\n"
     vcfHeader += "##INFO=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal,0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
+    vcfHeader += "##INFO=<ID=SST,Number=1,Type=String,Description=\"Somatic status of variant\">\n"
     vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n"
     #vcfHeader += "##INFO=<ID=DEL,Number=1,Type=Integer,Description=\"Number of small deletions at this location in all samples\">\n"
     #vcfHeader += "##INFO=<ID=INS,Number=1,Type=Integer,Description=\"Number of small insertions at this location in all samples\">\n"
@@ -1222,8 +1309,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     # get the filter fields
     vcfHeader += "##FILTER=<ID=noref,Description=\"Position skipped, reference=N\">\n"
     vcfHeader += "##FILTER=<ID=diffref,Description=\"Position skipped, different references in files\">\n"
-    vcfHeader += "##FILTER=<ID=mbt,Description=\"Minimum total bases is less than user-specified cut-off\">\n"
-    vcfHeader += "##FILTER=<ID=mba,Description=\"Minimum ALT bases is less than user-specified cut-off\">\n"
+    vcfHeader += "##FILTER=<ID=mbt,Description=\"Total bases is less than the minimum\">\n"
+    vcfHeader += "##FILTER=<ID=mba,Description=\"ALT bases is less than the minimum\">\n"
     
     # get the format fields
     # these fields are sample specific
@@ -1232,18 +1319,18 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##FORMAT=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels\">\n"
     vcfHeader += "##FORMAT=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this position\">\n"
     vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position\">\n"
+    vcfHeader += "##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=MQA,Number=.,Type=Integer,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Depth of reads supporting allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting allele (in order specified by GT)\">\n"
-    
-    #vcfHeader += "##FORMAT=<ID=MQ,Number=1,Type=Integer,Description=\"Phred style probability score that the variant is novel with respect to the genome's ancestor\">\n"            
-    #vcfHeader += "##FORMAT=<ID=MQA,Number=.,Type=Float,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
-    #vcfHeader += "##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
-    #vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
-    #vcfHeader += "##FORMAT=<ID=MMQS,Number=.,Type=Float,Description=\"Average mismatch quality sum of reads harboring allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting allele (in order specified by GT)\">\n"
     #vcfHeader += "##FORMAT=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal, 0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
     #vcfHeader += "##FORMAT=<ID=SSC,Number=1,Type=Integer,Description=\"Somatic score between 0 and 255\">\n"
+    # across the whole read, what is the avg base quality of all mismatches
+    #vcfHeader += "##FORMAT=<ID=MMQS,Number=.,Type=Float,Description=\"Average mismatch quality sum of reads harboring allele (in order specified by GT)\">\n"
+    #vcfHeader += "##FORMAT=<ID=MQ,Number=1,Type=Integer,Description=\"Phred style probability score that the variant is novel with respect to the genome's ancestor\">\n"
     
     vcfHeader += "#" + "\t".join(columnHeaders)
     return vcfHeader
@@ -1275,17 +1362,22 @@ def pad_output(anOutput, anEmptyOutput, anAlleleLength):
         return anOutput
     
     # get the data for this sample
-    (genotypes, depths, indels, starts, stops, alleleDepths, alleleFractions, baseQualities, strandBiases) = anOutput.split(":")
+    # GT:DP:INDEL:START:STOP:MQ0:MMQ:MQA:AD:AF:BQ:SB
+    (genotypes, depths, indels, starts, stops, mapQualZeroes, mapQualMaxes, mapQuals, alleleDepths, alleleFractions, baseQuals, strandBiases) = anOutput.split(":")
     
     # if we need some padding
     alleleDepthList = alleleDepths.split(",") 
     if (len(alleleDepthList) < anAlleleLength):
+        mapQualZeroesList = pad(mapQualZeroes.split(","), "0", anAlleleLength)
+        mapQualMaxesList = pad(mapQualMaxes.split(","), "0", anAlleleLength)
+        mapQualsList = pad(mapQuals.split(","), "0", anAlleleLength)
         alleleDepthList = pad(alleleDepthList, "0", anAlleleLength)
         alleleFractionList = pad(alleleFractions.split(","), "0.0", anAlleleLength)
-        baseQualityList = pad(baseQualities.split(","), "0", anAlleleLength)
+        baseQualityList = pad(baseQuals.split(","), "0", anAlleleLength)
         strandBiasList = pad(strandBiases.split(","), "0.0", anAlleleLength)
         
-        outputList = (genotypes, depths, indels, starts, stops, ",".join(alleleDepthList), ",".join(alleleFractionList), ",".join(baseQualityList), ",".join(strandBiasList))
+        # GT:DP:INDEL:START:STOP:MQ0:MMQ:MQA:AD:AF:BQ:SB
+        outputList = (genotypes, depths, indels, starts, stops, ",".join(mapQualZeroesList), ",".join(mapQualMaxesList), ",".join(mapQualsList), ",".join(alleleDepthList), ",".join(alleleFractionList), ",".join(baseQualityList), ",".join(strandBiasList))
             
         return ":".join(outputList)
     else:
@@ -1419,8 +1511,8 @@ def main():
         
     i_dnaNormMinTotalNumBases = i_cmdLineOptions.dnaNormalMinTotalNumBases
     i_dnaNormMinAltNumBases = i_cmdLineOptions.dnaNormalMinAltNumBases
-    i_dnaNormBaseQual = i_cmdLineOptions.dnaNormalMinBaseQuality
-    i_dnaNormMapQual = i_cmdLineOptions.dnaNormalMinMappingQuality
+    i_dnaNormMinBaseQual = i_cmdLineOptions.dnaNormalMinBaseQuality
+    i_dnaNormMinMapQual = i_cmdLineOptions.dnaNormalMinMappingQuality
     i_dnaNormUseChr = i_cmdLineOptions.dnaNormalUseChrPrefix
     i_dnaNormMitochon = i_cmdLineOptions.dnaNormalMitochon
     i_dnaNormDesc = i_cmdLineOptions.dnaNormalDesc
@@ -1429,8 +1521,8 @@ def main():
     
     i_rnaNormMinTotalNumBases = i_cmdLineOptions.rnaNormalMinTotalNumBases
     i_rnaNormMinAltNumBases = i_cmdLineOptions.rnaNormalMinAltNumBases
-    i_rnaNormBaseQual = i_cmdLineOptions.rnaNormalMinBaseQuality
-    i_rnaNormMapQual = i_cmdLineOptions.rnaNormalMinMappingQuality
+    i_rnaNormMinBaseQual = i_cmdLineOptions.rnaNormalMinBaseQuality
+    i_rnaNormMinMapQual = i_cmdLineOptions.rnaNormalMinMappingQuality
     i_rnaNormUseChr = i_cmdLineOptions.rnaNormalUseChrPrefix
     i_rnaNormMitochon = i_cmdLineOptions.rnaNormalMitochon
     i_rnaNormDesc = i_cmdLineOptions.rnaNormalDesc
@@ -1439,8 +1531,8 @@ def main():
     
     i_dnaTumMinTotalNumBases = i_cmdLineOptions.dnaTumorMinTotalNumBases
     i_dnaTumMinAltNumBases = i_cmdLineOptions.dnaTumorMinAltNumBases
-    i_dnaTumBaseQual = i_cmdLineOptions.dnaTumorMinBaseQuality
-    i_dnaTumMapQual = i_cmdLineOptions.dnaTumorMinMappingQuality
+    i_dnaTumMinBaseQual = i_cmdLineOptions.dnaTumorMinBaseQuality
+    i_dnaTumMinMapQual = i_cmdLineOptions.dnaTumorMinMappingQuality
     i_dnaTumUseChr = i_cmdLineOptions.dnaTumorUseChrPrefix
     i_dnaTumMitochon = i_cmdLineOptions.dnaTumorMitochon
     i_dnaTumDesc = i_cmdLineOptions.dnaTumorDesc
@@ -1449,8 +1541,8 @@ def main():
     
     i_rnaTumMinTotalNumBases = i_cmdLineOptions.rnaTumorMinTotalNumBases
     i_rnaTumMinAltNumBases = i_cmdLineOptions.rnaTumorMinAltNumBases
-    i_rnaTumBaseQual = i_cmdLineOptions.rnaTumorMinBaseQuality
-    i_rnaTumMapQual = i_cmdLineOptions.rnaTumorMinMappingQuality
+    i_rnaTumMinBaseQual = i_cmdLineOptions.rnaTumorMinBaseQuality
+    i_rnaTumMinMapQual = i_cmdLineOptions.rnaTumorMinMappingQuality
     i_rnaTumUseChr = i_cmdLineOptions.rnaTumorUseChrPrefix
     i_rnaTumMitochon = i_cmdLineOptions.rnaTumorMitochon
     i_rnaTumDesc = i_cmdLineOptions.rnaTumorDesc
@@ -1644,8 +1736,8 @@ def main():
         if (i_dnaNormalPileupsFilename != None):
             logging.debug("dnaNormal=%s" % i_dnaNormalPileupsFilename)
         logging.debug("dna normal fasta File: %s" % i_dnaNormalFastaFilename)
-        logging.debug("dna normal baseQual: %s" % i_dnaNormBaseQual)
-        logging.debug("dna normal mappingQual: %s" % i_dnaNormMapQual)
+        logging.debug("dna normal minBaseQual: %s" % i_dnaNormMinBaseQual)
+        logging.debug("dna normal minMappingQual: %s" % i_dnaNormMinMapQual)
         logging.debug("dna normal minTotalBases: %s" % i_dnaNormMinTotalNumBases)
         logging.debug("dna normal minAltBases: %s" % i_dnaNormMinAltNumBases)
         logging.debug("dna normal usePrefix? %s" % i_dnaNormUseChr)
@@ -1656,8 +1748,8 @@ def main():
         if (i_dnaTumorPileupsFilename != None):
             logging.debug("dnaTumor=%s" % i_dnaTumorPileupsFilename)
         logging.debug("dna tumor fasta File: %s" % i_dnaTumorFastaFilename)
-        logging.debug("dna tumor baseQual: %s" % i_dnaTumBaseQual)
-        logging.debug("dna tumor mappingQual: %s" % i_dnaTumMapQual)
+        logging.debug("dna tumor minBaseQual: %s" % i_dnaTumMinBaseQual)
+        logging.debug("dna tumor minMappingQual: %s" % i_dnaTumMinMapQual)
         logging.debug("dna tumor minTotalBases: %s" % i_dnaTumMinTotalNumBases)
         logging.debug("dna tumor minAltBases: %s" % i_dnaTumMinAltNumBases)
         logging.debug("dna tumor usePrefix? %s" % i_dnaTumUseChr)
@@ -1668,8 +1760,8 @@ def main():
         if (i_rnaNormalPileupsFilename != None):
             logging.debug("rnaNormal=%s" % i_rnaNormalPileupsFilename)
         logging.debug("rna normal fasta File: %s" % i_rnaNormalFastaFilename)
-        logging.debug("rna normal baseQual: %s" % i_rnaNormBaseQual)
-        logging.debug("rna normal mappingQual: %s" % i_rnaNormMapQual)
+        logging.debug("rna normal minBaseQual: %s" % i_rnaNormMinBaseQual)
+        logging.debug("rna normal minMappingQual: %s" % i_rnaNormMinMapQual)
         logging.debug("rna normal minTotalBases: %s" % i_rnaNormMinTotalNumBases)
         logging.debug("rna normal minAltBases: %s" % i_rnaNormMinAltNumBases)
         logging.debug("rna normal usePrefix? %s" % i_rnaNormUseChr)
@@ -1680,8 +1772,8 @@ def main():
         if (i_rnaTumorPileupsFilename != None):
             logging.debug("rnaTumor=%s" % i_rnaTumorPileupsFilename)
         logging.debug("rna tumor fasta File: %s" % i_rnaTumorFastaFilename)
-        logging.debug("rna tumor baseQual: %s" % i_rnaTumBaseQual)
-        logging.debug("rna tumor mappingQual: %s" % i_rnaTumMapQual)
+        logging.debug("rna tumor minBaseQual: %s" % i_rnaTumMinBaseQual)
+        logging.debug("rna tumor minMappingQual: %s" % i_rnaTumMinMapQual)
         logging.debug("rna tumor minTotalBases: %s" % i_rnaTumMinTotalNumBases)
         logging.debug("rna tumor minAltBases: %s" % i_rnaTumMinAltNumBases)
         logging.debug("rna tumor usePrefix? %s" % i_rnaTumUseChr)
@@ -1829,7 +1921,7 @@ def main():
     startTime = time.time()
     
     # initialize some variables
-    formatString = "GT:DP:INDEL:START:STOP:AD:AF:BQ:SB"
+    formatString = "GT:DP:INDEL:START:STOP:MQ0:MMQ:MQA:AD:AF:BQ:SB"
     countRnaDnaCoordinateOverlap = 0
     totalGerms = 0
     totalSoms = 0
@@ -1894,9 +1986,9 @@ def main():
         elif (i_dnaNormalFilename != None):
             # some bams/references use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_dnaNormMitochon != None):
-                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormBaseQual, i_dnaNormMapQual, i_dnaNormMitochon, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)                      
+                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormMinBaseQual, i_dnaNormMinMapQual, i_dnaNormMitochon, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)
             else:
-                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormBaseQual, i_dnaNormMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)                      
+                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormMinBaseQual, i_dnaNormMinMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)
       
         # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
         if (i_rnaNormalPileupsFilename != None):
@@ -1905,9 +1997,9 @@ def main():
         elif (i_rnaNormalFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_rnaNormMitochon != None):
-                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormBaseQual, i_rnaNormMapQual, i_rnaNormMitochon, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormMinBaseQual, i_rnaNormMinMapQual, i_rnaNormMitochon, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
             else:
-                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormBaseQual, i_rnaNormMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormMinBaseQual, i_rnaNormMinMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
             
         # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
         if (i_dnaTumorPileupsFilename != None):
@@ -1916,9 +2008,9 @@ def main():
         elif (i_dnaTumorFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_dnaTumMitochon != None):
-                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumBaseQual, i_dnaTumMapQual, i_dnaTumMitochon, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
+                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumMinBaseQual, i_dnaTumMinMapQual, i_dnaTumMitochon, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
             else:
-                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumBaseQual, i_dnaTumMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)   
+                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumMinBaseQual, i_dnaTumMinMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
         
         # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
         if (i_rnaTumorPileupsFilename != None):
@@ -1927,16 +2019,16 @@ def main():
         elif (i_rnaTumorFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_rnaTumMitochon != None):
-                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumBaseQual, i_rnaTumMapQual, i_rnaTumMitochon, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumMinBaseQual, i_rnaTumMinMapQual, i_rnaTumMitochon, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
             else:
-                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumBaseQual, i_rnaTumMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumMinBaseQual, i_rnaTumMinMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
         
         # get the first pileup from each file
         # if a file is not specified, then the "moreLines" flags will be set to false and initial values will be returned
-        (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores) = get_next_pileup(i_dnaNormalGenerator)
-        (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores) = get_next_pileup(i_rnaNormalGenerator)
-        (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores) = get_next_pileup(i_dnaTumorGenerator)
-        (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)    
+        (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals) = get_next_pileup(i_dnaNormalGenerator)
+        (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalBaseQuals, rnaNormalMapQuals) = get_next_pileup(i_rnaNormalGenerator)
+        (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals) = get_next_pileup(i_dnaTumorGenerator)
+        (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals) = get_next_pileup(i_rnaTumorGenerator)
     
         # for each coordinate that we'd like to investigate
         for currentCoordinate in xrange(currentStart, currentStop+1):
@@ -1957,10 +2049,10 @@ def main():
         
             if (i_debug):
                 logging.debug("currentCoordinate: %s", currentCoordinate)
-                logging.debug("Initial NormalDNAData: %s %s %s %s %s %s", dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores)
-                logging.debug("Initial NormalRNAData: %s %s %s %s %s %s", rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores)
-                logging.debug("Initial TumorDNAData: %s %s %s %s %s %s", dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores)
-                logging.debug("Initial TumorRNAData: %s %s %s %s %s %s", rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores)
+                logging.debug("Initial NormalDNAData: %s %s %s %s %s %s %s", dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals)
+                logging.debug("Initial NormalRNAData: %s %s %s %s %s %s %s", rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalBaseQuals, rnaNormalMapQuals)
+                logging.debug("Initial TumorDNAData: %s %s %s %s %s %s %s", dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals)
+                logging.debug("Initial TumorRNAData: %s %s %s %s %s %s %s", rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals)
                 
             # if we don't have any more data, then break out of the loop
             # this can happen when testing or when we've reached the end of all the data in the .mpileups files
@@ -1987,6 +2079,8 @@ def main():
             totalStarts = 0
             totalStops = 0
             totalSumBaseQual = 0
+            totalSumMapQual = 0
+            totalSumMapQualZero = 0
             totalSumStrandBias = 0
             totalAltReadDepth = 0
             
@@ -2031,16 +2125,16 @@ def main():
             if (not i_debug and ("N" in refList or len(refList) > 1)):
                 # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
                 if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
-                    (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores) = get_next_pileup(i_dnaNormalGenerator)                      
+                    (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals) = get_next_pileup(i_dnaNormalGenerator)
                 
                 if (moreRnaNormalLines and rnaNormalCoordinate <= currentCoordinate):
-                    (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores) = get_next_pileup(i_rnaNormalGenerator)                   
+                    (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalBaseQuals, rnaNormalMapQuals) = get_next_pileup(i_rnaNormalGenerator)
                 
                 if (moreDnaTumorLines and dnaTumorCoordinate <= currentCoordinate):
-                    (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores) = get_next_pileup(i_dnaTumorGenerator)                      
+                    (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals) = get_next_pileup(i_dnaTumorGenerator)
                        
                 if (moreRnaTumorLines and rnaTumorCoordinate <= currentCoordinate):
-                    (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)
+                    (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals) = get_next_pileup(i_rnaTumorGenerator)
                 
                 # continue to the next coordinate
                 continue;
@@ -2053,7 +2147,7 @@ def main():
                 lossModType = "NOREF"
             
                 # process the normal DNA
-                (dnaNormalOutputString, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalGerms, totalNoRef, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores, previousUniqueBases, previousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalGerms, totalNoRef, gainModType, lossModType, infoDict, i_dnaNormMinTotalNumBases, i_dnaNormMinAltNumBases, i_dnaNormMinAltNumBases, i_dnaNormBaseQual, coordinateBaseQualsList, "DNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, dnaNormalOutputString, i_debug)
+                (dnaNormalOutputString, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalGerms, totalNoRef, infoDict, numBases, indels, starts, stops, totalBaseQual, totalMapQual, totalMapQualZero, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals, previousUniqueBases, previousBaseCounts, dnaNormalReadDPDict, dnaNormalAltPercentDict, dnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalGerms, totalNoRef, gainModType, lossModType, infoDict, i_dnaNormMinTotalNumBases, i_dnaNormMinAltNumBases, i_dnaNormMinAltNumBases, i_dnaNormMinBaseQual, i_dnaNormMinMapQual, coordinateBaseQualsList, "DNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, dnaNormalOutputString, i_debug)
                 
                 if (numBases > 0):
                     totalSamples += 1
@@ -2062,6 +2156,8 @@ def main():
                     totalStarts += starts
                     totalStops += stops
                     totalSumBaseQual += totalBaseQual
+                    totalSumMapQual += totalMapQual
+                    totalSumMapQualZero += totalMapQualZero
                     totalSumStrandBias += totalStrandBias
                     totalAltReadDepth += totalAltReadSupport
                     setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
@@ -2082,7 +2178,7 @@ def main():
                 # need to think about this in more detail
                 previousUniqueBases = ""
                 
-                (rnaNormalOutputString, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalNormEdits, totalNormNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalNormEdits, totalNormNotExp, gainModType, lossModType, infoDict, i_rnaNormMinTotalNumBases, i_rnaNormMinAltNumBases, i_dnaNormMinAltNumBases, i_rnaNormBaseQual, coordinateBaseQualsList, "RNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, rnaNormalOutputString, i_debug)    
+                (rnaNormalOutputString, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalNormEdits, totalNormNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalMapQual, totalMapQualZero, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalBaseQuals, rnaNormalMapQuals, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalNormEdits, totalNormNotExp, gainModType, lossModType, infoDict, i_rnaNormMinTotalNumBases, i_rnaNormMinAltNumBases, i_dnaNormMinAltNumBases, i_rnaNormMinBaseQual, i_rnaNormMinMapQual, coordinateBaseQualsList, "RNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, rnaNormalOutputString, i_debug)
                 
                 if (numBases > 0):
                     totalSamples += 1
@@ -2091,6 +2187,8 @@ def main():
                     totalStarts += starts
                     totalStops += stops
                     totalSumBaseQual += totalBaseQual
+                    totalSumMapQual += totalMapQual
+                    totalSumMapQualZero += totalMapQualZero
                     totalSumStrandBias += totalStrandBias
                     totalAltReadDepth += totalAltReadSupport
                     setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
@@ -2108,7 +2206,7 @@ def main():
                 lossModType = "LOH"
                 
                 # process the tumor DNA
-                (dnaTumorOutputString, previousUniqueBases, previousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalSoms, totalLohs, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalSoms, totalLohs, gainModType, lossModType, infoDict, i_dnaTumMinTotalNumBases, i_dnaTumMinAltNumBases, i_dnaNormMinAltNumBases, i_dnaTumBaseQual, coordinateBaseQualsList, "DNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, dnaTumorOutputString, i_debug)
+                (dnaTumorOutputString, previousUniqueBases, previousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasDNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalSoms, totalLohs, infoDict, numBases, indels, starts, stops, totalBaseQual, totalMapQual, totalMapQualZero, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals, dnaNormalPreviousBases, dnaNormalPreviousBaseCounts, dnaTumorReadDPDict, dnaTumorAltPercentDict, dnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasDNA, shouldOutput, totalSoms, totalLohs, gainModType, lossModType, infoDict, i_dnaTumMinTotalNumBases, i_dnaTumMinAltNumBases, i_dnaNormMinAltNumBases, i_dnaTumMinBaseQual, i_dnaTumMinMapQual, coordinateBaseQualsList, "DNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, dnaTumorOutputString, i_debug)
                 
                 if (numBases > 0):
                     totalSamples += 1
@@ -2117,6 +2215,8 @@ def main():
                     totalStarts += starts
                     totalStops += stops
                     totalSumBaseQual += totalBaseQual
+                    totalSumMapQual += totalMapQual
+                    totalSumMapQualZero += totalMapQualZero
                     totalSumStrandBias += totalStrandBias
                     totalAltReadDepth += totalAltReadSupport
                     setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
@@ -2137,7 +2237,7 @@ def main():
                 # need to think about this in more detail
                 previousUniqueBases = ""
                 
-                (rnaTumorOutputString, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalTumEdits, totalTumNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalTumEdits, totalTumNotExp, gainModType, lossModType, infoDict, i_rnaTumMinTotalNumBases, i_rnaTumMinAltNumBases, i_dnaTumMinAltNumBases, i_rnaTumBaseQual, coordinateBaseQualsList, "RNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, rnaTumorOutputString, i_debug)    
+                (rnaTumorOutputString, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalTumEdits, totalTumNotExp, infoDict, numBases, indels, starts, stops, totalBaseQual, totalMapQual, totalMapQualZero, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalTumEdits, totalTumNotExp, gainModType, lossModType, infoDict, i_rnaTumMinTotalNumBases, i_rnaTumMinAltNumBases, i_dnaTumMinAltNumBases, i_rnaTumMinBaseQual, i_rnaTumMinMapQual, coordinateBaseQualsList, "RNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, rnaTumorOutputString, i_debug)
                 
                 if (numBases > 0):
                     totalSamples += 1
@@ -2146,6 +2246,8 @@ def main():
                     totalStarts += starts
                     totalStops += stops
                     totalSumBaseQual += totalBaseQual
+                    totalSumMapQual += totalMapQual
+                    totalSumMapQualZero += totalMapQualZero
                     totalSumStrandBias += totalStrandBias
                     totalAltReadDepth += totalAltReadSupport
                     setMinTotalBasesFlag = (setMinTotalBasesFlag and numTotalBasesFilter)
@@ -2207,6 +2309,17 @@ def main():
                     #vcfHeader += "##INFO=<ID=FA,Number=1,Type=Float,Description=\"Overall fraction of reads supporting ALT\">\n"
                     #vcfHeader += "##INFO=<ID=MT,Number=.,Type=String,Description=\"Modification types at this position\">\n"
                     #vcfHeader += "##INFO=<ID=MC,Number=.,Type=String,Description=\"Modification base changes at this position\">\n"
+                    #vcfHeader += "##INFO=<ID=AC,Number=.,Type=Integer,Description=\"Allele count in genotypes, for each ALT allele, in the same order as listed\">\n"
+                    #vcfHeader += "##INFO=<ID=AF,Number=.,Type=Float,Description=\"Allele frequency, for each ALT allele, in the same order as listed\">\n"
+                    #vcfHeader += "##INFO=<ID=MQ,Number=1,Type=Integer,Description=\"Overall average mapping quality\">\n"
+                    #vcfHeader += "##INFO=<ID=MQ0,Number=1,Type=Integer,Description=\"Total Mapping Quality Zero Reads\">\n"
+                    #vcfHeader += "##INFO=<ID=MF,Number=.,Type=String,Description=\"Modification filters applied to the filter types listed in MFT\">\n"
+                    #vcfHeader += "##INFO=<ID=MFT,Number=.,Type=String,Description=\"Modification filter types at this position with format origin_modType_modChange\">\n"
+                    #vcfHeader += "##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description=\"Indicates if record is a somatic mutation\">\n"
+                    #vcfHeader += "##INFO=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal,0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
+                    #vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n"
+                    ##vcfHeader += "##INFO=<ID=DEL,Number=1,Type=Integer,Description=\"Number of small deletions at this location in all samples\">\n"
+                    ##vcfHeader += "##INFO=<ID=INS,Number=1,Type=Integer,Description=\"Number of small insertions at this location in all samples\">\n"
                     
                     # add the alt counts and frequencies in the same order as the alt list 
                     for base in altList:
@@ -2220,9 +2333,11 @@ def main():
                     infoDict["INDEL"].append(str(totalIndels))
                     infoDict["START"].append(str(totalStarts))
                     infoDict["STOP"].append(str(totalStops))
+                    infoDict["MQ0"].append(str(totalMapQualZero))
                     infoDict["VT"].append("SNP")
                     if (totalReadDepth > 0):
                         infoDict["BQ"].append(str(int(round(totalSumBaseQual/float(totalReadDepth),0))))
+                        infoDict["MQ"].append(str(int(round(totalSumMapQual/float(totalReadDepth),0))))
                         infoDict["SB"].append(str(round(totalSumStrandBias/float(totalReadDepth),2)))
                         infoDict["FA"].append(str(round(totalAltReadDepth/float(totalReadDepth),2)))
                     
@@ -2269,13 +2384,13 @@ def main():
             
             # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
             if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
-                (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalQualScores) = get_next_pileup(i_dnaNormalGenerator)                      
+                (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals) = get_next_pileup(i_dnaNormalGenerator)
             if (moreRnaNormalLines and rnaNormalCoordinate <= currentCoordinate):
-                (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalQualScores) = get_next_pileup(i_rnaNormalGenerator)                   
+                (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalBaseQuals, rnaNormalMapQuals) = get_next_pileup(i_rnaNormalGenerator)
             if (moreDnaTumorLines and dnaTumorCoordinate <= currentCoordinate):
-                (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorQualScores) = get_next_pileup(i_dnaTumorGenerator)                      
+                (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals) = get_next_pileup(i_dnaTumorGenerator)
             if (moreRnaTumorLines and rnaTumorCoordinate <= currentCoordinate):
-                (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorQualScores) = get_next_pileup(i_rnaTumorGenerator)   
+                (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals) = get_next_pileup(i_rnaTumorGenerator)
     
     if (i_statsDir != None):
         # output the variant counts
