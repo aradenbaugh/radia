@@ -1130,10 +1130,10 @@ if __name__ == '__main__':
         i_outputFileHandler = i_outputFilename
     
     hasAddedFilterHeader = False
-    headerLines = "##FILTER=<ID=perfectpct,Description=\"The percentage of perfect reads for all variant supporting reads was not enough for this position.\">\n"
-    headerLines += "##FILTER=<ID=perfectcount,Description=\"There were not enough perfect reads for this position.\">\n"
-    headerLines += "##FILTER=<ID=perfectsbias,Description=\"A strand bias exists on the perfect reads. \">\n"
-    headerLines += "##FILTER=<ID=perfectpbias,Description=\"A positional bias exists on the perfect reads. \">\n"
+    headerLines = "##FILTER=<ID=perfectpct,Description=\"The percentage of perfect variant supporting reads was not above the minimum\">\n"
+    headerLines += "##FILTER=<ID=perfectcount,Description=\"The number of perfect reads was not above the minimum\">\n"
+    headerLines += "##FILTER=<ID=perfectsbias,Description=\"A strand bias exists on the perfect reads\">\n"
+    headerLines += "##FILTER=<ID=perfectpbias,Description=\"A positional bias exists on the perfect reads\">\n"
     
     #loop through and categorize all calls
     for line in vcf:
