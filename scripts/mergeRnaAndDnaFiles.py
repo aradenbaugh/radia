@@ -114,15 +114,34 @@ def merge_mod_filters(anRnaInfoColumn, aDnaInfoColumn):
     return infoField.rstrip(";")
     
     
+def set_sst_field(anInfoField):
+    if "GERM" in anInfoField:
+        anInfoField = anInfoField.replace("START", "SST=RADIAGerm;START")
+    elif "SOM" in anInfoField:
+        if "ORIGIN=DNA,RNA" in anInfoField:
+            anInfoField = anInfoField.replace("START", "SST=RADIASomRNAConf;START")
+        elif "ORIGIN=DNA" in anInfoField:
+            anInfoField = anInfoField.replace("START", "SST=RADIASomDNA;START")
+        elif "ORIGIN=RNA" in anInfoField:
+            anInfoField = anInfoField.replace("START", "SST=RADIASomRNARescue;START")
+    elif "EDIT" in anInfoField:
+        somaticType = "RADIA"
+        if "NOR_EDIT" in anInfoField:
+            somaticType += "NorEdit"
+        if "TUM_EDIT" in anInfoField:
+            somaticType += "TumEdit"
+        anInfoField = anInfoField.replace("START", "SST=" + somaticType + ";START")
+    return anInfoField
 
-def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile, aDnaHeaderOnlyFlag, anIsDebug):
+
+def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHeaderOnlyFlag, anIsDebug):
     
     # open the header file
     dnaFileHandler = get_read_fileHandler(aDnaFile)
     rnaFileHandler = get_read_fileHandler(anRnaFile)
-    rnaOverlapsFileHandler = get_read_fileHandler(anRnaOverlapsFile)
-    if (os.path.isfile(anRnaNonOverlapsFile)):
-        rnaNonOverlapsFileHandler = get_read_fileHandler(anRnaNonOverlapsFile)
+    overlapsFileHandler = get_read_fileHandler(anOverlapsFile)
+    if (os.path.isfile(aNonOverlapsFile)):
+        nonOverlapsFileHandler = get_read_fileHandler(aNonOverlapsFile)
     
     headerList = list()
     coordinateDict = dict()
@@ -168,9 +187,8 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
             stopCoordinate = splitLine[1]
             coordinateDict[stopCoordinate] = line + "\n"
             
-            
     # these are all the calls that pass in both the DNA and RNA   
-    for line in rnaOverlapsFileHandler:
+    for line in overlapsFileHandler:
           
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
@@ -231,6 +249,7 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
     #    0/0:22:0:0:1:22,0:1.0,0.0:32,0:0.68,0.0    
     #    0/0:10:0:0:0:9,1:0.9,0.1:29,13:0.67,1.0    
     #    0/1:17:0:0:4:13,4:0.76,0.24:60,32:0.92,0.5
+    #
     # when merging a call that passes in the non-overlaps (pbias) file, 
     # replace the DNA call, with the original RNA mpileup passing call
     # 
@@ -269,10 +288,9 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
             else:
                 rnaMpileupNonpassingDict[stopCoordinate] = rnaLine
                 
-        
     # these are the RNA Rescue and RNA Editing calls after the initial filtering but before filterByReadSupport.py
-    if (os.path.isfile(anRnaNonOverlapsFile)):
-        for line in rnaNonOverlapsFileHandler:
+    if (os.path.isfile(aNonOverlapsFile)):
+        for line in nonOverlapsFileHandler:
           
             # strip the carriage return and newline characters
             line = line.rstrip("\r\n")
@@ -378,7 +396,6 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
                         logging.warning("RNANoPass:  Call didn't exist in DNA? RNALine: %s\n", line)
                         coordinateDict[stopCoordinate] = line + "\n"
        
-       
     # these are needed for merging the RNA mpileup filters
     for (rnaStopCoordinate, rnaLine) in rnaMpileupNonpassingDict.iteritems():
           
@@ -387,7 +404,7 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
             
         # split the line on the tab
         rnaLineSplit = rnaLine.split("\t")
-
+        
         # get the original line
         dnaLine = coordinateDict[rnaStopCoordinate]
         dnaLine = dnaLine.rstrip("\r\n")
@@ -408,15 +425,15 @@ def merge_vcf_data(aDnaFile, anRnaFile, anRnaOverlapsFile, anRnaNonOverlapsFile,
             if ("ORIGIN=DNA,RNA" not in finalLine):
                 finalLine = finalLine.replace("ORIGIN=DNA", "ORIGIN=DNA,RNA")
                 
-            coordinateDict[stopCoordinate] = finalLine + "\n"
+            coordinateDict[rnaStopCoordinate] = finalLine + "\n"
             if (anIsDebug):
                 logging.debug("Merged filters \nFinalLine: %s \n", finalLine)
-                            
+    
     dnaFileHandler.close()
     rnaFileHandler.close()
-    rnaOverlapsFileHandler.close()
-    if (os.path.isfile(anRnaNonOverlapsFile)):
-        rnaNonOverlapsFileHandler.close()
+    overlapsFileHandler.close()
+    if (os.path.isfile(aNonOverlapsFile)):
+        nonOverlapsFileHandler.close()
     
     return (headerList, coordinateDict)
 
@@ -450,8 +467,8 @@ def main():
     i_chrom = i_cmdLineArgs[1]
     i_dnaFilename = i_cmdLineArgs[2]
     i_rnaFilename = i_cmdLineArgs[3]
-    i_rnaOverlapsFilename = i_cmdLineArgs[4]
-    i_rnaNonOverlapsFilename = i_cmdLineArgs[5]
+    i_overlapsFilename = i_cmdLineArgs[4]
+    i_nonOverlapsFilename = i_cmdLineArgs[5]
     i_outputFilename = i_cmdLineArgs[6]
     
     # get the optional params with default values
@@ -484,12 +501,12 @@ def main():
         logging.debug("chrom=%s", i_chrom)
         logging.debug("dnaFilename=%s", i_dnaFilename)
         logging.debug("rnaFilename=%s", i_rnaFilename)
-        logging.debug("rnaOverlapsFilename=%s", i_rnaOverlapsFilename)
-        logging.debug("rnaNonOverlapsFilename=%s", i_rnaNonOverlapsFilename)
+        logging.debug("overlapsFilename=%s", i_overlapsFilename)
+        logging.debug("nonOverlapsFilename=%s", i_nonOverlapsFilename)
         logging.debug("outputFilename=%s", i_outputFilename)
                     
     # check for any errors
-    i_readFilenameList = [i_dnaFilename, i_rnaFilename, i_rnaOverlapsFilename]
+    i_readFilenameList = [i_dnaFilename, i_rnaFilename, i_overlapsFilename]
     i_writeFilenameList = [i_outputFilename]
     i_dirList = None
     
@@ -497,7 +514,7 @@ def main():
         sys.exit(1)
                 
     # get the VCF generator
-    (headerList, coordinateDict) = merge_vcf_data(i_dnaFilename, i_rnaFilename, i_rnaOverlapsFilename, i_rnaNonOverlapsFilename, i_dnaHeaderOnly, i_debug)    
+    (headerList, coordinateDict) = merge_vcf_data(i_dnaFilename, i_rnaFilename, i_overlapsFilename, i_nonOverlapsFilename, i_dnaHeaderOnly, i_debug)
     
     outputFileHandler = get_write_fileHandler(i_outputFilename)
     
@@ -507,7 +524,14 @@ def main():
     numericKeys = coordinateDict.keys()
     numericKeys.sort(key=int)
     for coordinate in numericKeys:
-        outputFileHandler.write(coordinateDict[coordinate])
+        line = coordinateDict[coordinate]
+        line = line.rstrip("\r\n")
+        # split the line on the tab
+        splitLine = line.split("\t")
+
+        # set the SST field in the INFO
+        splitLine[7] = set_sst_field(splitLine[7])
+        outputFileHandler.write("\t".join(splitLine) + "\n")
             
     stopTime = time.time() 
     logging.info("Total time for Id %s: Total time=%s hrs, %s mins, %s secs", i_id, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))    
