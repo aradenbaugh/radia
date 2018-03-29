@@ -1129,11 +1129,10 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
     # sometimes the header lines are stripped from the file, so get the necessary columnsList from the #CHROM line from a header file if it is specified
     if (aHeaderFilename != None):
         columnsList, headerDict = get_sample_columns(aHeaderFilename, headerDict, anIsDebug)
+        headerDict = get_vcf_header(headerDict, aHeaderFilename, aCmdLineParams, columnsList, anIsDebug)
     else:
         columnsList, headerDict = get_sample_columns(aVCFFilename, headerDict, anIsDebug)
-    
-    # parse the vcf header
-    headerDict = get_vcf_header(headerDict, aVCFFilename, aCmdLineParams, columnsList, anIsDebug)
+        headerDict = get_vcf_header(headerDict, aVCFFilename, aCmdLineParams, columnsList, anIsDebug)
     
     # output the header information
     output_header(headerDict["metadata"], False, i_outputFileHandler)
