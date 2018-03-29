@@ -168,11 +168,11 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
         if (line.isspace()):
             continue;
         
-        # if we find the vcfGenerator line, then create the dict of params
+        # if it is a header line, then add it to the header list
         elif (line.startswith("#")): 
             
             # keep all the header lines
-            headerList.append(line+"\n")
+            headerList.append(line + "\n")
                 
         # now we are to the data
         # if we only want the header, then break     
@@ -200,7 +200,7 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
         if (line.isspace()):
             continue;
         
-        # if we find the vcfGenerator line, then create the dict of params
+        # if it is a header line, then continue
         elif (line.startswith("#")): 
             continue;
         
@@ -302,7 +302,7 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
             if (line.isspace()):
                 continue;
         
-            # if we find the vcfGenerator line, then create the dict of params
+            # if it is a header line, then just continue
             elif (line.startswith("#")): 
                 continue;
         
