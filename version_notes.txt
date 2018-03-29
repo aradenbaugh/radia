@@ -6,7 +6,7 @@
       default, but we can add the -s option to output them
 
     - Keep track of the number of mapping qualities that are 0 per
-      allele, and add them to the sample data using the 'MQ0 tag
+      allele, and add them to the sample data using the 'MQ0' tag
     
     - Keep track of the max mapping quality per allele, and add it
       to the sample data using the 'MMQ' tag
@@ -44,7 +44,7 @@
 	- Minimum mapping quality for at least 1 read
 	- Maximum percentage of reads with mapping quality 0
 
-	- Made the 'minAltAvgBaseQual' parameter sample specific
+    - Made the 'minAltAvgBaseQual' parameter sample specific
 
     - Fixed header output:  In general, each filter script adds 
       its own filters to the header, but this script is typically 
