@@ -1,3 +1,165 @@
+03/24/2018:
+
+- Added mapping qualities (radia.py)
+    
+    - Mapping quality scores are not output by samtools mpileup by
+      default, but we can add the -s option to output them
+
+    - Keep track of the number of mapping qualities that are 0 per
+      allele, and add them to the sample data using the 'MQ0 tag
+    
+    - Keep track of the max mapping quality per allele, and add it
+      to the sample data using the 'MMQ' tag
+
+    - Keep track of the average mapping quality per allele, and add
+      it to the sample data using the 'MQA' tag
+
+    - Add the overall average mapping quality to the INFO column
+
+    - Add the total number of mapping quality zero reads to the 
+      INFO column
+
+    - Added 'SST' to the INFO column to specify the somatic status
+
+- Added mapping quality filters (filterRadia.py)
+
+     - Added '--rnaMpileupMinMapQual' and '--rnaMpileupMinAvgMapQual'
+       params to be passed through to the RNA mpileup filter
+
+     - When filtering RNA calls via mpileup: 
+        - Set the MaxErrorPct to 100% for the DNA 
+        - Make the 'MinAltAvgBaseQual' parameter sample specific
+        - Set the 'MinAltMapQual' and 'MinAltAvgMapQual' for the RNA 
+
+     - When filtering RNA calls via the DNA:
+        - Set the filter field to 'PASS' so that these calls pass
+          when merged with the DNA calls.  If you don't filter by
+          BLAT or by positional bias, then the filter column does
+          not get reset to passing.
+
+- Added mapping quality filters (filterByMpileupSupport.py)
+
+    - Added sample specific mapping quality filters:
+	- Minimum average mapping quality
+	- Minimum mapping quality for at least 1 read
+	- Maximum percentage of reads with mapping quality 0
+
+	- Made the 'minAltAvgBaseQual' parameter sample specific
+
+    - Fixed header output:  In general, each filter script adds 
+      its own filters to the header, but this script is typically 
+      run more than once, which sometimes lead to duplicate header 
+      output. Now the filters from the input are parsed and no
+      longer duplicated.
+
+    - The overall QUAL score should be an integer.  It was 
+      being converted to a float here which is now fixed.
+
+filterByReadSupport.py
+    - Updated descriptions for the perfect filters
+
+
+mergeRnaAndDnaFiles.py
+    - Added an 'SST' field to the INFO column to easily
+      distinguish the type of call being made.
+
+    - The RNA and DNA mpileup filters are now merged
+      correctly.
+
+
+01/24/2018:
+- Deleted outdated code that re-queried base quality scores 
+
+    Around 2 years ago, some RADIA results were generated
+    without using the BAQ (Base Alignment Quality) scores from
+    samtools. Then the switch was made to use BAQ which is
+    recommended by default, and the base quality scores for 
+    the old results needed to be updated. Instead of re-running
+    the whole pipeline, it was faster to just re-filter and
+    adjust the base quality scores only for the passing somatic
+    calls. This code hasn't been used in years and is no longer
+    needed.
+
+- Change the default genotype from '.' to './.' for diploid calls
+
+    If a sample has no data, then the default genotype should be '.' for 
+    haploid calls (e.g. chrom Y) and './.' for diploid calls.
+
+- Make BQ an Integer
+
+    The BQ (Average Base Quality) field should be an integer instead of
+    a float. This is the average of the BAQ Phred-scaled base quality
+    scores returned from samtools.
+
+
+01/23/2018:
+- Add a trailing forward slash to the input directory if necessary
+    
+    If the user doesn't include a trailing forward slash on the input
+    directory, then glob.glob won't be able to find any files to merge.
+
+- Update the 'SS' field to be compliant with TCGA VCF version 1.1
+    
+    The TCGA VCF specification for the Somatic Status or 'SS'
+    field changed from version 1.0 to version 1.1.
+    
+    TCGA VCF version 1.0:
+    Variant status relative to non-adjacent Normal,
+    0=wildtype,1=germline,2=somatic,3=LOH,4=unknown
+    
+    TCGA VCF version 1.1:
+    Variant status relative to non-adjacent Normal,
+    0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional
+    modification,5=unknown
+    
+    Since RADIA was focused on the RNA from the start, it added a
+    variant status for RNA-Editing as follows:
+    Variant status relative to non-adjacent Normal,
+    0=wildtype,1=germline,2=somatic,3=LOH,4=unknown,5=rnaEditing
+    
+    This fix updates the 'SS' field to be compliant with the TCGA
+    VCF version 1.1 and handles all of the downstream filtering
+    that may have used the 'SS' field.
+
+- Allow snpEff errors to be reported when filtering
+    
+    By default, snpEff does not gzip the output. If we pipe the snpEff
+    output to gzip, the return code and error messages from snpEff get
+    overwritten by gzip, and we no longer detect when there's a problem
+    with snpEff. Instead of piping the snpEff output to gzip, just keep
+    the default output from snpEff in unzipped form. These temporary
+    files are deleted in the end anyway. It's more important to know
+    when snpEff fails.
+    
+    Note: with snpEff version 4.3, they do now accept input that has
+    been gzipped. They also have a -o option for the output, but I'm
+    not sure when that option was introduced, so I'm leaving the
+    command as is where it writes to stdout and is piped to the
+    output file.
+
+
+01/22/2018:
+
+- Updated to the latest hg19 SnpEff database
+- Updated hg19 pseudo genes to latest Encode Gencode version (v27)
+- Updated hg38 pseudo genes to latest Encode Gencode version (v27)
+- Updated hg38 to the latest GENCODE version (v27)
+- Updated hg19 to the latest GENCODE version (v27)
+- Updated to the latest 1000 Genomes phase3 accessibiltiy mask files for hg19
+- Updated to dbSNP 150 Common SNPs
+- Updated from dbSNP 147 to 150  
+     Switching from the entire dbSNP database to just the common SNPs.
+     Common SNPs are mapped to just one location in the genome and
+     have a minor allele frequency of at least 1%. This will allow
+     us to find more RNA Rescue variants, especially those that may
+     have been mis-classified as Germline variants in dbSNP. It will
+     also allow in more false positives that need to be filtered by
+     subsequent filters in the pypeline.
+
+- Removed obsolete LOH code    
+    - Calculating LOHs should occur in a script further down the pypeline
+
+
 01/15/18:
 
 - Updated copyright for 2018
@@ -109,10 +271,10 @@
     - Output the superset of all filters for all modification types 
       in the FILTER column
     
-    - Add modification types and filters for each mod type to the 
-      INFO column
-    
-    - Always allow one error read before appling the MaxErrPct filter
+    - In order to see why each mod type failed, add the mod types and
+      mod filters for each mod type to the INFO column
+
+    - Always allow one error read before applying the MaxErrPct filter
     
     - Added ability to filter based on the RNA_NOR_VAR and RNA_TUM_VAR 
       types
@@ -139,6 +301,11 @@
 	  is set, but no normal RNA exists, then the filter was 
 	  set to 'rnmntb'. This filter is misleading and has 
 	  been changed to 'dnacall'.
+
+	- If a call has a dummy filter, then it should also have the
+          other filters to show why it failed.  For example, a call
+          with the 'rnacall' filter should also show why it failed
+          in the DNA.
     
     - In pre_filter_mod_types:
 	
