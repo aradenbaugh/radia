@@ -291,8 +291,8 @@ def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename
   
     script = os.path.join(aScriptsDir, "filterByMpileupSupport.py")
     dnaParameterList = ["--genotypeMinPct=0.10", "--modMinDepth=4", "--modMinPct=0.10"]
-    dnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=4", "--dnaNormalMinAltPct=0.10", "--dnaNormalMaxErrPct=0.01", "--dnaNormalMinStrandBiasDepth=4"]
-    dnaParameterList += ["--dnaTumorMinTotalBases=10", "--dnaTumorMinAltBases=4", "--dnaTumorMinAltPct=0.10", "--dnaTumorMaxErrPct=0.01", "--dnaTumorMinStrandBiasDepth=4"]
+    dnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=4", "--dnaNormalMinAltPct=0.10", "--dnaNormalMaxErrPct=0.01"]
+    dnaParameterList += ["--dnaTumorMinTotalBases=10", "--dnaTumorMinAltBases=4", "--dnaTumorMinAltPct=0.10", "--dnaTumorMaxErrPct=0.01"]
     dnaParameterString = " ".join(dnaParameterList)
     if (anOriginFlag):
         if (aGzipFlag):
@@ -339,15 +339,17 @@ def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename
     return outputFilename
 
 
-def filter_mpileupSupport_rna(aPythonExecutable, anId, aChromId, anInputFilename, anOriginFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_mpileupSupport_rna(aPythonExecutable, anId, aChromId, anInputFilename, anOriginFlag, anRnaMinMapQual, anRnaMinAvgMapQual, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
     script = os.path.join(aScriptsDir, "filterByMpileupSupport.py")
-    rnaParameterList = ["--genotypeMinPct=0.0", "--modMinDepth=1", "--modMinPct=0.01", "--minAltAvgBaseQual=15"]
-    rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=1.0", "--dnaNormalMinStrandBiasDepth=4"]
-    rnaParameterList += ["--dnaTumorMinTotalBases=1", "--dnaTumorMinAltBases=1", "--dnaTumorMinAltPct=0.01", "--dnaTumorMaxErrPct=1.0", "--dnaTumorMinStrandBiasDepth=4"]
-    #rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=0.01", "--dnaNormalMinStrandBiasDepth=4"]
-    #rnaParameterList += ["--dnaTumorMinTotalBases=1", "--dnaTumorMinAltBases=1", "--dnaTumorMinAltPct=0.01", "--dnaTumorMaxErrPct=0.01", "--dnaTumorMinStrandBiasDepth=4"]
-    rnaParameterList += ["--rnaTumorMinTotalBases=10", "--rnaTumorMinAltBases=4", "--rnaTumorMinAltPct=0.10", "--rnaTumorMaxErrPct=0.01", "--rnaTumorMinStrandBiasDepth=4"]
+    rnaParameterList = ["--genotypeMinPct=0.0", "--modMinDepth=1", "--modMinPct=0.01"]
+    rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=1.0", "--dnaNormalMinAltAvgBaseQual=15"]
+    #rnaParameterList += ["--dnaNormalMinTotalBases=10", "--dnaNormalMinAltBases=0", "--dnaNormalMinAltPct=0.0", "--dnaNormalMaxErrPct=0.01", "--dnaNormalMinAltAvgBaseQual=15"]
+    rnaParameterList += ["--dnaTumorMinTotalBases=1", "--dnaTumorMinAltBases=1", "--dnaTumorMinAltPct=0.01", "--dnaTumorMaxErrPct=1.0", "--dnaTumorMinAltAvgBaseQual=15"]
+    #rnaParameterList += ["--dnaTumorMinTotalBases=1", "--dnaTumorMinAltBases=1", "--dnaTumorMinAltPct=0.01", "--dnaTumorMaxErrPct=0.01", "--dnaTumorMinAltAvgBaseQual=15"]
+    rnaParameterList += ["--rnaNormalMinTotalBases=10", "--rnaNormalMinAltBases=4", "--rnaNormalMinAltPct=0.10", "--rnaNormalMaxErrPct=0.01", "--rnaNormalMinAltAvgBaseQual=15", "--rnaNormalMinAltMapQual=" + str(anRnaMinMapQual), "--rnaNormalMinAltAvgMapQual=" + str(anRnaMinAvgMapQual)]
+    rnaParameterList += ["--rnaTumorMinTotalBases=10", "--rnaTumorMinAltBases=4", "--rnaTumorMinAltPct=0.10", "--rnaTumorMaxErrPct=0.01", "--rnaTumorMinAltAvgBaseQual=15", "--rnaTumorMinAltMapQual=" + str(anRnaMinMapQual), "--rnaTumorMinAltAvgMapQual=" + str(anRnaMinAvgMapQual)]
+
     rnaParameterString = " ".join(rnaParameterList)
     if (anOriginFlag):
         if (aGzipFlag):
@@ -430,11 +432,11 @@ def filter_rnaOnly(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobLi
     if (aGzipFlag):
         outputFilename = os.path.join(anOutputDir, aPrefix + "_dnaFiltered_chr" + aChromId + ".vcf.gz")
         #command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB;\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | gzip > " + outputFilename
-        command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | gzip > " + outputFilename
+        command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | awk '{if ($1 ~ /^#/) {print} else {print $1\"\\t\"$2\"\\t\"$3\"\\t\"$4\"\\t\"$5\"\\t\"$6\"\\tPASS\\t\"$8\"\\t\"$9\"\\t\"$10\"\\t\"$11\"\\t\"$12}}' | gzip > " + outputFilename
     else:
         outputFilename = os.path.join(anOutputDir, aPrefix + "_dnaFiltered_chr" + aChromId + ".vcf")
         #command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB;\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" > " + outputFilename
-        command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" > " + outputFilename
+        command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | awk '{if ($1 ~ /^#/) {print} else {print $1\"\\t\"$2\"\\t\"$3\"\\t\"$4\"\\t\"$5\"\\t\"$6\"\\tPASS\\t\"$8\"\\t\"$9\"\\t\"$10\"\\t\"$11\"\\t\"$12}}' > " + outputFilename
   
     if (anIsDebug):
         logging.debug("Input: %s", anInputFilename)
@@ -753,7 +755,7 @@ def filter_rnaBlacklist(aPythonExecutable, anId, aChromId, anInputFilename, aGen
     return outputFilename
 
 
-def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename, anRnaFilename, anRnaOverlapsFilname, anRnaNonoverlapsFilename, aDnaHeaderOnlyFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename, anRnaFilename, anOverlapsFilname, aNonoverlapsFilename, aDnaHeaderOnlyFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
   
     if (aGzipFlag):
         outputFilename = os.path.join(anOutputDir, aPrefix + "_merged_chr" + aChromId + ".vcf.gz")
@@ -762,17 +764,17 @@ def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename, anRnaFilena
     
     script = os.path.join(aScriptsDir, "mergeRnaAndDnaFiles.py")
     if (aDnaHeaderOnlyFlag):
-        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaFilename + " " + anRnaOverlapsFilname + " " + anRnaNonoverlapsFilename + " " + outputFilename + " --dnaHeaderOnly"
+        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaFilename + " " + anOverlapsFilname + " " + aNonoverlapsFilename + " " + outputFilename + " --dnaHeaderOnly"
     else:
-        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaFilename + " " + anRnaOverlapsFilname + " " + anRnaNonoverlapsFilename + " " + outputFilename
+        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + aDnaFilename + " " + anRnaFilename + " " + anOverlapsFilname + " " + aNonoverlapsFilename + " " + outputFilename
         
     if (anIsDebug):
         logging.debug("Script: %s", script)
-        logging.debug("Input: %s %s %s", aDnaFilename, anRnaOverlapsFilname, anRnaNonoverlapsFilename)
+        logging.debug("Input: %s %s %s", aDnaFilename, anOverlapsFilname, aNonoverlapsFilename)
         logging.debug("Output: %s", outputFilename)
         logging.debug("Filter: %s", command)
     
-    readFilenameList = [script, aDnaFilename, anRnaOverlapsFilname]
+    readFilenameList = [script, aDnaFilename, anOverlapsFilname]
     writeFilenameList = [outputFilename]
     if (not radiaUtil.check_for_argv_errors(None, readFilenameList, writeFilenameList)):
         sys.exit(1)
@@ -939,6 +941,8 @@ def main():
     i_cmdLineParser.add_option("", "--transcriptStrandTag", dest="transcriptStrandTag", help="the INFO key where the original transcript strand can be found")
     i_cmdLineParser.add_option("", "--rnaIncludeSecondaryAlignments", action="store_true", default=False, dest="rnaIncludeSecondaryAlignments", help="if you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups")
     i_cmdLineParser.add_option("", "--readSupportMinMapQual", type="int", default=int(10), dest="readSupportMinMapQual", metavar="READ_SUPPORT_MIN_MAP_QUAL", help="the minimum mapping quality for reads supporting the ALT, %default by default")
+    i_cmdLineParser.add_option("", "--rnaMpileupMinMapQual", type="int", default=int(15), dest="rnaMpileupMinMapQual", metavar="RNA_MPILEUP_MIN_MAP_QUAL", help="at least 1 ALT read needs this minimum mapping quality, %default by default")
+    i_cmdLineParser.add_option("", "--rnaMpileupMinAvgMapQual", type="int", default=int(20), dest="rnaMpileupMinAvgMapQual", metavar="RNA_MPILEUP_SUPPORT_MIN_MAP_QUAL", help="the minimum average mapping quality for the ALT reads, %default by default")
     
     i_cmdLineParser.add_option("-l", "--log", dest="logLevel", default="WARNING", metavar="LOG", help="the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL), %default by default")
     i_cmdLineParser.add_option("-g", "--logFilename", dest="logFilename", metavar="LOG_FILE", help="the name of the log file, STDOUT by default")
@@ -985,6 +989,8 @@ def main():
     i_snpEffCanonical = i_cmdLineOptions.canonical
     i_rnaIncludeSecondaryAlignments = i_cmdLineOptions.rnaIncludeSecondaryAlignments
     i_readSupportMinMapQual = i_cmdLineOptions.readSupportMinMapQual
+    i_rnaMpileupMinMapQual = i_cmdLineOptions.rnaMpileupMinMapQual
+    i_rnaMpileupMinAvgMapQual = i_cmdLineOptions.rnaMpileupMinAvgMapQual
     
     # try to get any optional parameters with no defaults 
     i_prefix = i_id   
@@ -1116,6 +1122,8 @@ def main():
         logging.debug("transcriptStrandTag %s", i_transcriptStrandTag)
         logging.debug("rnaIncludeSecondaryAlignments=%s" % i_rnaIncludeSecondaryAlignments)
         logging.debug("readSupportMinMapQual=%s" % i_readSupportMinMapQual)
+        logging.debug("rnaMpileupMinMapQual=%s" % i_rnaMpileupMinMapQual)
+        logging.debug("rnaMpileupMinAvgMapQual=%s" % i_rnaMpileupMinAvgMapQual)
      
     if (i_dnaOnlyFlag):
         i_rnaBlacklistFlag = False
@@ -1244,7 +1252,7 @@ def main():
     
         # filter RNA mpileup
         # the output file contains all filters for all possible mod types and no final mod type is chosen
-        rnaFilename = filter_mpileupSupport_rna(i_pythonExecutable, i_id, i_chr, previousFilename, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+        rnaFilename = filter_mpileupSupport_rna(i_pythonExecutable, i_id, i_chr, previousFilename, True, i_rnaMpileupMinMapQual, i_rnaMpileupMinAvgMapQual, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(rnaFilename)
         
         # filter DNA mpileup
