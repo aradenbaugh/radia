@@ -88,22 +88,6 @@ def get_write_fileHandler(aFilename):
         return open(aFilename,'w')
 
 
-def mode(nums):
-    numdict = {}
-    for num in nums:
-        if num not in numdict:
-            numdict[num] = 0
-        numdict[num] += 1
-    maxcount = 0
-    maxnum = -1
-    
-    for num, count in numdict.items():
-        if count > maxcount:
-            maxcount = count
-            maxnum = num
-    return maxnum, maxcount
-
-
 def getPassingGermlineAlts(aCurrData):
     alts = []
     # for passing germline calls, there should only be one, but double-check anyway
@@ -306,35 +290,6 @@ def check_base_and_map_quals(aPileupread, aParamsDict, anIsDebug):
     return True
 
 
-def softclip(alignedread):
-    leftcig, leftlen = alignedread.cigar[0]
-    rightcig, rightlen = alignedread.cigar[-1]
-    #logging.debug("alignedread.cigar=%s, leftcig=%s, leftlen=%s", alignedread.cigar, leftcig, leftlen)
-    #logging.debug("alignedread.cigar=%s, rightcig=%s, rightlen=%s", alignedread.cigar, rightcig, rightlen)
-    #logging.debug(cigardict)
-    # if the left-side of the read is softclipped, return the reference start coordinate
-    if cigardict[leftcig] == "softclipped":
-        # alignedread.pos or alignedread.reference_start is the 0-based leftmost coordinate
-        leftclip = alignedread.pos
-    else:
-        leftclip = -1
-        
-    # if the right-side of the read is softclipped, return the reference start plus the query_alignment_length
-    if cigardict[rightcig] == "softclipped":
-        # alignedread.pos or alignedread.reference_start is the 0-based leftmost coordinate
-        # alignedread.qlen or alignedread.query_alignment_length is the length of the aligned query sequence (qend-qstart)
-        # alignedread.qend or alignedread.query_alignment_end is the end index of the aligned query portion of the sequence (0-based, exclusive) 
-        #    This is the index just past the last base in seq that is not soft-clipped.
-        # alignedread.qstart or alignedread.query_alignment_start is the start index of the aligned query portion of the sequence (0-based, inclusive).
-        #    This is the index of the first base in seq that is not soft-clipped.
-        rightclip = alignedread.pos + alignedread.qlen
-        #logging.debug("alignedread.reference_start=%s, alignedread.query_alignment_end=%s, rightclip=%s", alignedread.pos, alignedread.qlen, rightclip)
-    else:
-        rightclip = -1
-        
-    return leftclip, rightclip
-
-
 def reverse_complement_nucleotide(aNucleotide):
     '''
     ' This function returns the reverse complement of the parameter aNucleotide
@@ -386,7 +341,6 @@ def mismatch_counts(aCigarOffset, aChrom, aCurrentPos, aCurrentIndex, aTranscrip
     refs = 0
     germs = 0
     muts = 0
-    
     
     for offset in range(aCigarOffset):
         pos = aCurrentPos + offset
@@ -658,14 +612,10 @@ class Club():
         maxSoftClips = 0
         readsWithDels = 0
         readsWithIns = 0
-        #left = 0
-        #right = 0
         numPerfect = 0
         improperPairs = 0
         perfectForStrand = 0
         perfectRevStrand = 0
-        #leftclip = []
-        #rightclip = []
         readsDict = collections.defaultdict(list)
         bases = ""
         baseQuals = ""
@@ -834,31 +784,6 @@ class Club():
                     if (anIsDebug):
                         logging.debug("mutation read passed base and map quals")
                     
-                    '''
-                    l, r = softclip(alignedread)
-                    #if (anIsDebug):
-                    #    logging.debug("leftclip=%s, rightclip=%s", l, r)
-                    if l != -1:
-                        leftclip.append(l)
-                    if r != -1:
-                        rightclip.append(r)
-                    '''
-                    
-                    '''
-                    l, r = softclip(alignedread)
-                    #if (anIsDebug):
-                    #    logging.debug("perfectread leftclip=%s, rightclip=%s", l, r)
-                    if maxleftcount > 1 and l == maxleft:
-                        left += 1
-                        perfect = False
-                    if maxrightcount > 1 and r == maxright:
-                        right += 1
-                        perfect = False
-                    
-                    #if (anIsDebug):
-                    #    logging.debug("A read is not perfect if it skips where most reads break for skips. perfectRead?=%s", perfect)
-                    '''
-                    
                     # check to see how many are 'perfect' reads
                     perfect = True
                     alignedread = pileupread.alignment
@@ -934,29 +859,14 @@ class Club():
                     
                     if (anIsDebug):
                         logging.debug("counts on mutRead for %s:%s, mutSS=%s, mutType=%s, properPair?=%s, perfect?=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], mutSS, mutType, alignedread.is_proper_pair, perfect, numPerfect)
-                        #logging.debug("counts on mutRead for %s:%s, mutSS=%s, mutType=%s, properPair?=%s, maxLeft?=%s, maxRight?=%s, perfect?=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], mutSS, mutType, alignedread.is_proper_pair, maxleftcount > 1 and l == maxleft, maxrightcount > 1 and r == maxright, perfect, numPerfect)
-            
             else:
                 refCount +=1
         
         #stopNonOverlappingTime = time.time()
         #logging.info("time_readSupport: %s:%s processing nonoverlapping reads: Total time=%s hrs, %s mins, %s secs", aChromList, aPosList, ((stopNonOverlappingTime-startNonOverlappingTime)/(3600)), ((stopNonOverlappingTime-startNonOverlappingTime)/60), (stopNonOverlappingTime-startNonOverlappingTime))
         
-        
         if (anIsDebug):
             logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, number of reads with ins=%s, dels=%s, maxMuts=%s, maxSoftClips=%s, numImproperPair=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], mutSS, mutType, readsWithIns, readsWithDels, readsWithMaxMuts, maxSoftClips, improperPairs, numPerfect)
-        
-        
-        #maxleft, maxleftcount = mode(leftclip)
-        #maxright, maxrightcount = mode(rightclip)
-        
-        '''
-        if (anIsDebug):
-            logging.debug("mode with leftclip=%s", leftclip)
-            logging.debug("maxleft=%s, maxleftcount=%s", maxleft, maxleftcount)
-            logging.debug("mode with rightclip=%s", rightclip)
-            logging.debug("maxright=%s, maxrightcount=%s", maxright, maxrightcount)
-        '''
         
         # keep track of all filters
         filters = []
