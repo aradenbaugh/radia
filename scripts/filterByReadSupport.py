@@ -4,6 +4,7 @@ import pkg_resources
 import pysam
 import sys
 import os
+import time
 from optparse import OptionParser
 import myvcf
 import gzip
@@ -243,23 +244,17 @@ def parsevcf(filename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug):
             germlineDict, transcriptGermlineDict, mutationsDict, filterDict)
     
 
-def checkread(pileupread, aParamsDict, anIsDebug):
-    
-    # starting with pysam 0.8.3, pileupread.query_position is None if is_del or is_refskip is true
-    if pileupread.is_del or pileupread.is_refskip:
-        if (anIsDebug):
-            logging.debug("checkread read is del or refskip")
-        return False
+def check_base_and_map_quals(aPileupread, aParamsDict, anIsDebug):
     
     # mapping quality scores are already converted to ints
-    if pileupread.alignment.mapq < aParamsDict["minMapQual"]: #MINMQ
+    if aPileupread.alignment.mapq < aParamsDict["minMapQual"]: #MINMQ
         if (anIsDebug):
-            logging.debug("checkread read MQ=%s < minMQ=%s", pileupread.alignment.mapq, aParamsDict["minMapQual"])
+            logging.debug("checkread read MQ=%s < minMQ=%s", aPileupread.alignment.mapq, aParamsDict["minMapQual"])
         return False
     
     # the pysam documentation says: "base quality scores are unsigned chars but they are *not* the ASCII encoded values, so no offset of 33 needs to be subtracted"
     # but the documentation seems to be wrong, we need to subtract the offset for samtools mpileup, samtools view, and pysam
-    baseQualConverted = ord(pileupread.alignment.qual[pileupread.query_position])-33
+    baseQualConverted = ord(aPileupread.alignment.qual[aPileupread.query_position])-33
     if (anIsDebug):
         logging.debug("checkread base? BQ=%s < minBQ=%s", baseQualConverted, aParamsDict["minBaseQual"])
     if baseQualConverted < aParamsDict["minBaseQual"]: #MINBQ
@@ -268,37 +263,37 @@ def checkread(pileupread, aParamsDict, anIsDebug):
         return False 
     
     # calculate indices to check (e.g. 5 before and 5 after)
-    start = pileupread.query_position - aParamsDict["numNeighborBases"]
+    start = aPileupread.query_position - aParamsDict["numNeighborBases"]
     #if start < 2:
     #    start = 2
     if (start < 0):
         start = 0
     
-    stop = pileupread.query_position + aParamsDict["numNeighborBases"]
+    stop = aPileupread.query_position + aParamsDict["numNeighborBases"]
     #if stop > pileupread.alignment.rlen - 2:
     #    stop = pileupread.alignment.rlen - 2
-    if stop > pileupread.alignment.rlen:
+    if stop > aPileupread.alignment.rlen:
         if (anIsDebug):
-            logging.debug("neighbors past the length query_position=%s, rlen=%s, start=%s, stop=%s", pileupread.query_position, pileupread.alignment.rlen, start, stop)
-        stop = pileupread.alignment.rlen
+            logging.debug("neighbors past the length query_position=%s, rlen=%s, start=%s, stop=%s", aPileupread.query_position, aPileupread.alignment.rlen, start, stop)
+        stop = aPileupread.alignment.rlen
     
     if (anIsDebug and (stop - start < 2 * aParamsDict["numNeighborBases"])):
-        logging.debug("neighbor bases not 2x numNeighborBases: query_position=%s, rlen=%s, start=%s, stop=%s", pileupread.query_position, pileupread.alignment.rlen, start, stop)
+        logging.debug("neighbor bases not 2x numNeighborBases: query_position=%s, rlen=%s, start=%s, stop=%s", aPileupread.query_position, aPileupread.alignment.rlen, start, stop)
         
     # if the region examined is somehow negative
     if start > stop:
         if (anIsDebug):
-            logging.debug("checking negative neighbor bases query_position=%s, rlen=%s, start=%s, stop=%s", pileupread.query_position, pileupread.alignment.rlen, start, stop)
+            logging.debug("checking negative neighbor bases query_position=%s, rlen=%s, start=%s, stop=%s", aPileupread.query_position, aPileupread.alignment.rlen, start, stop)
         return False
 
     # if anything in neighborhood has too low of base quality
     index = start
-    for qualScore in pileupread.alignment.qual[start:(stop + 1)]:
+    for qualScore in aPileupread.alignment.qual[start:(stop + 1)]:
         # the pysam documentation says: "base quality scores are unsigned chars but they are *not* the ASCII encoded values, so no offset of 33 needs to be subtracted"
         # but the documentation seems to be wrong, we need to subtract the offset for samtools mpileup, samtools view, and pysam
         baseQualConverted = ord(qualScore)-33
         if (anIsDebug):
-            logging.debug("checking neighbor base query_pos=%s, start=%s, stop=%s, index=%s, qual=%s, ordQual=%s, convertedQual=%s", pileupread.query_position, start, stop, index, qualScore, ord(qualScore), baseQualConverted)
+            logging.debug("checking neighbor base query_pos=%s, start=%s, stop=%s, index=%s, qual=%s, ordQual=%s, convertedQual=%s", aPileupread.query_position, start, stop, index, qualScore, ord(qualScore), baseQualConverted)
         index += 1
         if baseQualConverted < aParamsDict["minNeighborBaseQual"]: #MINNQS
             if (anIsDebug):
@@ -355,40 +350,12 @@ def reverse_complement_nucleotide(aNucleotide):
     return None
 
 
-def ismut(pileupread, chrom, pos, aTranscriptStrand, fastafile, ref, alt, aBamOrigin, aParamsDict, anIsDebug):
+def is_mutation(aReadDict, aRefList, anAltList, aBamOrigin, anIsDebug):
     
-    if (pileupread.alignment.is_qcfail or pileupread.alignment.is_unmapped or pileupread.alignment.is_duplicate):
-        #if (anIsDebug):
-        #    logging.debug("read is unmapped, duplicate, or qcfailed at %s:%s", chrom, pos)
-        return False
-    # Allow secondary mappings for RNA
-    if (aBamOrigin == "RNA" and not aParamsDict["rnaIncludeSecondaryAlignments"] and pileupread.alignment.is_secondary):
-        #if (anIsDebug):
-        #    logging.debug("read is secondary alignment but flag to include secondary alignments for RNA is not set %s:%s", chrom, pos)
-        return False
-    #if (aBamOrigin == "RNA" and aParamsDict["rnaIncludeSecondaryAlignments"] and pileupread.alignment.is_secondary):
-    #    if (anIsDebug):
-    #        logging.debug("read is secondary alignment and allowed %s:%s", chrom, pos)
-    #insertions and deletions get counted in the checkfilter() method after this return
-    if pileupread.indel != 0:
-        #if (anIsDebug):
-        #    logging.debug("base is an indel at %s:%s", chrom, pos)
-        return True
-    if pileupread.is_del:
-        #if (anIsDebug):
-        #    logging.debug("base is a deletion at %s:%s", chrom, pos)
-        return True
-    # starting with pysam 0.8.3, pileupread.query_position is None if is_del or is_refskip is true
-    # we check for indels above, insertions and deletions get counted separately in the checkfilter() method
-    if pileupread.is_refskip:
-        #if (anIsDebug):
-        #   logging.debug("base is a refskip at %s:%s", chrom, pos)
-        return False
-    
-    orgReadBase = pileupread.alignment.seq[pileupread.query_position]
-    orgRefBase = fastafile.fetch(chrom, pos, pos+1).upper()
-    readBase = pileupread.alignment.seq[pileupread.query_position]
-    refBase = fastafile.fetch(chrom, pos, pos+1).upper()
+    orgReadBase = aReadDict["base"]
+    readBase = aReadDict["base"]
+    orgRefBase = aReadDict["refBase"]
+    refBase = aReadDict["refBase"]
     
     # the RSEM fasta for transcripts has reads in 5' to 3' direction
     # the RNA bam files have reads aligned to the RSEM fasta in 5' to 3' direction
@@ -397,83 +364,99 @@ def ismut(pileupread, chrom, pos, aTranscriptStrand, fastafile, ref, alt, aBamOr
     # if this is an RNA call and the alignment is on the reverse strand, 
     # then reverse comp both the base and the fasta ref otherwise, 
     # just compare the forward strand base and fasta ref
-    if (aBamOrigin == "RNA" and aTranscriptStrand != None and aTranscriptStrand == "-"):
+    if (aBamOrigin == "RNA" and aReadDict["strand"] != None and aReadDict["strand"] == "-"):
         readBase = reverse_complement_nucleotide(readBase) 
         refBase = reverse_complement_nucleotide(refBase)
                 
     if (readBase == refBase):
-        #if (anIsDebug):
-        #    logging.debug("ismut() base matches reference, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", pileupread.query_position, chrom, pos, readBase, refBase, orgReadBase, orgRefBase, ref, alt)
+        if (anIsDebug):
+            logging.debug("ismut() base matches reference, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRefList, anAltList)
         return False
-    elif readBase in alt:
-        #if (anIsDebug):
-        #    logging.debug("ismut() base matches alt, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", pileupread.query_position, chrom, pos, readBase, refBase, orgReadBase, orgRefBase, ref, alt)
+    elif readBase in anAltList:
+        if (anIsDebug):
+            logging.debug("ismut() base matches alt, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRefList, anAltList)
         return True
     
-    #if (anIsDebug):
-    #    logging.debug("ismut() found nothing, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", pileupread.query_position, chrom, pos, readBase, refBase, orgReadBase, orgRefBase, ref, alt)
+    if (anIsDebug):
+        logging.debug("ismut() found nothing, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRefList, anAltList)
     return False
 
 
-def nummut(alignedread, aTranscriptStrand, aGermlineDict, aTranscriptGermlineDict, samfile, fastafile, aBamOrigin, anIsDebug):
+def mismatch_counts(aCigarOffset, aChrom, aCurrentPos, aCurrentIndex, aTranscriptStrand, anAlignedread, aGermlineDict, aTranscriptGermlineDict, aFastafile, aBamOrigin, anIsDebug):
+    refs = 0
+    germs = 0
+    muts = 0
+    
+    
+    for offset in range(aCigarOffset):
+        pos = aCurrentPos + offset
+        orgReadBase = anAlignedread.seq[aCurrentIndex + offset]
+        orgRefBase = aFastafile.fetch(aChrom, pos, pos+1).upper()
+        readBase = anAlignedread.seq[aCurrentIndex + offset]
+        refBase = aFastafile.fetch(aChrom, pos, pos+1).upper()
+        
+        # the RSEM fasta for transcripts has reads in 5' to 3' direction
+        # the RNA bam files have reads aligned to the RSEM fasta in 5' to 3' direction
+        # if the transcript is on the genomic "-" strand,
+        # then we need to reverse complement the reads and the fasta
+        if (aBamOrigin == "RNA" and aTranscriptStrand != None and aTranscriptStrand == "-"):
+            readBase = reverse_complement_nucleotide(readBase)
+            refBase = reverse_complement_nucleotide(refBase)
+        
+        if readBase == refBase:
+            refs += 1
+            if (anIsDebug):
+                logging.debug("nummut() base matches ref:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aCurrentPos, aCurrentIndex, offset, aChrom, pos, orgReadBase, orgRefBase, readBase, refBase)
+        elif aChrom in aGermlineDict and str(pos) in aGermlineDict[aChrom] and readBase in aGermlineDict[aChrom][str(pos)]:
+            germs += 1
+            if (anIsDebug):
+                logging.debug("nummut() germline found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aCurrentPos, aCurrentIndex, offset, aChrom, pos, orgReadBase, orgRefBase, readBase, refBase)
+        elif (aChrom in aTranscriptGermlineDict and str(pos) in aTranscriptGermlineDict[aChrom] and readBase in aTranscriptGermlineDict[aChrom][str(pos)]):
+            germs += 1
+            if (anIsDebug):
+                logging.debug("nummut() transcript germline found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, germlineAlts=%s", aCurrentPos, aCurrentIndex, offset, aChrom, pos, orgReadBase, orgRefBase, readBase, refBase, aTranscriptGermlineDict[aChrom][str(pos)])
+        else:
+            muts += 1
+            if (anIsDebug):
+                logging.debug("nummut() mutation found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aCurrentPos, aCurrentIndex, offset, aChrom, pos, orgReadBase, orgRefBase, readBase, refBase)
+
+    return refs, germs, muts
+
+
+def mutation_counts(anAlignedread, aGermlineDict, aTranscriptGermlineDict, aTranscriptStrand, aChrom, aFastafile, aBamOrigin, anIsDebug):
+    
     # alignedread.pos or alignedread.reference_start is the 0-based leftmost coordinate
-    currentpos = alignedread.pos
+    currentpos = anAlignedread.pos
     # alignedread.qstart or alignedread.query_alignment_start is the start index of the aligned query portion of the sequence (0-based, inclusive)
-    currentind = alignedread.qstart
+    currentind = anAlignedread.qstart
+    
     insCount = 0
     delCount = 0
     refCount = 0
-    mutsCount = 0
+    mutCount = 0
     germlineCount = 0
     softClippedCount = 0
     
-    #if (anIsDebug):
-    #    logging.debug("alignedread=%s", alignedread)
+    if (anIsDebug):
+        logging.debug("mutation_counts() anAlignedread=%s", anAlignedread)
     
-    for cig in alignedread.cigar:
-        #if (anIsDebug):
-        #    logging.debug("alignedread.cigar=%s, cig=%s", alignedread.cigar, cig)
-        #    logging.debug("currentpos=%s, currentind=%s", currentpos, currentind)
+    for cig in anAlignedread.cigar:
+        if (anIsDebug):
+            logging.debug("alignedread.cigar=%s, cig=%s", anAlignedread.cigar, cig)
+            logging.debug("currentpos=%s, currentind=%s", currentpos, currentind)
         
+        # if it aligns
         if cigardict[cig[0]] == "match":
-            # this just means it aligns
-            chrom = samfile.getrname(alignedread.tid)
-            #if (anIsDebug):
-            #    logging.debug("aligned chrom/transcriptName=%s", chrom)
-            for offset in range(cig[1]):
-                pos = currentpos + offset
-                orgReadBase = alignedread.seq[currentind + offset]
-                orgRefBase = fastafile.fetch(chrom, pos, pos+1).upper()
-                readBase = alignedread.seq[currentind + offset]
-                refBase = fastafile.fetch(chrom, pos, pos+1).upper()
-                
-                # the RSEM fasta for transcripts has reads in 5' to 3' direction
-                # the RNA bam files have reads aligned to the RSEM fasta in 5' to 3' direction
-                # if the transcript is on the genomic "-" strand,
-                # then we need to reverse complement the reads and the fasta
-                if (aBamOrigin == "RNA" and aTranscriptStrand != None and aTranscriptStrand == "-"):
-                    readBase = reverse_complement_nucleotide(readBase) 
-                    refBase = reverse_complement_nucleotide(refBase)
-                        
-                if readBase == refBase:
-                    refCount += 1
-                    #if (anIsDebug):
-                    #    logging.debug("nummut() base matches ref:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", currentpos, currentind, offset, chrom, pos, orgReadBase, orgRefBase, readBase, refBase)
-                elif chrom in aGermlineDict and str(pos) in aGermlineDict[chrom] and readBase in aGermlineDict[chrom][str(pos)]:
-                    germlineCount += 1
-                    #if (anIsDebug):
-                    #    logging.debug("nummut() germline found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", currentpos, currentind, offset, chrom, pos, orgReadBase, orgRefBase, readBase, refBase)
-                elif (chrom in aTranscriptGermlineDict and str(pos) in aTranscriptGermlineDict[chrom] and readBase in aTranscriptGermlineDict[chrom][str(pos)]):
-                    germlineCount += 1
-                    #if (anIsDebug):
-                    #    logging.debug("nummut() transcript germline found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, germlineAlts=%s", currentpos, currentind, offset, chrom, pos, orgReadBase, orgRefBase, readBase, refBase, aTranscriptGermlineDict[chrom][str(pos)])
-                else:
-                    mutsCount += 1
-                    #if (anIsDebug):    
-                    #    logging.debug("nummut() mutation found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", currentpos, currentind, offset, chrom, pos, orgReadBase, orgRefBase, readBase, refBase)
-
+            
+            # count the number of mismatches across the aligned portion of the read
+            refs, germs, muts = mismatch_counts(cig[1], aChrom, currentpos, currentind, aTranscriptStrand, anAlignedread, aGermlineDict, aTranscriptGermlineDict, aFastafile, aBamOrigin, anIsDebug)
+            refCount += refs
+            germlineCount += germs
+            mutCount += muts
+            
             currentpos += cig[1]
             currentind += cig[1]
+            
         elif cigardict[cig[0]] == "insertion":
             currentind += cig[1]
             insCount += cig[1]
@@ -489,50 +472,28 @@ def nummut(alignedread, aTranscriptStrand, aGermlineDict, aTranscriptGermlineDic
             continue
         elif cigardict[cig[0]] == "padded":
             continue
+        # the base in the read matches the reference
         elif cigardict[cig[0]] == "seqmatch":
-            # match! everything is okay, advance
             currentpos += cig[1]
             currentind += cig[1]
             refCount += cig[1]
+        # the base in the read does not match the reference
         elif cigardict[cig[0]] == "seqmismatch":
-            # mismatch, check to see if it's in the germline
-            chrom = samfile.getrname(alignedread.tid)
-            # loop through all mismatches
-            for offset in range(cig[1]):
-                pos = currentpos + offset
-                orgReadBase = alignedread.seq[currentind + offset]
-                orgRefBase = fastafile.fetch(chrom, pos, pos+1).upper()
-                readBase = alignedread.seq[currentind + offset]
-                refBase = fastafile.fetch(chrom, pos, pos+1).upper()
-                
-                # the RSEM fasta for transcripts has reads in 5' to 3' direction
-                # the RNA bam files have reads aligned to the RSEM fasta in 5' to 3' direction
-                # if the transcript is on the genomic "-" strand,
-                # then we need to reverse complement the reads and the fasta
-                if (aBamOrigin == "RNA" and aTranscriptStrand != None and aTranscriptStrand == "-"):
-                    readBase = reverse_complement_nucleotide(readBase) 
-                    refBase = reverse_complement_nucleotide(refBase)
-                
-                if chrom in aGermlineDict and str(pos) in aGermlineDict[chrom] and readBase in aGermlineDict[chrom][str(pos)]:
-                    germlineCount += 1
-                    #if (anIsDebug):
-                    #    logging.debug("nummut() seqmismatch: germline found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, base=%s, ref=%s", currentpos, currentind, offset, chrom, pos, orgReadBase, orgRefBase, readBase, refBase)
-                elif chrom in aTranscriptGermlineDict and str(pos) in aTranscriptGermlineDict[chrom] and readBase in aTranscriptGermlineDict[chrom][str(pos)]:
-                    germlineCount += 1
-                    #if (anIsDebug):
-                    #    logging.debug("nummut() seqmismatch: transcript germline found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, base=%s, ref=%s", currentpos, currentind, offset, chrom, pos, orgReadBase, orgRefBase, readBase, refBase)
-                else:
-                    mutsCount += 1
-                    #if (anIsDebug):
-                    #    logging.debug("nummut() seqmismatch: mutation found:  currentpos=%s, currentind=%s, offset=%s, chrom=%s, pos=%s, base=%s, ref=%s", currentpos, currentind, offset, chrom, pos, orgReadBase, orgRefBase, readBase, refBase)
+            # count the number of mismatches across the aligned portion of the read
+            refs, germs, muts = mismatch_counts(cig[1], aChrom, currentpos, currentind, aTranscriptStrand, anAlignedread, aGermlineDict, aTranscriptGermlineDict, aFastafile, aBamOrigin, anIsDebug)
+            refCount += refs
+            germlineCount += germs
+            mutCount += muts
+            
             currentpos += cig[1]
             currentind += cig[1]
         else:
-            logging.error("Unexpected value in the read cigar string %s at position %s", alignedread.cigar, alignedread.tid)
+            logging.error("Unexpected value in the read cigar string %s at position %s", anAlignedread.cigar, anAlignedread.tid)
         
         if (anIsDebug):    
-            logging.debug("nummut() ins=%s, del=%s, refs=%s, muts=%s, germline=%s, softclipped=%s", insCount, delCount, refCount, mutsCount, germlineCount, softClippedCount)
-    return (insCount, delCount, mutsCount, germlineCount, softClippedCount)
+            logging.debug("counts for this read: ins=%s, del=%s, refs=%s, muts=%s, germline=%s, softclipped=%s", insCount, delCount, refCount, mutCount, germlineCount, softClippedCount)
+    
+    return (insCount, delCount, mutCount, germlineCount, softClippedCount)
 
 
 class Club():
@@ -583,7 +544,7 @@ class Club():
             self.rnatumorfastafile = pysam.Fastafile(self.rnatumorfastafilename)
             
         
-    def find_non_overlapping_reads(self, aReadsDict, aMinBaseQual, aCoordinate, anIsDebug):
+    def find_non_overlapping_reads(self, aReadsDict, aMinBaseQual, anIsDebug):
         '''
         ' This function loops through the reads with the same name.  Due to the inclusion of secondary
         ' alignments for RNA-Seq, there could be more than 2 reads that are paired.  If the read pairs overlap and
@@ -607,7 +568,7 @@ class Club():
         nonOverlappingReadsList = []
         for (readName, readPairsList) in aReadsDict.iteritems():
             if (anIsDebug):
-                logging.debug("readList=%s", readPairsList)
+                logging.debug("readName=%s, len=%s, readList=%s", readName, len(readPairsList), readPairsList)
             
             # if there is only one read, then no overlapping reads exist
             if (len(readPairsList) == 1):
@@ -635,7 +596,7 @@ class Club():
                     # len(sequence) or pysam qlen = query_length length of the query sequence
                     
                     if (anIsDebug):
-                        logging.debug("aCoordinate=%s, readStart(pos)=%s, readSequenceIndex(qpos)=%s, readMateStart(mpos)=%s, readLength(l_qseq)=%s", aCoordinate, readStart, readSequenceIndex, readMateStart, readLength)
+                        logging.debug("readStart(pos)=%s, readSequenceIndex(qpos)=%s, readMateStart(mpos)=%s, readLength(l_qseq)=%s", readStart, readSequenceIndex, readMateStart, readLength)
                         logging.debug("%s (readStart + readSequenceIndex): abs(readStart + readSequenceIndex - readMateStart) %s <? (readAlignedLength) %s", (readStart + readSequenceIndex), abs(readStart + readSequenceIndex - readMateStart), readLength)
                         
                     # if the reads overlap
@@ -680,33 +641,10 @@ class Club():
         return nonOverlappingReadsList
 
 
-    def checkfilter(self, aChrom, aPos, aTranscriptStrand, aRef, anAlt, mutSS, mutType, aBamOrigin, aParamsDict, anIsDebug):
-        
-        if (mutSS == "Somatic" or mutSS == "2"):
-            if (aBamOrigin == "RNA"):
-                bamfile = self.rnatumorbamfile
-                fasta = self.rnatumorfastafile
-                if (self.rnatumorchrprefix == "True"):
-                    aChrom = "chr" + aChrom
-            else:
-                bamfile = self.tumorbamfile
-                fasta = self.fastafile
-                if (self.tumorchrprefix == "True"):
-                    aChrom = "chr" + aChrom
-        elif (mutSS == "4"):
-            if (mutType == "NOR_EDIT"):
-                bamfile = self.rnanormalbamfile
-                fasta = self.rnanormalfastafile
-                if (self.rnanormalchrprefix == "True"):
-                    aChrom = "chr" + aChrom
-            elif (mutType == "TUM_EDIT"):
-                bamfile = self.rnatumorbamfile
-                fasta = self.rnatumorfastafile
-                if (self.rnatumorchrprefix == "True"):
-                    aChrom = "chr" + aChrom
+    def checkfilter(self, aChromList, aPosList, aTranscriptStrandList, aRefList, anAltList, mutSS, mutType, aBamOrigin, aParamsDict, anIsDebug):
         
         if (anIsDebug):
-            logging.debug("begin checkfilter for %s:%s, mutSS=%s, mutType=%s, origin=%s", aChrom, aPos, mutSS, mutType, aBamOrigin)
+            logging.debug("begin checkfilter for %s and %s, mutSS=%s, mutType=%s, origin=%s", aChromList, aPosList, mutSS, mutType, aBamOrigin)
             logging.debug("parmsDict: %s", aParamsDict)
         
         #expects a 0-based pos
@@ -716,120 +654,302 @@ class Club():
         perfectStarts = 0
         perfectMiddles = 0
         perfectEnds = 0
-        maxMuts = 0
+        readsWithMaxMuts = 0
         maxSoftClips = 0
-        dels = 0
-        ins = 0
-        left = 0
-        right = 0
+        readsWithDels = 0
+        readsWithIns = 0
+        #left = 0
+        #right = 0
         numPerfect = 0
         improperPairs = 0
         perfectForStrand = 0
         perfectRevStrand = 0
-        leftclip = []
-        rightclip = []
-        mutpileupreads = []
+        #leftclip = []
+        #rightclip = []
         readsDict = collections.defaultdict(list)
         bases = ""
         baseQuals = ""
+        totalReads = 0
+        keptReads = 0
         
-        #if (anIsDebug):
-        #    logging.debug("getting pileups for chrom=%s, pos=%s", chrom, pos)
+        # loop through all of the transcripts
+        #startTime = time.time()
+        for (chrom, pos, strand) in izip(aChromList, list(map(int, aPosList)), aTranscriptStrandList):
         
-        # get the pileups
-        for pileupcolumn in bamfile.pileup(aChrom, aPos, aPos+1, stepper="nofilter"):
+            if (mutSS == "Somatic" or mutSS == "2"):
+                if (aBamOrigin == "RNA"):
+                    bamfile = self.rnatumorbamfile
+                    fastafile = self.rnatumorfastafile
+                    if (self.rnatumorchrprefix == "True"):
+                        chrom = "chr" + chrom
+                else:
+                    bamfile = self.tumorbamfile
+                    fastafile = self.fastafile
+                    if (self.tumorchrprefix == "True"):
+                        chrom = "chr" + chrom
+            elif (mutSS == "4"):
+                if (mutType == "NOR_EDIT"):
+                    bamfile = self.rnanormalbamfile
+                    fastafile = self.rnanormalfastafile
+                    if (self.rnanormalchrprefix == "True"):
+                        chrom = "chr" + chrom
+                elif (mutType == "TUM_EDIT"):
+                    bamfile = self.rnatumorbamfile
+                    fastafile = self.rnatumorfastafile
+                    if (self.rnatumorchrprefix == "True"):
+                        chrom = "chr" + chrom
             
-            # move through pileup until at the correct position
-            if pileupcolumn.pos < aPos:
-                #if (anIsDebug):
-                #    logging.debug("continue pileupcolumn.pos=%s, pos=%s", pileupcolumn.pos, pos)
-                continue
-            if pileupcolumn.pos > aPos:
-                #if (anIsDebug):
-                #    logging.debug("break out pileupcolumn.pos=%s, pos=%s", pileupcolumn.pos, pos)
-                break
+            # vcfs are 1-based and pysam requires a 0-based coordinate
+            pos = pos - 1
             
-            # take care of over-lapping reads
-            # loop through the reads and create a dictionary
-            for pileupread in pileupcolumn.pileups:
-                alignedread = pileupread.alignment
-                    
-                if (alignedread.is_qcfail or alignedread.is_unmapped or alignedread.is_duplicate or pileupread.is_del or pileupread.is_refskip):
-                    continue;
-                
-                # keep a dictionary of all reads, using the readName as the key
-                # due to the inclusion of secondary alignments for RNA-Seq, there could be more than 2 reads that are paired
-                oneReadDict = {}
-                oneReadDict["alignedRead"] = alignedread
-                oneReadDict["pileupRead"] = pileupread
-                #oneReadDict["qname"] = alignedread.query_name                          # qname
-                #oneReadDict["flag"] = alignedread.flag                                 # flag
-                #oneReadDict["rname"] = alignedread.reference_name                      # rname
-                oneReadDict["start"] = alignedread.reference_start                      # pos
-                #oneReadDict["mapQual"] = alignedread.mapping_quality                   # mapq
-                #oneReadDict["cigar"] = alignedread.cigar                               # cigar
-                #oneReadDict["mateName"] = alignedread.next_reference_name              # rnext
-                oneReadDict["mateStart"] = alignedread.next_reference_start             # pnext or mpos
-                #oneReadDict["insertSize"] = alignedread.template_length                # isize or tlen
-                #oneReadDict["sequence"] = alignedread.seq                              # seq
-                #oneReadDict["qualities"] = alignedread.qual                            # qual
-                oneReadDict["qlen"] = alignedread.query_length                          # qlen
-                oneReadDict["base"] = alignedread.seq[pileupread.query_position]
-                oneReadDict["baseQual"] = alignedread.qual[pileupread.query_position]
-                oneReadDict["sequenceIndex"] = pileupread.query_position
-                # add it to the dictionary of reads
-                readsDict[alignedread.query_name].append(oneReadDict)
-                
-            if (anIsDebug):     
-                logging.debug("readsDictLen=%s", len(readsDict.keys()))
-            
-            # get all of the non-overlapping reads
-            nonOverlappingReadsList = self.find_non_overlapping_reads(readsDict, aParamsDict["minBaseQual"], aPos, anIsDebug)
+            # get the reference base from the fasta
+            refBase = fastafile.fetch(chrom, pos, pos+1).upper()
             
             if (anIsDebug):
-                logging.debug("nonOverlappingReadsListLen=%s", len(nonOverlappingReadsList))
-
-            for readDict in nonOverlappingReadsList:
-                alignedread = readDict["alignedRead"]
-                pileupread = readDict["pileupRead"]
+                logging.debug("getting pileups for chrom=%s, pos=%s", chrom, pos)
+            #logging.info("getting pileups for chrom=%s, pos=%s", chrom, pos)
+            
+            # get the pileups
+            for pileupcolumn in bamfile.pileup(chrom, pos, pos+1, stepper="nofilter"):
                 
-                readBase = readDict["base"]
-                readBaseQual = readDict["baseQual"] 
-                #readSequence = readDict["sequence"]
-                #readSequenceIndex = readDict["sequenceIndex"]
-                #readName = readDict["name"]
-                #readMapQual = readDict["mapQual"]
-                #readInsertSize = readDict["insertSize"]
-                #readFlag = readDict["flag"]
+                # move through pileup until at the correct position
+                if pileupcolumn.pos < pos:
+                    #if (anIsDebug):
+                    #    logging.debug("continue pileupcolumn.pos=%s, pos=%s", pileupcolumn.pos, pos)
+                    continue
+                if pileupcolumn.pos > pos:
+                    #if (anIsDebug):
+                    #    logging.debug("break out pileupcolumn.pos=%s, pos=%s", pileupcolumn.pos, pos)
+                    break
                 
-                bases += readBase
-                baseQuals += readBaseQual
+                # take care of over-lapping reads
+                # loop through the reads and create a dictionary
+                txTotalReads = 0
+                txKeptReads = 0
+                for pileupread in pileupcolumn.pileups:
+                    txTotalReads += 1
+                    alignedread = pileupread.alignment
+                    
+                    # skip over reads with problems
+                    if (alignedread.is_qcfail or alignedread.is_unmapped or alignedread.is_duplicate or pileupread.is_del or pileupread.is_refskip):
+                        #if (anIsDebug):
+                        #    logging.debug("read is unmapped, duplicate, qcfail, del, or refskip at %s:%s", chrom, pos)
+                        continue;
+                    # no longer needed?? indel length for the position following the current pileup site
+                    #if pileupread.indel != 0:
+                    #    #if (anIsDebug):
+                    #    #    logging.debug("base is an indel at %s:%s", chrom, pos)
+                    #    return True
+                    # skip over secondary mappings for RNA if the param is not set to include them
+                    if (aBamOrigin == "RNA" and not aParamsDict["rnaIncludeSecondaryAlignments"] and pileupread.alignment.is_secondary):
+                        #if (anIsDebug):
+                        #    logging.debug("read is secondary alignment but flag to include secondary alignments for RNA is not set %s:%s", chrom, pos)
+                        continue;
+                    
+                    # keep a dictionary of all reads, using the readName as the key
+                    # due to the inclusion of secondary alignments for RNA-Seq, there could be more than 2 reads that are paired
+                    oneReadDict = {}
+                    txKeptReads += 1
+                    oneReadDict["alignedRead"] = alignedread
+                    oneReadDict["pileupRead"] = pileupread
+                    #oneReadDict["qname"] = alignedread.query_name                          # qname
+                    #oneReadDict["flag"] = alignedread.flag                                 # flag
+                    #oneReadDict["rname"] = alignedread.reference_name                      # rname
+                    oneReadDict["start"] = alignedread.reference_start                      # pos
+                    #oneReadDict["mapQual"] = alignedread.mapping_quality                   # mapq
+                    #oneReadDict["cigar"] = alignedread.cigar                               # cigar
+                    #oneReadDict["mateName"] = alignedread.next_reference_name              # rnext
+                    oneReadDict["mateStart"] = alignedread.next_reference_start             # pnext or mpos
+                    #oneReadDict["insertSize"] = alignedread.template_length                # isize or tlen
+                    #oneReadDict["sequence"] = alignedread.seq                              # seq
+                    #oneReadDict["qualities"] = alignedread.qual                            # qual
+                    oneReadDict["qlen"] = alignedread.query_length                          # qlen
+                    oneReadDict["base"] = alignedread.seq[pileupread.query_position]
+                    oneReadDict["baseQual"] = alignedread.qual[pileupread.query_position]
+                    oneReadDict["sequenceIndex"] = pileupread.query_position
+                    oneReadDict["chrom"] = chrom
+                    oneReadDict["pos"] = pos
+                    oneReadDict["strand"] = strand
+                    oneReadDict["refBase"] = refBase
+                    
+                    if (anIsDebug):
+                        logging.debug("name=%s, oneReadDict=%s", alignedread.query_name, oneReadDict)
+                    
+                    # add it to the dictionary of reads
+                    readsDict[alignedread.query_name].append(oneReadDict)
                     
                 if (anIsDebug):
-                    logging.debug("found aligned read at: %s:%s = %s", aChrom, aPos, alignedread)
+                    logging.debug("readsDictLen=%s", len(readsDict.keys()))
                     
-                if ismut(pileupread, aChrom, aPos, aTranscriptStrand, fasta, aRef, anAlt, aBamOrigin, aParamsDict, anIsDebug):
-                    if (anIsDebug):
-                        logging.debug("found read with mutation")
-                    mutCountReads += 1
-                    
-                    if checkread(pileupread, aParamsDict, anIsDebug):
-                        if (anIsDebug):
-                            logging.debug("found mut with checked read")
-                        l, r = softclip(alignedread)
-                        #if (anIsDebug):
-                        #    logging.debug("leftclip=%s, rightclip=%s", l, r)
-                        if l != -1:
-                            leftclip.append(l)
-                        if r != -1:
-                            rightclip.append(r)
-                        mutCountCheckedReads +=1
-                        mutpileupreads.append(pileupread)
-                else:
-                    refCount +=1
+            totalReads += txTotalReads
+            keptReads += txKeptReads
+            #logging.info("time_readSupport: %s:%s added %s out of %s reads to initial reads dict", chrom, pos, txKeptReads, txTotalReads)
         
-        maxleft, maxleftcount = mode(leftclip)
-        maxright, maxrightcount = mode(rightclip)
+        #stopTime = time.time()
+        #logging.info("time_readSupport: %s:%s added %s out of %s reads to initial reads dict: Total time=%s hrs, %s mins, %s secs", aChromList, aPosList, keptReads, totalReads, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
+        
+        # get all of the non-overlapping reads
+        #startTime = time.time()
+        nonOverlappingReadsList = self.find_non_overlapping_reads(readsDict, aParamsDict["minBaseQual"], anIsDebug)
+        #stopTime = time.time()
+        #logging.info("time_readSupport: %s:%s nonoverlapping=%s out of %s: Total time=%s hrs, %s mins, %s secs", aChromList, aPosList, len(nonOverlappingReadsList), totalReads, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
+        
+        if (anIsDebug):
+            logging.debug("nonOverlappingReadsListLen=%s", len(nonOverlappingReadsList))
+
+        #startNonOverlappingTime = time.time()
+        # loop over the non-overlapping reads
+        for readDict in nonOverlappingReadsList:
+            alignedread = readDict["alignedRead"]
+            pileupread = readDict["pileupRead"]
+            
+            readBase = readDict["base"]
+            readBaseQual = readDict["baseQual"]
+            #readSequence = readDict["sequence"]
+            #readSequenceIndex = readDict["sequenceIndex"]
+            #readName = readDict["name"]
+            #readMapQual = readDict["mapQual"]
+            #readInsertSize = readDict["insertSize"]
+            #readFlag = readDict["flag"]
+            
+            bases += readBase
+            baseQuals += readBaseQual
+            
+            if (anIsDebug):
+                logging.debug("found aligned read at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedread)
+            
+            # if this read supports the alternative allele
+            if is_mutation(readDict, aRefList, anAltList, aBamOrigin, anIsDebug):
+                
+                mutCountReads += 1
+                
+                if (anIsDebug):
+                    logging.debug("found read with mutation, number of reads with mutations=%s", mutCountReads)
+                
+                # if the base and map quals are good enough
+                if check_base_and_map_quals(pileupread, aParamsDict, anIsDebug):
+                    
+                    mutCountCheckedReads +=1
+                    
+                    if (anIsDebug):
+                        logging.debug("mutation read passed base and map quals")
+                    
+                    '''
+                    l, r = softclip(alignedread)
+                    #if (anIsDebug):
+                    #    logging.debug("leftclip=%s, rightclip=%s", l, r)
+                    if l != -1:
+                        leftclip.append(l)
+                    if r != -1:
+                        rightclip.append(r)
+                    '''
+                    
+                    '''
+                    l, r = softclip(alignedread)
+                    #if (anIsDebug):
+                    #    logging.debug("perfectread leftclip=%s, rightclip=%s", l, r)
+                    if maxleftcount > 1 and l == maxleft:
+                        left += 1
+                        perfect = False
+                    if maxrightcount > 1 and r == maxright:
+                        right += 1
+                        perfect = False
+                    
+                    #if (anIsDebug):
+                    #    logging.debug("A read is not perfect if it skips where most reads break for skips. perfectRead?=%s", perfect)
+                    '''
+                    
+                    # check to see how many are 'perfect' reads
+                    perfect = True
+                    alignedread = pileupread.alignment
+                    
+                    # count the number and types of mutations on this one read
+                    insCount, delCount, mutCount, germCount, softClippedCount = mutation_counts(alignedread, self.germlineDict, self.transcriptGermlineDict, readDict["strand"], readDict["chrom"], fastafile, aBamOrigin, anIsDebug)
+                    
+                    if (anIsDebug):
+                        logging.debug("this one read has ins=%s, del=%s, muts=%s, germline=%s", insCount, delCount, mutCount, germCount)
+                    
+                    if insCount:
+                        readsWithIns += 1
+                        perfect = False
+                    if delCount:
+                        readsWithDels += 1
+                        perfect = False
+                    # MapSplice doesn't set the proper pair flag for RNA-Seq reads, so only do this for DNA reads
+                    if (aBamOrigin == "DNA" and not alignedread.is_proper_pair):
+                        improperPairs += 1
+                        perfect = False
+                    # RNA editing events with mutSS=4 occur in clusters, so only apply this filter when mutSS!=4
+                    if mutSS != "4" and mutCount >= aParamsDict["maxMutsPerRead"]:
+                        readsWithMaxMuts += 1
+                        perfect = False
+                    
+                    # softClippedCount is the number of soft clipped bases across this read
+                    # if the percent of soft clipped bases is greater than the param, this read is not perfect
+                    if softClippedCount:
+                        if alignedread.query_length > 0:
+                            if ((round(softClippedCount/float(alignedread.query_length)), 2) > aParamsDict["maxReadSoftClipPct"]):
+                                maxSoftClips += 1
+                                perfect = False
+                                #if (anIsDebug):
+                                #    logging.debug("read soft clipped too much, softClipped=%s, query_len=%s", softClippedCount, alignedread.query_length)
+                        elif (alignedread.infer_query_length() > 0):
+                            if ((round(softClippedCount/float(alignedread.infer_query_length())), 2) > aParamsDict["maxReadSoftClipPct"]):
+                                maxSoftClips += 1
+                                perfect = False
+                                #if (anIsDebug):
+                                #    logging.debug("read soft clipped too much, softClipped=%s, infer_query_len=%s", softClippedCount, alignedread.infer_query_length())
+                        elif (len(alignedread.query_sequence) > 0):
+                            if ((round(softClippedCount/float(len(alignedread.query_sequence))), 2) > aParamsDict["maxReadSoftClipPct"]):
+                                maxSoftClips += 1
+                                perfect = False
+                                #if (anIsDebug):
+                                #    logging.debug("read soft clipped too much, softClipped=%s, len seq=%s", softClippedCount, len(alignedread.query_sequence))
+                        else:
+                            logging.warning("Couldn't determine the read length and therefore apply the soft-clip filter for read=%s", alignedread)
+                    
+                    # if we found a perfect read
+                    if perfect:
+                        if (anIsDebug):
+                            logging.debug("found perfect read at %s:%s with query_pos=%s, qlen=%s, readPositionPct=%s", readDict["chrom"], readDict["pos"], pileupread.query_position, alignedread.qlen, pileupread.query_position/float(alignedread.qlen))
+                        
+                        # determine the strand
+                        if alignedread.is_reverse:
+                            perfectRevStrand += 1
+                        else:
+                            perfectForStrand += 1
+                        numPerfect += 1
+                        
+                        # count the perfect positions in the reads
+                        readLength = len(alignedread.query_sequence)
+                        if (pileupread.query_position/float(readLength) <= 0.33):
+                            perfectStarts += 1
+                        elif (pileupread.query_position/float(readLength) <= 0.66):
+                            perfectMiddles += 1
+                        else:
+                            perfectEnds += 1
+                        
+                        if (anIsDebug):
+                            logging.debug("query_pos=%s, readLength=%s, perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s", pileupread.query_position, readLength, perfectStarts, perfectMiddles, perfectEnds)
+                    
+                    if (anIsDebug):
+                        logging.debug("counts on mutRead for %s:%s, mutSS=%s, mutType=%s, properPair?=%s, perfect?=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], mutSS, mutType, alignedread.is_proper_pair, perfect, numPerfect)
+                        #logging.debug("counts on mutRead for %s:%s, mutSS=%s, mutType=%s, properPair?=%s, maxLeft?=%s, maxRight?=%s, perfect?=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], mutSS, mutType, alignedread.is_proper_pair, maxleftcount > 1 and l == maxleft, maxrightcount > 1 and r == maxright, perfect, numPerfect)
+            
+            else:
+                refCount +=1
+        
+        #stopNonOverlappingTime = time.time()
+        #logging.info("time_readSupport: %s:%s processing nonoverlapping reads: Total time=%s hrs, %s mins, %s secs", aChromList, aPosList, ((stopNonOverlappingTime-startNonOverlappingTime)/(3600)), ((stopNonOverlappingTime-startNonOverlappingTime)/60), (stopNonOverlappingTime-startNonOverlappingTime))
+        
+        
+        if (anIsDebug):
+            logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, number of reads with ins=%s, dels=%s, maxMuts=%s, maxSoftClips=%s, numImproperPair=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], mutSS, mutType, readsWithIns, readsWithDels, readsWithMaxMuts, maxSoftClips, improperPairs, numPerfect)
+        
+        
+        #maxleft, maxleftcount = mode(leftclip)
+        #maxright, maxrightcount = mode(rightclip)
+        
         '''
         if (anIsDebug):
             logging.debug("mode with leftclip=%s", leftclip)
@@ -837,96 +957,6 @@ class Club():
             logging.debug("mode with rightclip=%s", rightclip)
             logging.debug("maxright=%s, maxrightcount=%s", maxright, maxrightcount)
         '''
-        
-        # for all reads with a mutation, check to see how many are 'perfect' reads
-        for pileupread in mutpileupreads:
-            perfect = True
-            
-            alignedread = pileupread.alignment
-            l, r = softclip(alignedread)
-            #if (anIsDebug):
-            #    logging.debug("perfectread leftclip=%s, rightclip=%s", l, r)
-            if maxleftcount > 1 and l == maxleft:
-                left += 1
-                perfect = False
-            if maxrightcount > 1 and r == maxright:
-                right += 1
-                perfect = False
-                
-            #if (anIsDebug):
-            #    logging.debug("A read is not perfect if it skips where most reads break for skips. perfectRead?=%s", perfect)
-                
-            i, d, m, g, softClippedCount = nummut(alignedread, aTranscriptStrand, self.germlineDict, self.transcriptGermlineDict, bamfile, fasta, aBamOrigin, anIsDebug)
-            
-            if (anIsDebug):
-                logging.debug("this one read has ins=%s, del=%s, muts=%s, germline=%s", i, d, m, g)
-            
-            if i:
-                ins += 1
-                perfect = False
-            if d:
-                dels += 1
-                perfect = False
-            # MapSplice doesn't set the proper pair flag for RNA-Seq reads, so only do this for DNA reads
-            if (aBamOrigin == "DNA" and not alignedread.is_proper_pair):
-                improperPairs += 1
-                perfect = False
-            # RNA editing events with mutSS=4 occur in clusters, so only apply this filter when mutSS!=4
-            if mutSS != "4" and m >= aParamsDict["maxMutsPerRead"]:
-                maxMuts += 1
-                perfect = False
-            
-            # softClippedCount is the number of soft clipped bases across this read
-            # if the percent of soft clipped bases is great than the param, this read is not perfect
-            if softClippedCount:
-                if alignedread.query_length > 0:
-                    if ((round(softClippedCount/float(alignedread.query_length)), 2) > aParamsDict["maxReadSoftClipPct"]):
-                        maxSoftClips += 1
-                        perfect = False
-                        #if (anIsDebug):
-                        #    logging.debug("read soft clipped too much, softClipped=%s, query_len=%s", softClippedCount, alignedread.query_length)
-                elif (alignedread.infer_query_length() > 0):
-                    if ((round(softClippedCount/float(alignedread.infer_query_length())), 2) > aParamsDict["maxReadSoftClipPct"]):
-                        maxSoftClips += 1
-                        perfect = False
-                        #if (anIsDebug):
-                        #    logging.debug("read soft clipped too much, softClipped=%s, infer_query_len=%s", softClippedCount, alignedread.infer_query_length())
-                elif (len(alignedread.query_sequence) > 0):
-                    if ((round(softClippedCount/float(len(alignedread.query_sequence))), 2) > aParamsDict["maxReadSoftClipPct"]):
-                        maxSoftClips += 1
-                        perfect = False
-                        #if (anIsDebug):
-                        #    logging.debug("read soft clipped too much, softClipped=%s, len seq=%s", softClippedCount, len(alignedread.query_sequence))
-                else:
-                    logging.warning("Couldn't determine the read length and therefore apply the soft-clip filter for read=%s", alignedread)
-                
-            # if we found a perfect read  
-            if perfect:
-                if (anIsDebug):
-                    logging.debug("found perfect read at %s:%s with query_pos=%s, qlen=%s, readPositionPct=%s", aChrom, aPos, pileupread.query_position, alignedread.qlen, pileupread.query_position/float(alignedread.qlen))
-                if alignedread.is_reverse:
-                    perfectRevStrand += 1
-                else:
-                    perfectForStrand += 1
-                numPerfect += 1
-                
-                # count the perfect positions in the reads
-                readLength = len(alignedread.query_sequence)
-                if (pileupread.query_position/float(readLength) <= 0.33):
-                    perfectStarts += 1
-                elif (pileupread.query_position/float(readLength) <= 0.66):
-                    perfectMiddles += 1
-                else:
-                    perfectEnds += 1
-                    
-                if (anIsDebug):
-                    logging.debug("query_pos=%s, readLength=%s, perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s", pileupread.query_position, readLength, perfectStarts, perfectMiddles, perfectEnds)
-            
-            if (anIsDebug):
-                logging.debug("checkfilter mutRead for %s:%s, mutSS=%s, mutType=%s, properPair?=%s, maxLeft?=%s, maxRight?=%s, perfect?=%s, numPerfect=%s", aChrom, aPos, mutSS, mutType, alignedread.is_proper_pair, maxleftcount > 1 and l == maxleft, maxrightcount > 1 and r == maxright, perfect, numPerfect)  
-        
-        if (anIsDebug):
-            logging.debug("final counts for %s:%s, mutSS=%s, mutType=%s, numI=%s, numD=%s, maxMuts=%s, maxSoftClips=%s, numImproperPair=%s, numPerfect=%s", aChrom, aPos, mutSS, mutType, ins, dels, maxMuts, maxSoftClips, improperPairs, numPerfect)  
         
         # keep track of all filters
         filters = []
@@ -938,10 +968,10 @@ class Club():
             if (sbias > (aParamsDict["maxStrandBias"]) or sbias < (1.0 - aParamsDict["maxStrandBias"])):
                 filters.append("perfectsbias")
                 if (anIsDebug):
-                    logging.debug("sbias flag for %s:%s, mutSS=%s, mutType=%s, forstrand=%s, revstrand=%s, sbias=%s", aChrom, aPos, mutSS, mutType, perfectForStrand, perfectRevStrand, sbias)
+                    logging.debug("sbias flag for %s:%s, mutSS=%s, mutType=%s, forstrand=%s, revstrand=%s, sbias=%s", aChromList, aPosList, mutSS, mutType, perfectForStrand, perfectRevStrand, sbias)
         
         if (anIsDebug):
-            logging.debug("checkfilter sbias for %s:%s, filters=%s, numPerfect=%s, mutCountCheckedReads=%s, mutCountReads=%s, refCount=%s", aChrom, aPos, filters, numPerfect, mutCountCheckedReads, mutCountReads, refCount)
+            logging.debug("checkfilter sbias for %s:%s, filters=%s, numPerfect=%s, mutCountCheckedReads=%s, mutCountReads=%s, refCount=%s", aChromList, aPosList, filters, numPerfect, mutCountCheckedReads, mutCountReads, refCount)
 
         # only apply positional bias to the perfect reads with mutations if we have enough reads
         if ((numPerfect > 0) and (numPerfect >= aParamsDict["minPositionBiasDepth"])):   
@@ -957,9 +987,9 @@ class Club():
                 filters.append("perfectpbias")
                  
         if (anIsDebug & numPerfect > 0):
-            logging.debug("checkfilter pbias filters=%s, perfectStarts=%s (%s), perfectMiddles=%s (%s), perfectEnds=%s (%s)", filters, perfectStarts, perfectStarts/float(numPerfect), perfectMiddles, perfectMiddles/float(numPerfect), perfectEnds, perfectEnds/float(numPerfect))
+            logging.debug("checkfilter perfectpbias filters=%s, perfectStarts=%s (%s), perfectMiddles=%s (%s), perfectEnds=%s (%s)", filters, perfectStarts, perfectStarts/float(numPerfect), perfectMiddles, perfectMiddles/float(numPerfect), perfectEnds, perfectEnds/float(numPerfect))
         
-        # if with don't have enough perfect reads
+        # if we don't have enough perfect reads
         if numPerfect < aParamsDict["minPerfectReads"]:
             filters.append("perfectcount")
         # check if the percent of perfect reads is high enough
@@ -976,7 +1006,7 @@ class Club():
         # if no filters have been returned thus far, this call passes
         else:    
             return ["PASS"]
-            
+
         
 if __name__ == '__main__':
     
@@ -1164,7 +1194,7 @@ if __name__ == '__main__':
     
                 # Pebbles doesn't have the ORIGIN flag
                 if (curr_data.info["ORIGIN"] == None):
-                    curr_data.filter = club.checkfilter(curr_data.chrom, curr_data.pos-1, None, curr_data.ref, curr_data.alt, curr_data.info["SS"], curr_data.info["MT"], "DNA", params, i_debug)
+                    curr_data.filter = club.checkfilter([curr_data.chrom], [curr_data.pos], [None], curr_data.ref, curr_data.alt, curr_data.info["SS"], curr_data.info["MT"], "DNA", params, i_debug)
                 # These are RADIA calls
                 else:
                     dnaFilter = list()
@@ -1178,22 +1208,20 @@ if __name__ == '__main__':
                                 # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
                                 modTypes = curr_data.info["MT"].split(",")
                                 for modType in modTypes:
-                                    dnaFilter += club.checkfilter(curr_data.chrom, curr_data.pos-1, None, curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "DNA", params, i_debug)
+                                    dnaFilter += club.checkfilter([curr_data.chrom], [curr_data.pos], [None], curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "DNA", params, i_debug)
                         # if we already passed using the DNA, then don't bother checking the RNA
-                        elif ("PASS" not in dnaFilter):
+                        if ("PASS" not in dnaFilter):
                             if ((i_passedVCFCallsOnlyFlag and "PASS" in curr_data.filter) or (not i_passedVCFCallsOnlyFlag)):
                                 # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
                                 modTypes = curr_data.info["MT"].split(",")
                                 for modType in modTypes:
                                     try:
                                         # if the transcript name, coordinate, and strand should be used instead of the genomic chrom and coordinate
-                                        if (i_transcriptNameTag != None and i_transcriptCoordinateTag != None and i_transcriptStrandTag != None):
-                                            transcriptName = curr_data.info[i_transcriptNameTag].split(",")[0]    
-                                            transcriptCoordinate = int(curr_data.info[i_transcriptCoordinateTag].split(",")[0])   
-                                            transcriptStrand = curr_data.info[i_transcriptStrandTag].split(",")[0]
-                                            rnaFilter += club.checkfilter(transcriptName, transcriptCoordinate-1, transcriptStrand, curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "RNA", params, i_debug)
+                                        if ((i_transcriptNameTag != None and i_transcriptCoordinateTag != None and i_transcriptStrandTag != None) and 
+                                            (curr_data.info[i_transcriptNameTag] != None and curr_data.info[i_transcriptCoordinateTag] != None and curr_data.info[i_transcriptStrandTag] != None)):
+                                            rnaFilter += club.checkfilter(curr_data.info[i_transcriptNameTag].split(","), curr_data.info[i_transcriptCoordinateTag].split(","), curr_data.info[i_transcriptStrandTag].split(","), curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "RNA", params, i_debug)
                                         else:
-                                            rnaFilter += club.checkfilter(curr_data.chrom, curr_data.pos-1, None, curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "RNA", params, i_debug)
+                                            rnaFilter += club.checkfilter([curr_data.chrom], [curr_data.pos], [None], curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "RNA", params, i_debug)
                                     except:
                                         logging.error("Problem with the following line: %s", line)
                                         raise
@@ -1201,10 +1229,10 @@ if __name__ == '__main__':
                     # if it passed by DNA or RNA, then it passed          
                     if ("PASS" in dnaFilter or "PASS" in rnaFilter):
                         curr_data.filter = ["PASS"]
-                    # if this call was passing until now, then just add the filters here
+                    # if this call was passing until now, then just add the new filters from here
                     elif ("PASS" in curr_data.filter):
                         curr_data.filter = dnaFilter + rnaFilter
-                    # if this call was not passing, then add the filters to the previous filters
+                    # if this call was not passing until now, then add the filters to the previous filters
                     else:
                         curr_data.filter += dnaFilter + rnaFilter
                         
