@@ -233,7 +233,7 @@ def check_base_and_map_quals(aPileupread, aParamsDict, anIsDebug):
     # mapping quality scores are already converted to ints
     if aPileupread.alignment.mapq < aParamsDict["minMapQual"]: #MINMQ
         if (anIsDebug):
-            logging.debug("checkread read MQ=%s < minMQ=%s", aPileupread.alignment.mapq, aParamsDict["minMapQual"])
+            logging.debug("check_base_and_map_quals read MQ=%s < minMQ=%s", aPileupread.alignment.mapq, aParamsDict["minMapQual"])
         return False
     
     # the pysam documentation says: "base quality scores are unsigned chars but
@@ -252,19 +252,23 @@ def check_base_and_map_quals(aPileupread, aParamsDict, anIsDebug):
     
     if baseQualConverted < aParamsDict["minBaseQual"]: #MINBQ
         if (anIsDebug):
-            logging.debug("checkread base BQ=%s < minBQ=%s", baseQualConverted, aParamsDict["minBaseQual"])
+            logging.debug("check_base_and_map_quals base BQ=%s < minBQ=%s", baseQualConverted, aParamsDict["minBaseQual"])
         return False 
+    
+    if (anIsDebug):
+        logging.debug("check_base_and_map_quals found nothing")
+    
+    return True
+
+
+def check_neighbor_base_quals(aPileupread, aParamsDict, anIsDebug):
     
     # calculate indices to check (e.g. 5 before and 5 after)
     start = aPileupread.query_position - aParamsDict["numNeighborBases"]
-    #if start < 2:
-    #    start = 2
     if (start < 0):
         start = 0
     
     stop = aPileupread.query_position + aParamsDict["numNeighborBases"]
-    #if stop > pileupread.alignment.rlen - 2:
-    #    stop = pileupread.alignment.rlen - 2
     if stop > aPileupread.alignment.rlen:
         if (anIsDebug):
             logging.debug("neighbors past the length query_position=%s, rlen=%s, start=%s, stop=%s", aPileupread.query_position, aPileupread.alignment.rlen, start, stop)
@@ -282,19 +286,23 @@ def check_base_and_map_quals(aPileupread, aParamsDict, anIsDebug):
     # if anything in neighborhood has too low of base quality
     index = start
     for qualScore in aPileupread.alignment.qual[start:(stop + 1)]:
-        # the pysam documentation says: "base quality scores are unsigned chars but they are *not* the ASCII encoded values, so no offset of 33 needs to be subtracted"
-        # but the documentation seems to be wrong, we need to subtract the offset for samtools mpileup, samtools view, and pysam
+        # the pysam documentation says: "base quality scores are unsigned chars but
+        # they are *not* the ASCII encoded values, so no offset of 33 needs to be subtracted"
+        # but this is only true for the 'query_qualities' and 'query_alignment_qualities'
+        # we need to subtract the offset for the 'qual' field
         baseQualConverted = ord(qualScore)-33
         if (anIsDebug):
             logging.debug("checking neighbor base query_pos=%s, start=%s, stop=%s, index=%s, qual=%s, ordQual=%s, convertedQual=%s", aPileupread.query_position, start, stop, index, qualScore, ord(qualScore), baseQualConverted)
-        index += 1
+        
         if baseQualConverted < aParamsDict["minNeighborBaseQual"]: #MINNQS
             if (anIsDebug):
-                logging.debug("checkread neighboring base BQ=%s < minNQS=%s", baseQualConverted, aParamsDict["minNeighborBaseQual"])
+                logging.debug("check_neighbor_base_quals neighboring base BQ=%s < minNQS=%s", baseQualConverted, aParamsDict["minNeighborBaseQual"])
             return False
-
+        
+        index += 1
+    
     if (anIsDebug):
-        logging.debug("checkread found nothing")
+        logging.debug("check_neighbor_base_quals found nothing")
      
     return True
 
@@ -805,7 +813,7 @@ class Club():
                     logging.debug("found read with mutation, number of reads with mutations=%s", mutCountReads)
                 
                 # if the base and map quals are good enough
-                if check_base_and_map_quals(pileupread, aParamsDict, anIsDebug):
+                if check_base_and_map_quals(pileupread, aParamsDict, anIsDebug) and check_neighbor_base_quals(pileupread, aParamsDict, anIsDebug):
                     
                     mutCountCheckedReads +=1
                     
