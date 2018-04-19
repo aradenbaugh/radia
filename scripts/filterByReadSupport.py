@@ -236,11 +236,20 @@ def check_base_and_map_quals(aPileupread, aParamsDict, anIsDebug):
             logging.debug("checkread read MQ=%s < minMQ=%s", aPileupread.alignment.mapq, aParamsDict["minMapQual"])
         return False
     
-    # the pysam documentation says: "base quality scores are unsigned chars but they are *not* the ASCII encoded values, so no offset of 33 needs to be subtracted"
-    # but the documentation seems to be wrong, we need to subtract the offset for samtools mpileup, samtools view, and pysam
+    # the pysam documentation says: "base quality scores are unsigned chars but
+    # they are *not* the ASCII encoded values, so no offset of 33 needs to be subtracted"
+    # but this is only true for the 'query_qualities' and 'query_alignment_qualities'
+    # we need to subtract the offset for the 'qual' field
     baseQualConverted = ord(aPileupread.alignment.qual[aPileupread.query_position])-33
+    #queryQual = aPileupread.alignment.query_qualities[aPileupread.query_position]
+    #baseQualConverted = ord(aPileupread.alignment.query_alignment_qualities[aPileupread.query_position])-33
+
     if (anIsDebug):
-        logging.debug("checkread base? BQ=%s < minBQ=%s", baseQualConverted, aParamsDict["minBaseQual"])
+        #logging.debug("alignedRead alignment.qual=%s", aPileupread.alignment.qual)
+        #logging.debug("alignedRead alignment.query_qualities=%s", aPileupread.alignment.query_qualities)
+        #logging.debug("alignedRead alignment.query_alignment_qualities=%s", aPileupread.alignment.query_alignment_qualities)
+        logging.debug("check_base_and_map_quals baseQuality qpos=%s, orgQual=%s, ordQual=%s, convertedQual=%s, minBQ=%s", aPileupread.query_position, aPileupread.alignment.qual[aPileupread.query_position], ord(aPileupread.alignment.qual[aPileupread.query_position]), baseQualConverted, aParamsDict["minBaseQual"])
+
     if baseQualConverted < aParamsDict["minBaseQual"]: #MINBQ
         if (anIsDebug):
             logging.debug("checkread base BQ=%s < minBQ=%s", baseQualConverted, aParamsDict["minBaseQual"])
@@ -608,6 +617,9 @@ class Club():
         perfectStarts = 0
         perfectMiddles = 0
         perfectEnds = 0
+        starts = 0
+        middles = 0
+        ends = 0
         readsWithMaxMuts = 0
         maxSoftClips = 0
         readsWithDels = 0
@@ -658,6 +670,12 @@ class Club():
             if (anIsDebug):
                 logging.debug("getting pileups for chrom=%s, pos=%s", chrom, pos)
             #logging.info("getting pileups for chrom=%s, pos=%s", chrom, pos)
+            
+            # future versions of pysam have some nice options
+            #for pileupcolumn in bamfile.pileup(chrom, pos, pos+1, stepper="nofilter", 
+            #                                   fastafile=fastafile, ignore_overlaps=True, 
+            #                                   flag_filter=1540, ignore_orphans=True, 
+            #                                   compute_baq=True, redo_baq=True):
             
             # get the pileups
             for pileupcolumn in bamfile.pileup(chrom, pos, pos+1, stepper="nofilter"):
@@ -722,8 +740,8 @@ class Club():
                     oneReadDict["strand"] = strand
                     oneReadDict["refBase"] = refBase
                     
-                    if (anIsDebug):
-                        logging.debug("name=%s, oneReadDict=%s", alignedread.query_name, oneReadDict)
+                    #if (anIsDebug):
+                    #    logging.debug("name=%s, oneReadDict=%s", alignedread.query_name, oneReadDict)
                     
                     # add it to the dictionary of reads
                     readsDict[alignedread.query_name].append(oneReadDict)
@@ -762,9 +780,6 @@ class Club():
             #readInsertSize = readDict["insertSize"]
             #readFlag = readDict["flag"]
             
-            bases += readBase
-            baseQuals += readBaseQual
-            
             if (anIsDebug):
                 logging.debug("found aligned read at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedread)
             
@@ -781,6 +796,9 @@ class Club():
                     
                     mutCountCheckedReads +=1
                     
+                    bases += readBase
+                    baseQuals += readBaseQual
+                    
                     if (anIsDebug):
                         logging.debug("mutation read passed base and map quals")
                     
@@ -792,7 +810,7 @@ class Club():
                     insCount, delCount, mutCount, germCount, softClippedCount = mutation_counts(alignedread, self.germlineDict, self.transcriptGermlineDict, readDict["strand"], readDict["chrom"], fastafile, aBamOrigin, anIsDebug)
                     
                     if (anIsDebug):
-                        logging.debug("this one read has ins=%s, del=%s, muts=%s, germline=%s", insCount, delCount, mutCount, germCount)
+                        logging.debug("this one read has ins=%s, del=%s, muts=%s, germline=%s, softClip=%s", insCount, delCount, mutCount, germCount, softClippedCount)
                     
                     if insCount:
                         readsWithIns += 1
@@ -808,6 +826,18 @@ class Club():
                     if mutSS != "4" and mutCount >= aParamsDict["maxMutsPerRead"]:
                         readsWithMaxMuts += 1
                         perfect = False
+                    
+                    # count the positions in the reads
+                    readLength = len(alignedread.query_sequence)
+                    if (pileupread.query_position/float(readLength) <= 0.33):
+                        starts += 1
+                    elif (pileupread.query_position/float(readLength) <= 0.66):
+                        middles += 1
+                    else:
+                        ends += 1
+                    
+                    if (anIsDebug):
+                        logging.debug("query_pos=%s, readLength=%s, starts=%s, middles=%s, ends=%s", pileupread.query_position, readLength, starts, middles, ends)
                     
                     # softClippedCount is the number of soft clipped bases across this read
                     # if the percent of soft clipped bases is greater than the param, this read is not perfect
@@ -866,6 +896,8 @@ class Club():
         #logging.info("time_readSupport: %s:%s processing nonoverlapping reads: Total time=%s hrs, %s mins, %s secs", aChromList, aPosList, ((stopNonOverlappingTime-startNonOverlappingTime)/(3600)), ((stopNonOverlappingTime-startNonOverlappingTime)/60), (stopNonOverlappingTime-startNonOverlappingTime))
         
         if (anIsDebug):
+            logging.debug("pysam bases=%s", bases)
+            logging.debug("pysam quals=%s", baseQuals)
             logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, number of reads with ins=%s, dels=%s, maxMuts=%s, maxSoftClips=%s, numImproperPair=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], mutSS, mutType, readsWithIns, readsWithDels, readsWithMaxMuts, maxSoftClips, improperPairs, numPerfect)
         
         # keep track of all filters
@@ -883,6 +915,22 @@ class Club():
         if (anIsDebug):
             logging.debug("checkfilter sbias for %s:%s, filters=%s, numPerfect=%s, mutCountCheckedReads=%s, mutCountReads=%s, refCount=%s", aChromList, aPosList, filters, numPerfect, mutCountCheckedReads, mutCountReads, refCount)
 
+        # only apply positional bias to the reads with mutations if we have enough reads
+        if ((mutCountCheckedReads > 0) and (mutCountCheckedReads >= aParamsDict["minPositionBiasDepth"])):
+            if (anIsDebug):
+                logging.debug("mutCountCheckedReads=%s, maxPBiasStarts=%s, maxPBiasEnds=%s", mutCountCheckedReads, round(starts/float(mutCountCheckedReads),2), round(ends/float(mutCountCheckedReads),2))
+            if (round(starts/float(mutCountCheckedReads),2) >= aParamsDict["maxPositionBias"]):
+                if (anIsDebug):
+                    logging.debug("pbias from starts starts=%s, middles=%s, ends=%s, mutCountCheckedReads=%s", starts, middles, ends, mutCountCheckedReads)
+                filters.append("pnewbias")
+            elif (round(ends/float(mutCountCheckedReads),2) >= aParamsDict["maxPositionBias"]):
+                if (anIsDebug):
+                    logging.debug("pbias from ends starts=%s, middles=%s, ends=%s, mutCountCheckedReads=%s", starts, middles, ends, mutCountCheckedReads)
+                filters.append("pnewbias")
+        
+        if (anIsDebug and mutCountCheckedReads > 0):
+            logging.debug("checkfilter pbias for %s:%s, filters=%s, starts=%s (%s), middles=%s (%s), ends=%s (%s)", aChromList, aPosList, filters, starts, starts/float(mutCountCheckedReads), middles, middles/float(mutCountCheckedReads), ends, ends/float(mutCountCheckedReads))
+        
         # only apply positional bias to the perfect reads with mutations if we have enough reads
         if ((numPerfect > 0) and (numPerfect >= aParamsDict["minPositionBiasDepth"])):   
             #if (anIsDebug):
@@ -896,7 +944,7 @@ class Club():
                 #    logging.debug("perfectbias from ends perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s", perfectStarts, perfectMiddles, perfectEnds)
                 filters.append("perfectpbias")
                  
-        if (anIsDebug & numPerfect > 0):
+        if (anIsDebug and numPerfect > 0):
             logging.debug("checkfilter perfectpbias filters=%s, perfectStarts=%s (%s), perfectMiddles=%s (%s), perfectEnds=%s (%s)", filters, perfectStarts, perfectStarts/float(numPerfect), perfectMiddles, perfectMiddles/float(numPerfect), perfectEnds, perfectEnds/float(numPerfect))
         
         # if we don't have enough perfect reads
@@ -916,8 +964,8 @@ class Club():
         # if no filters have been returned thus far, this call passes
         else:    
             return ["PASS"]
-
         
+
 if __name__ == '__main__':
     
     usage = "usage: python %prog vcfFile [Options]"
