@@ -213,7 +213,7 @@ def get_sam_data(aSamFile, aChrom, aStartCoordinate, aStopCoordinate, aSourcePre
     return
 
 
-def get_bam_data(aBamFile, aFastaFile, aMinBaseQual, aMinMapQual, aChrom, aStartCoordinate, aStopCoordinate, aBatchSize, aUseChrPrefix, aSourcePrefix, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
+def get_bam_data(aBamFile, aFastaFile, aChrom, aStartCoordinate, aStopCoordinate, aBatchSize, aUseChrPrefix, aSourcePrefix, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
     '''
     ' This function uses the python generator to yield the information for one coordinate at a time.
     ' In order to reduce the time and memory overhead of loading the entire .bam file into memory at
@@ -232,8 +232,6 @@ def get_bam_data(aBamFile, aFastaFile, aMinBaseQual, aMinMapQual, aChrom, aStart
     '
     ' aBamFile:                              A .bam file to be read from
     ' aFastaFile:                            The FASTA file that should be used in the samtools command which is needed for the reference base.
-    ' aMinBaseQual:                          The base quality score that should be used in the samtools command
-    ' aMinMapQual:                           The mapping quality score that should be used in the samtools command
     ' aChrom:                                The chromosome that should be used in the samtools command
     ' aStartCoordinate:                      The initial start coordinate (typically zero)
     ' aStopCoordinate:                       The initial stop coordinate (typically the size of the chromosome)
@@ -252,7 +250,7 @@ def get_bam_data(aBamFile, aFastaFile, aMinBaseQual, aMinMapQual, aChrom, aStart
     while (currentStartCoordinate <= aStopCoordinate):
         
         # execute the samtools command
-        pileups = execute_samtools_cmd(aBamFile, aFastaFile, aMinBaseQual, aMinMapQual, aChrom, aUseChrPrefix, currentStartCoordinate, currentStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug)
+        pileups = execute_samtools_cmd(aBamFile, aFastaFile, aChrom, aUseChrPrefix, currentStartCoordinate, currentStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug)
         
         numPileups = 0
         
@@ -301,7 +299,7 @@ def get_bam_data(aBamFile, aFastaFile, aMinBaseQual, aMinMapQual, aChrom, aStart
     return
 
 
-def execute_samtools_cmd(aBamFile, aFastaFile, aMinBaseQuality, aMinMapQuality, aChrom, aUseChrPrefix, aStartCoordinate, aStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
+def execute_samtools_cmd(aBamFile, aFastaFile, aChrom, aUseChrPrefix, aStartCoordinate, aStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
     '''
     ' This function executes an external command.  The command is the "samtools mpileup" command which returns all 
     ' the information about the sequencing reads for specific coordinates.  There are two things to be careful about
@@ -315,8 +313,6 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aMinBaseQuality, aMinMapQuality, 
     '
     ' aBamFile:                              A .bam file to be read from
     ' aFastaFile:                            The FASTA file which is needed for the reference base.
-    ' aMinBaseQuality:                       The base quality score for the samtools command
-    ' aMinMapQuality:                        The mapping quality score for the samtools command
     ' aChrom:                                The chromosome that we are selecting from
     ' aUseChrPrefix:                         Whether the 'chr' should be used in the samtools command
     ' aStartCoordinate:                      The start coordinate of the selection
@@ -325,9 +321,9 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aMinBaseQuality, aMinMapQuality, 
     '''
     # create the samtools command
     if (aUseChrPrefix):
-        samtoolsSelectStatement = "samtools mpileup -E -s -f " + aFastaFile + " -Q " + str(aMinBaseQuality) + " -q " + str(aMinMapQuality) + " -r chr" + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
+        samtoolsSelectStatement = "samtools mpileup -E -s -f " + aFastaFile + " -Q 0 -q 0 -r chr" + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
     else:
-        samtoolsSelectStatement = "samtools mpileup -E -s -f " + aFastaFile + " -Q " + str(aMinBaseQuality) + " -q " + str(aMinMapQuality) + " -r " + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
+        samtoolsSelectStatement = "samtools mpileup -E -s -f " + aFastaFile + " -Q 0 -q 0 -r " + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
     
     # -ff (exclude flags):  unmapped reads, reads that fail quality checks, pcr duplicates
     # -rf (include flags):  everything else (including secondary alignments)
@@ -368,7 +364,31 @@ def execute_samtools_cmd(aBamFile, aFastaFile, aMinBaseQuality, aMinMapQuality, 
     return
 
 
-def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfRawBaseQuals, aStringOfRawMapQuals, aReferenceBase, aMinBaseQuality, aMinMapQuality, anIsDebug):
+def convert_raw_base(aBase, aRawBaseQual, aRawMapQual, aConvertedBaseQual, aConvertedMapQual, aMinBaseQual, aMinMapQual, aFinalBases, aFinalBaseQuals, aFinalMapQuals, aNumBasesDict, aNumPlusStrandDict, aSumBaseQualsDict, aSumMapQualsDict, aSumMapQualZeroesDict, aMaxMapQualsDict, anIsPlusStrand):
+    # count the number of mapping qualities that are zero per allele
+    if (aConvertedMapQual == 0):
+        aSumMapQualZeroesDict[aBase] += 1
+    
+    # if the quals are above the mins
+    if aConvertedBaseQual >= aMinBaseQual and aConvertedMapQual >= aMinMapQual:
+        aFinalBases += aBase
+        aFinalBaseQuals += aRawBaseQual
+        aFinalMapQuals += aRawMapQual
+        aNumBasesDict[aBase] += 1
+        aSumBaseQualsDict[aBase] += aConvertedBaseQual
+        aSumMapQualsDict[aBase] += aConvertedMapQual
+        
+        # if this is on the plus strand
+        if (anIsPlusStrand):
+            aNumPlusStrandDict[aBase] += 1
+        # keep track of the max mapping quality per allele
+        if (aConvertedMapQual > aMaxMapQualsDict[aBase]):
+            aMaxMapQualsDict[aBase] = aConvertedMapQual
+        
+    return aFinalBases, aFinalBaseQuals, aFinalMapQuals, aNumBasesDict, aNumPlusStrandDict, aSumBaseQualsDict, aSumMapQualsDict, aSumMapQualZeroesDict, aMaxMapQualsDict
+
+
+def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfRawBaseQuals, aStringOfRawMapQuals, aReferenceBase, aMinBaseQual, aMinMapQual, anIsDebug):
     '''
     ' This function returns all of the valid RNA (cDNA) or DNA bases from the given pileup of read bases.
     ' It converts all of the samtools specific characters into human-readable bases and filters out any non 
@@ -512,46 +532,17 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             stops += 1
         elif base == ".":
             # a period represents the reference base on the plus strand
-            if convertedBaseQual >= aMinBaseQuality and convertedMapQual >= aMinMapQuality:
-                base = aReferenceBase.upper()
-                finalBases += base
-                finalBaseQuals += rawBaseQual
-                finalMapQuals += rawMapQual
-                numPlusStrandDict[base] += 1
-                numBasesDict[base] += 1
-                sumBaseQualsDict[base] += convertedBaseQual
-                sumMapQualsDict[base] += convertedMapQual
-                
-                # count the number of mapping qualities that are zero per allele
-                if (convertedMapQual == 0):
-                    sumMapQualZeroesDict[base] += 1
-                
-                # keep track of the max mapping quality per allele
-                if (convertedMapQual > maxMapQualsDict[base]):
-                    maxMapQualsDict[base] = convertedMapQual
-                    
+            base = aReferenceBase.upper()
+            finalBases, finalBaseQuals, finalMapQuals, numBasesDict, numPlusStrandDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict = convert_raw_base(base, rawBaseQual, rawMapQual, convertedBaseQual, convertedMapQual, aMinBaseQual, aMinMapQual, finalBases, finalBaseQuals, finalMapQuals, numBasesDict, numPlusStrandDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict, True)
+            
             currBaseIndex += 1
             currBaseQualIndex += 1
             currMapQualIndex += 1
         elif base == ",":
             # a comma represents the reference base on the negative strand
-            if convertedBaseQual >= aMinBaseQuality and convertedMapQual >= aMinMapQuality:
-                base = aReferenceBase.upper()
-                finalBases += base
-                finalBaseQuals += rawBaseQual
-                finalMapQuals += rawMapQual
-                numBasesDict[base] += 1
-                sumBaseQualsDict[base] += convertedBaseQual
-                sumMapQualsDict[base] += convertedMapQual
-                
-                # count the number of mapping qualities that are zero per allele
-                if (convertedMapQual == 0):
-                    sumMapQualZeroesDict[base] += 1
-                
-                # keep track of the max mapping quality per allele
-                if (convertedMapQual > maxMapQualsDict[base]):
-                    maxMapQualsDict[base] = convertedMapQual
-                
+            base = aReferenceBase.upper()
+            finalBases, finalBaseQuals, finalMapQuals, numBasesDict, numPlusStrandDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict = convert_raw_base(base, rawBaseQual, rawMapQual, convertedBaseQual, convertedMapQual, aMinBaseQual, aMinMapQual, finalBases, finalBaseQuals, finalMapQuals, numBasesDict, numPlusStrandDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict, False)
+            
             currBaseIndex += 1
             currBaseQualIndex += 1
             currMapQualIndex += 1
@@ -560,23 +551,8 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             #    logging.debug("base=%s, rawBaseQual=%s, ord(rawBaseQual)=%s, convertedBaseQual=%s, aMinBaseQual=%s", base, rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), str(aMinBaseQuality))
             
             # a non reference on the plus strand
-            if convertedBaseQual >= aMinBaseQuality and convertedMapQual >= aMinMapQuality:
-                finalBases += base
-                finalBaseQuals += rawBaseQual
-                finalMapQuals += rawMapQual
-                numPlusStrandDict[base] += 1
-                numBasesDict[base] += 1
-                sumBaseQualsDict[base] += convertedBaseQual
-                sumMapQualsDict[base] += convertedMapQual
-                
-                # count the number of mapping qualities that are zero per allele
-                if (convertedMapQual == 0):
-                    sumMapQualZeroesDict[base] += 1
-                
-                # keep track of the max mapping quality per allele
-                if (convertedMapQual > maxMapQualsDict[base]):
-                    maxMapQualsDict[base] = convertedMapQual
-                
+            finalBases, finalBaseQuals, finalMapQuals, numBasesDict, numPlusStrandDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict = convert_raw_base(base, rawBaseQual, rawMapQual, convertedBaseQual, convertedMapQual, aMinBaseQual, aMinMapQual, finalBases, finalBaseQuals, finalMapQuals, numBasesDict, numPlusStrandDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict, True)
+            
             currBaseIndex += 1
             currBaseQualIndex += 1
             currMapQualIndex += 1
@@ -585,23 +561,9 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             #    logging.debug("base=%s, rawBaseQual=%s, ord(rawBaseQual)=%s, convertedBaseQual=%s, aMinBaseQual=%s", base, rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), str(aMinBaseQuality))
             
             # a non reference on the negative strand
-            if convertedBaseQual >= aMinBaseQuality and convertedMapQual >= aMinMapQuality:
-                base = base.upper()
-                finalBases += base
-                finalBaseQuals += rawBaseQual
-                finalMapQuals += rawMapQual
-                numBasesDict[base] += 1
-                sumBaseQualsDict[base] += convertedBaseQual
-                sumMapQualsDict[base] += convertedMapQual
-                
-                # count the number of mapping qualities that are zero per allele
-                if (convertedMapQual == 0):
-                    sumMapQualZeroesDict[base] += 1
-                
-                # keep track of the max mapping quality per allele
-                if (convertedMapQual > maxMapQualsDict[base]):
-                    maxMapQualsDict[base] = convertedMapQual
-                
+            base = base.upper()
+            finalBases, finalBaseQuals, finalMapQuals, numBasesDict, numPlusStrandDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict = convert_raw_base(base, rawBaseQual, rawMapQual, convertedBaseQual, convertedMapQual, aMinBaseQual, aMinMapQual, finalBases, finalBaseQuals, finalMapQuals, numBasesDict, numPlusStrandDict, sumBaseQualsDict, sumMapQualsDict, sumMapQualZeroesDict, maxMapQualsDict, False)
+            
             currBaseIndex += 1
             currBaseQualIndex += 1
             currMapQualIndex += 1
@@ -1986,9 +1948,9 @@ def main():
         elif (i_dnaNormalFilename != None):
             # some bams/references use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_dnaNormMitochon != None):
-                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormMinBaseQual, i_dnaNormMinMapQual, i_dnaNormMitochon, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)
+                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormMitochon, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)
             else:
-                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, i_dnaNormMinBaseQual, i_dnaNormMinMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)
+                i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, currentChrom, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)
       
         # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
         if (i_rnaNormalPileupsFilename != None):
@@ -1997,9 +1959,9 @@ def main():
         elif (i_rnaNormalFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_rnaNormMitochon != None):
-                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormMinBaseQual, i_rnaNormMinMapQual, i_rnaNormMitochon, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormMitochon, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
             else:
-                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, i_rnaNormMinBaseQual, i_rnaNormMinMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+                i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, currentChrom, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
             
         # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
         if (i_dnaTumorPileupsFilename != None):
@@ -2008,9 +1970,9 @@ def main():
         elif (i_dnaTumorFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_dnaTumMitochon != None):
-                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumMinBaseQual, i_dnaTumMinMapQual, i_dnaTumMitochon, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
+                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumMitochon, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
             else:
-                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, i_dnaTumMinBaseQual, i_dnaTumMinMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
+                i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, currentChrom, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
         
         # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
         if (i_rnaTumorPileupsFilename != None):
@@ -2019,9 +1981,9 @@ def main():
         elif (i_rnaTumorFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_rnaTumMitochon != None):
-                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumMinBaseQual, i_rnaTumMinMapQual, i_rnaTumMitochon, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumMitochon, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
             else:
-                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, i_rnaTumMinBaseQual, i_rnaTumMinMapQual, currentChrom, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
+                i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, currentChrom, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
         
         # get the first pileup from each file
         # if a file is not specified, then the "moreLines" flags will be set to false and initial values will be returned
