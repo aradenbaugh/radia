@@ -134,8 +134,8 @@ def parse_blat_input(aBlatFile, anIsDebug):
             # strip the carriage return and newline characters
             line = line.rstrip("\r\n")
     
-            if (anIsDebug):
-                logging.debug("BLAT: %s", line)    
+            #if (anIsDebug):
+            #    logging.debug("BLAT: %s", line)
                 
             # split the line on the tab
             splitLine = line.split()
@@ -299,7 +299,7 @@ def main():
                     middles += 1    
                             
             # if we have enough reads
-            if (total > i_readDepthCutoff):        
+            if (total >= i_readDepthCutoff):
                 if (round(starts/float(total),2) >= i_readPercentCutoff):
                     modTypeFilters[modType] = "pbias"
                 elif (round(ends/float(total),2) >= i_readPercentCutoff):
