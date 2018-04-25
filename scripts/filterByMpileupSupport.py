@@ -30,14 +30,6 @@ import gzip
 '    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-# this regular expression is used to remove insertions and deletions from raw reads
-# a read could look like:  "T$TT+3AGGGT+2AG+2AG.-2AGGG..-1A"
-# insertions start with a "+", deletions with a "-"
-# in theory, there could be multiple digits
-i_numOfIndelsRegEx = re.compile("[+-]{1}(\\d+)")
-# this regular expression will match any number of valid cDNA strings
-i_cDNARegEx = re.compile("[ACGTNacgtn]+")
-
 # this regular expression is used to extract the ID tag from the INFO, FORMAT, and FILTER fields
 i_headerIDRegEx = re.compile("ID=(\\w)*,")
 # this regular expression is used to extract the Type tag from the INFO and FORMAT fields
@@ -467,225 +459,6 @@ def get_final_mod_type(anInfoDict, anIsDebug):
     return (anInfoDict)
 
 
-def execute_samtools_cmd(aBamFile, aFastaFile, aBaseQuality, aMappingQuality, aChrom, aUseChrPrefix, aStartCoordinate, aStopCoordinate, anIsDebug):
-    '''
-    ' This function executes an external command.  The command is the "samtools mpileup" command which returns all 
-    ' the information about the sequencing reads for specific coordinates.  There are two things to be careful about
-    ' when using the samtools mpileup command.  Some .bam files use the 'chr' prefix when specifying the region to 
-    ' select with the -r argument.  If the 'chr' prefix is required, then specify the --useChrPrefix argument and also
-    ' make sure that the fasta file that is specified also has the 'chr' prefix.  Here are some examples of the commands
-    ' that can be copy/pasted to the command line to view the output:
-    '
-    ' samtools mpileup -f hg19.fa -Q 10 -q 10 -r 1:10000-20000 myBamfile.bam
-    '
-    ' aBamFile:            A .bam file to be read from
-    ' aFastaFile:          The FASTA file which is needed for the reference base.
-    ' aBaseQuality:        The base quality score for the samtools command
-    ' aMappingQuality:     The mapping quality score for the samtools command
-    ' aChrom:              The chromosome that we are selecting from
-    ' aStartCoordinate:    The start coordinate of the selection
-    ' aStopCoordinate:     The stop coordinate of the selection
-    ' aUseChrPrefix:       Whether the 'chr' should be used in the samtools command
-    '''
-    
-    if (aUseChrPrefix):
-        # create the samtools command
-        samtoolsSelectStatement = "samtools mpileup -E -f " + aFastaFile + " -Q " + str(aBaseQuality) + " -q " + str(aMappingQuality) + " -r chr" + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
-        #print >> sys.stderr, samtoolsSelectStatement
-    else:
-        # create the samtools command
-        samtoolsSelectStatement = "samtools mpileup -E -f " + aFastaFile + " -Q " + str(aBaseQuality) + " -q " + str(aMappingQuality) + " -r " + aChrom + ":" + str(aStartCoordinate) + "-" + str(aStopCoordinate) + " " + aBamFile
-   
-    # output the samtools command
-    if (anIsDebug):
-        logging.debug(samtoolsSelectStatement)
-    
-    # execute the samtools command
-    timeSamtoolsStart = time.time()
-    samtoolsCall = subprocess.Popen(samtoolsSelectStatement, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-    
-    # communicate() waits for the process to finish
-    (pileups, samtoolsStdErr) = samtoolsCall.communicate()
-    
-    timeSamtoolsEnd = time.time()
-    timeSpent = timeSamtoolsEnd-timeSamtoolsStart
-    
-    if (anIsDebug):
-        logging.debug("Time spent executing samtools command: %s hrs, %s mins, %s secs", (timeSpent/3600), (timeSpent/60), (timeSpent))  
-    
-    # if the return code is None, then  the process is not yet finished
-    # communicate() waits for the process to finish, poll() does not
-    if (samtoolsCall.returncode == None):
-        logging.warning("The samtools mpileup command is not done, and you are moving on...possibly without all the data?")
-    # if samtools returned a return code != 0, then an error occurred
-    # warning: previous versions of samtools did not return a return code!
-    elif (samtoolsCall.returncode != 0):
-        logging.warning("The return code of '%s' from the samtools mpileup command indicates an error.", samtoolsCall.returncode)
-        logging.warning("Warning/error from %s:\n%s", samtoolsSelectStatement, samtoolsStdErr)
-    
-    return pileups
-
-    
-def convert_raw_reads(aStringOfRawReads, aStringOfQualScores, aReferenceBase, anIsDebug):
-    '''
-    ' This function returns all of the valid RNA (cDNA) or DNA bases from the given pile-up of read bases.
-    ' It converts all of the samtools specific characters into human-readable bases and filters out any non 
-    ' RNA/DNA characters. 
-    '
-    ' This is from the samtools documentation:
-    '
-    ' In the pileup format, each line represents a genomic position, consisting of chromosome name, 
-    ' 1-based coordinate, reference base, read bases, read qualities and alignment mapping qualities. 
-    ' Information on match, mismatch, indel, strand, mapping quality and start and end of a read are all 
-    ' encoded at the read base column. At this column, a dot stands for a match to the reference base on 
-    ' the forward strand, a comma for a match on the reverse strand, a ">" or "<" for a reference skip, 
-    ' "ACGTN" for a mismatch on the forward strand and "acgtn" for a mismatch on the reverse strand. A 
-    ' pattern "\+[0-9]+[ACGTNacgtn]+" indicates there is an insertion between this reference position and 
-    ' the next reference position. The length of the insertion is given by the integer in the pattern, 
-    ' followed by the inserted sequence. Similarly, a pattern "-[0-9]+[ACGTNacgtn]+" represents a deletion 
-    ' from the reference. The deleted bases will be presented as "*" in the following lines. Also at the 
-    ' read base column, a symbol "^" marks the start of a read. The ASCII of the character following "^" 
-    ' minus 33 gives the mapping quality. A symbol "$" marks the end of a read segment.
-    '
-    ' We are converting all dots and commas to the upper case reference base.  Even though the comma represents 
-    ' a match on the reverse strand, there is no need to take the complement of it, since samtools does
-    ' that for us.  We are converting all mismatches on the reverse strand to upper case as well, and again 
-    ' no complement is needed.
-    '
-    ' We are ignoring the following for now:
-    ' 1) Reference skips (">" and "<") 
-    ' 2) "N" in the reads
-    '
-    ' aStringOfRawReads: A string representing the pile-up of read bases from a samtools mpileup command 
-    ' aStringOfQualScores: A string representing the raw quality scores for the read bases from the mpileup command
-    ' aReferenceBase: Used to convert "." and "," from the samtools mpileup command
-    '''
-    
-    # Note:  Reverse strand mismatches have been reverse-complemented by samtools
-    
-    # initialize some counts
-    indelCount = 0
-    
-    # remove insertions and deletions
-    # a read could look like:  "T$TT+3AGGGT+2AG+2AG.-2AGGG..-1A"
-    # insertions start with a "+", deletions with a "-"
-    # in theory, there could be multiple digits
-    # i_numOfIndelsRegEx = re.compile("[+-]{1}(\\d+)")
-
-    # if we have an indel
-    if ("+" in aStringOfRawReads or "-" in aStringOfRawReads):
-        # get an iterator of match objects for all indels
-        iterator = i_numOfIndelsRegEx.finditer(aStringOfRawReads)
-        
-        # for each match object in the iterator
-        for match in iterator:
-            indelCount += 1
-            # get the pattern that matched the reg ex, i.e. +3 or -2
-            indel = match.group()
-            # the length of the indel is the number following the + or - sign
-            lengthOfIndel = indel[1:len(indel)]
-            # this reg ex will specifically match indels with the specified length, i.e. +3AGG, -2AG
-            indelRegEx = re.compile("\\" + indel + "[ACGTNacgtn=]{" + lengthOfIndel + "}")
-            
-            # we can simply remove the indels and replace them with empty strings for now
-            # there are no base quality scores for indels that need to be removed
-            aStringOfRawReads = indelRegEx.sub("", aStringOfRawReads) 
-            
-        if (indelCount > 0):
-            logging.debug("%s indels found in %s", str(indelCount), aStringOfRawReads)
-            
-    # count starts and stops
-    starts = aStringOfRawReads.count("^")
-    stops = aStringOfRawReads.count("$")
-        
-    # remove all start of read symbols "^" (plus the following quality score)
-    # there are no base quality scores for start symbols that need to be removed
-    while ("^" in aStringOfRawReads):
-        start = aStringOfRawReads.find("^")
-        end = start+2
-        # replace will replace all unless a max is set, but we don't care, 
-        # we want to get rid of all of them
-        aStringOfRawReads = aStringOfRawReads.replace(aStringOfRawReads[start:end], "")
-    
-    # remove all end of read symbols "$"
-    # there are no base quality scores for stop symbols that need to be removed
-    aStringOfRawReads = aStringOfRawReads.replace("$", "")
-    
-    # replace all the periods for uppercase references representing the plus strand
-    # replace all the commas for lowercase references representing the minus strand
-    aStringOfRawReads = aStringOfRawReads.replace(".", aReferenceBase.upper())
-    aStringOfRawReads = aStringOfRawReads.replace(",", aReferenceBase.lower())
-        
-    # get an iterator of match objects for all valid cDNA
-    # this regular expression will match any number of valid cDNA strings
-    # i_cDNARegEx = re.compile("[ACGTacgt]+")
-    iterator = i_cDNARegEx.finditer(aStringOfRawReads)
-    
-    # create final strings consisting of just the valid cDNA and corresponding qual scores
-    finalPileups = ""
-    finalQuals = ""
-    
-    # only extract the valid cDNA and corresponding qual scores
-    # ignore >", "<", etc.
-    for match in iterator:
-        start = match.start()
-        end = match.end()
-        finalPileups += aStringOfRawReads[start:end]
-        finalQuals += aStringOfQualScores[start:end]
-              
-    # get the lengths
-    lenFinalPileups = len(finalPileups)
-    lenFinalQuals = len(finalQuals) 
-    
-    # at this point, the length of the pileups string should be equal to the length of the quality scores
-    if (lenFinalPileups != lenFinalQuals):
-        logging.error("convert_raw_reads() Error:  The length %s of the final pileup of reads is != the length %s of the final quality scores.  Original Pileup=%s, Final Pileup=%s, Original QualScores=%s, Final QualScores=%s", lenFinalPileups, lenFinalQuals, aStringOfRawReads, finalPileups, aStringOfQualScores, finalQuals)
-     
-    return (finalPileups, finalQuals, lenFinalPileups, starts, stops, indelCount)     
-
-
-def filter_by_base_quality(aStringOfReads, aStringOfQualScores, aMinBaseQualityScore, anIsDebug):
-    '''
-    ' This function filters out all the bases that don't meet the user-specified minimum 
-    ' base quality score which is specified here with the "aMinBaseQualityScore" parameter.
-    '
-    ' aStringOfReads: A string representing the pile-up of reads from a samtools mpileup command
-    ' aStringOfQualScores: A string representing the raw quality scores for the read bases from the mpileup command 
-    ' aMinBaseQualityScore: An integer with the user-specified minimum base quality score (also used as -Q parameter to samtools mpileup command)
-    '''
-    
-    # create strings consisting of just the reads that are greater than or equal to the minimum base quality score 
-    pileups = ""
-    qualScores = ""
-    numBasesDict = collections.defaultdict(int)
-    sumBaseQualsDict = collections.defaultdict(int)
-    numPlusStrandDict = collections.defaultdict(int)
-                
-    # loop through the reads and the corresponding quality scores
-    for (base, rawScore) in izip(aStringOfReads, aStringOfQualScores):
-        convertedScore = ord(rawScore)-33
-        
-        # the scores are in ascii, so convert them to integers
-        if (convertedScore >= aMinBaseQualityScore):
-            
-            # count the ones on the plus strand
-            if (base in "ACGTN"):
-                numPlusStrandDict[base] += 1
-            # convert all to plus strand after counting
-            else:
-                base = base.upper()
-            
-            # keep the base and quality
-            pileups += base
-            qualScores += rawScore
-            
-            # keep track of the number of each base and the corresponding qual score
-            numBasesDict[base] += 1
-            sumBaseQualsDict[base] += convertedScore
-                
-    return (pileups, qualScores, len(pileups), numBasesDict, sumBaseQualsDict, numPlusStrandDict)
-
-
 def filterByMapQualZero(aParamsDict, aSampleDict, aTargetIndex):
     
     if "MQ0" in aSampleDict:
@@ -1080,8 +853,8 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
     # for each event in the vcf file 
     for line in i_vcfFileHandler:
         # here are some examples of .vcf lines:
-        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
-        # GT:DP:AD:AF:INDEL:START:STOP:BQ:SB      0/0:2:2,0:1.0,0.0:0:0:0::36,0:0.0,0.0      0/0:1:1,0:1.0,0.0:0:0:0:39,0:1.0,0.0      0/1:50:48,2:0.96,0.04:0:2:0:32,18:0.75,0.5
+        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INS=0;DEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP
+        # GT:DP:AD:AF:INS:DEL:START:STOP:BQ:SB      0/0:2:2,0:1.0,0.0:0:0:0:0::36,0:0.0,0.0      0/0:1:1,0:1.0,0.0:0:0:0:0:39,0:1.0,0.0      0/1:50:48,2:0.96,0.04:0:0:2:0:32,18:0.75,0.5
         
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
@@ -1107,8 +880,8 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         splitLine = line.split("\t")
 
         # sample VCF line
-        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP
-        # GT:DP:AD:AF:INDEL:START:STOP:BQ:SB      0/0:2:2,0:1.0,0.0:0:0:0::36,0:0.0,0.0      0/0:1:1,0:1.0,0.0:0:0:0:39,0:1.0,0.0      0/1:50:48,2:0.96,0.04:0:2:0:32,18:0.75,0.5
+        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INS=0;DEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP
+        # GT:DP:AD:AF:INS:DEL:START:STOP:BQ:SB      0/0:2:2,0:1.0,0.0:0:0:0:0::36,0:0.0,0.0      0/0:1:1,0:1.0,0.0:0:0:0:0:39,0:1.0,0.0      0/1:50:48,2:0.96,0.04:0:0:2:0:32,18:0.75,0.5
         
         # the coordinate is the second element
         event_chr = splitLine[0]
