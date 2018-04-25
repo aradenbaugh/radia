@@ -683,75 +683,7 @@ def filter_by_base_quality(aStringOfReads, aStringOfQualScores, aMinBaseQualityS
             numBasesDict[base] += 1
             sumBaseQualsDict[base] += convertedScore
                 
-    return (pileups, qualScores, len(pileups), numBasesDict, sumBaseQualsDict, numPlusStrandDict)               
-
-    
-def format_bam_output(aRefList, anAltList, anOverallAltCountsDict, aNumBases, aBaseCountsDict, aQualitySumsOfBasesDict, aPlusStrandCountsDict, anIsDebug):
-    '''
-    ' This function converts information from a .bam mpileup coordinate into a format that can be output to a VCF formatted file.
-    ' This function calculates the average overall base quality score, strand bias, and fraction of reads supporting the alternative.
-    ' It also calculates the allele specific depth, average base quality score, strand bias, and fraction of reads supporting the alternative.
-    ' The format for the output in VCF is:  GT:DP:INDEL:START:STOP:AD:AF:BQ:SB.
-    '
-    ' aRefList:                 A list of reference alleles
-    ' anAltList:                A list of alternative alleles found thus far
-    ' anOverallAltCountsDict:   A dictionary of overall counts for each alternative allele 
-    ' aNumBases:                The total number of bases
-    ' aBaseCountsDict:          A dictionary with the number of bases for each allele
-    ' aQualitySumsOfBasesDict:  A dictionary with the sum of all quality scores for each allele
-    ' aPlusStrandCountsDict:    The number of bases that occurred on the plus strand
-    '''
-    
-    # initialize the return variables
-    sumAltReadSupport = 0
-    depths = list()
-    readSupports = list()
-    baseQuals = list()
-    strandBias = list()
-    
-    # if we have reads at this position
-    if (aNumBases > 0):
-        
-        #format = "GT:DP:INDEL:START:STOP:AD:AF:BQ:SB"
-        
-        #vcfHeader += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
-        #vcfHeader += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read depth\">\n"
-        #vcfHeader += "##FORMAT=<ID=INDEL,Number=1,Type=Integer,Description=\"Number of indels\">\n"
-        #vcfHeader += "##FORMAT=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this position\">\n"
-        #vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this position\">\n"
-        #vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Float,Description=\"Depth of reads supporting alleles 0/1/2/3\">\n"
-        #vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting alleles 0/1/2/3\">\n"
-        #vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting alleles 0/1/2/3\">\n"
-        #vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting alleles 0/1/2/3\">\n"
-        
-        # for each base in the ref list and alt list
-        # the order matters for the output
-        for base in (aRefList + anAltList):
-            # get the number of times the base occurs
-            count = aBaseCountsDict[base]
-            depths.append(count)
-
-            # calculate the allele specific fraction of read support
-            readSupport = round(count/float(aNumBases), 2)
-            readSupports.append(readSupport)
-            
-            # if the base is an alt, then count it for the overall read support
-            if (base in anAltList):
-                sumAltReadSupport += count
-                anOverallAltCountsDict[base] += count
-                
-            # calculate the allele specific avg quality and plus strand scores
-            if (count > 0):
-                avgBaseQuality = int(round(aQualitySumsOfBasesDict[base]/float(count),0))
-                avgPlusStrandBias = round(aPlusStrandCountsDict[base]/float(count),2)
-            else:
-                avgBaseQuality = 0
-                avgPlusStrandBias = 0.0
-                
-            baseQuals.append(avgBaseQuality)
-            strandBias.append(avgPlusStrandBias)
-           
-    return (depths, readSupports, baseQuals, strandBias, anOverallAltCountsDict, sumAltReadSupport)
+    return (pileups, qualScores, len(pileups), numBasesDict, sumBaseQualsDict, numPlusStrandDict)
 
 
 def filterByMapQualZero(aParamsDict, aSampleDict, aTargetIndex):
@@ -1149,7 +1081,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
     for line in i_vcfFileHandler:
         # here are some examples of .vcf lines:
         # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP      
-        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0,0.0:36,0:0.0,0.0      0/0:1:0:0:0:1:1.0,0.0:39,0:1.0,0.0      0/1:50:0:2:0:48,2:0.96,0.04:32,18:0.75,0.5
+        # GT:DP:AD:AF:INDEL:START:STOP:BQ:SB      0/0:2:2,0:1.0,0.0:0:0:0::36,0:0.0,0.0      0/0:1:1,0:1.0,0.0:0:0:0:39,0:1.0,0.0      0/1:50:48,2:0.96,0.04:0:2:0:32,18:0.75,0.5
         
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
@@ -1176,7 +1108,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
 
         # sample VCF line
         # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INDEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP
-        # GT:DP:INDEL:START:STOP:AD:AF:BQ:SB      0/0:2:0:0:0:2:1.0,0.0:36,0:0.0,0.0      0/0:1:0:0:0:1:1.0,0.0:39,0:1.0,0.0      0/1:50:0:2:0:48,2:0.96,0.04:32,18:0.75,0.5
+        # GT:DP:AD:AF:INDEL:START:STOP:BQ:SB      0/0:2:2,0:1.0,0.0:0:0:0::36,0:0.0,0.0      0/0:1:1,0:1.0,0.0:0:0:0:39,0:1.0,0.0      0/1:50:48,2:0.96,0.04:0:2:0:32,18:0.75,0.5
         
         # the coordinate is the second element
         event_chr = splitLine[0]
