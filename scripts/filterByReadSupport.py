@@ -11,6 +11,7 @@ import radiaUtil
 import logging
 from itertools import izip
 import collections
+import math
 
 '''
 '    RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.
@@ -227,12 +228,12 @@ def parse_vcf(filename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug)
             germlineDict, transcriptGermlineDict, mutationsDict, filterDict)
     
 
-def low_base_and_map_quals(aPileupread, aParamsDict, anIsDebug):
+def low_base_or_map_quals(aPileupread, aParamsDict, anIsDebug):
     
     # mapping quality scores are already converted to ints
     if aPileupread.alignment.mapq < aParamsDict["minMapQual"]: #MINMQ
         if (anIsDebug):
-            logging.debug("low_base_and_map_quals MQ=%s < minMQ=%s", aPileupread.alignment.mapq, aParamsDict["minMapQual"])
+            logging.debug("low_base_or_map_quals MQ=%s < minMQ=%s", aPileupread.alignment.mapq, aParamsDict["minMapQual"])
         return True
     
     # the pysam documentation says: "base quality scores are unsigned chars but
@@ -247,15 +248,15 @@ def low_base_and_map_quals(aPileupread, aParamsDict, anIsDebug):
         #logging.debug("alignedRead alignment.qual=%s", aPileupread.alignment.qual)
         #logging.debug("alignedRead alignment.query_qualities=%s", aPileupread.alignment.query_qualities)
         #logging.debug("alignedRead alignment.query_alignment_qualities=%s", aPileupread.alignment.query_alignment_qualities)
-        logging.debug("low_base_and_map_quals baseQuality qpos=%s, orgQual=%s, ordQual=%s, convertedQual=%s, minBQ=%s", aPileupread.query_position, aPileupread.alignment.qual[aPileupread.query_position], ord(aPileupread.alignment.qual[aPileupread.query_position]), baseQualConverted, aParamsDict["minBaseQual"])
+        logging.debug("low_base_or_map_quals baseQuality qpos=%s, orgQual=%s, ordQual=%s, convertedQual=%s, minBQ=%s", aPileupread.query_position, aPileupread.alignment.qual[aPileupread.query_position], ord(aPileupread.alignment.qual[aPileupread.query_position]), baseQualConverted, aParamsDict["minBaseQual"])
     
     if baseQualConverted < aParamsDict["minBaseQual"]: #MINBQ
         if (anIsDebug):
-            logging.debug("low_base_and_map_quals base BQ=%s < minBQ=%s", baseQualConverted, aParamsDict["minBaseQual"])
+            logging.debug("low_base_or_map_quals base BQ=%s < minBQ=%s", baseQualConverted, aParamsDict["minBaseQual"])
         return True
     
     if (anIsDebug):
-        logging.debug("low_base_and_map_quals found nothing")
+        logging.debug("low_base_or_map_quals found nothing")
     
     return False
 
@@ -445,6 +446,8 @@ class Club():
             
             self.rnatumorbamfile = pysam.Samfile(self.rnatumorbamfilename, 'rb')
             self.rnatumorfastafile = pysam.Fastafile(self.rnatumorfastafilename)
+        
+        return
 
 
     def group_reads_by_name(self, aChromList, aPosList, aTranscriptStrandList, aBamOrigin, aParamsDict, aMutSS, aMutType, anIsDebug):
@@ -486,38 +489,39 @@ class Club():
                 logging.debug("getting pileups for chrom=%s, pos=%s", chrom, pos)
             
             # get the pileups
-            for pileupcolumn in bamfile.pileup(chrom, pos, pos+1, stepper="nofilter"):
+            for pileupColumn in bamfile.pileup(chrom, pos, pos+1, stepper="nofilter"):
                 
                 # move through pileup until at the correct position
-                if pileupcolumn.pos < pos:
+                if pileupColumn.pos < pos:
                     #if (anIsDebug):
-                    #    logging.debug("continue pileupcolumn.pos=%s, pos=%s", pileupcolumn.pos, pos)
+                    #    logging.debug("continue pileupColumn.pos=%s, pos=%s", pileupColumn.pos, pos)
                     continue
-                if pileupcolumn.pos > pos:
+                if pileupColumn.pos > pos:
                     #if (anIsDebug):
-                    #    logging.debug("break out pileupcolumn.pos=%s, pos=%s", pileupcolumn.pos, pos)
+                    #    logging.debug("break out pileupColumn.pos=%s, pos=%s", pileupColumn.pos, pos)
                     break
                 
                 totalReads = 0
                 keptReads = 0
                 
                 # loop through the reads and create a dictionary
-                for pileupread in pileupcolumn.pileups:
+                for pileupRead in pileupColumn.pileups:
+                    
                     totalReads += 1
-                    alignedread = pileupread.alignment
+                    alignedRead = pileupRead.alignment
                     
                     # skip over reads with problems
-                    if (alignedread.is_qcfail or alignedread.is_unmapped or alignedread.is_duplicate or pileupread.is_del or pileupread.is_refskip):
+                    if (alignedRead.is_qcfail or alignedRead.is_unmapped or alignedRead.is_duplicate or pileupRead.is_del or pileupRead.is_refskip):
                         #if (anIsDebug):
                         #    logging.debug("read is unmapped, duplicate, qcfail, del, or refskip at %s:%s", chrom, pos)
                         continue;
                     # no longer needed?? indel length for the position following the current pileup site
-                    #if pileupread.indel != 0:
+                    if pileupRead.indel != 0:
                     #    #if (anIsDebug):
                     #    #    logging.debug("base is an indel at %s:%s", chrom, pos)
-                    #    continue;
+                        continue;
                     # skip over secondary mappings for RNA if the param is not set to include them
-                    if (aBamOrigin == "RNA" and not aParamsDict["rnaIncludeSecondaryAlignments"] and pileupread.alignment.is_secondary):
+                    if (aBamOrigin == "RNA" and not aParamsDict["rnaIncludeSecondaryAlignments"] and pileupRead.alignment.is_secondary):
                         #if (anIsDebug):
                         #    logging.debug("read is secondary alignment but flag to include secondary alignments for RNA is not set %s:%s", chrom, pos)
                         continue;
@@ -526,33 +530,33 @@ class Club():
                     # due to the inclusion of secondary alignments for RNA-Seq, there could be more than 2 reads that are paired
                     oneReadDict = {}
                     keptReads += 1
-                    oneReadDict["alignedRead"] = alignedread
-                    oneReadDict["pileupRead"] = pileupread
-                    #oneReadDict["qname"] = alignedread.query_name                          # qname
-                    #oneReadDict["flag"] = alignedread.flag                                 # flag
-                    #oneReadDict["rname"] = alignedread.reference_name                      # rname
-                    oneReadDict["start"] = alignedread.reference_start                      # pos
-                    #oneReadDict["mapQual"] = alignedread.mapping_quality                   # mapq
-                    #oneReadDict["cigar"] = alignedread.cigar                               # cigar
-                    #oneReadDict["mateName"] = alignedread.next_reference_name              # rnext
-                    oneReadDict["mateStart"] = alignedread.next_reference_start             # pnext or mpos
-                    #oneReadDict["insertSize"] = alignedread.template_length                # isize or tlen
-                    #oneReadDict["sequence"] = alignedread.seq                              # seq
-                    #oneReadDict["qualities"] = alignedread.qual                            # qual
-                    oneReadDict["qlen"] = alignedread.query_length                          # qlen
-                    oneReadDict["base"] = alignedread.seq[pileupread.query_position]
-                    oneReadDict["baseQual"] = alignedread.qual[pileupread.query_position]
-                    oneReadDict["sequenceIndex"] = pileupread.query_position
+                    oneReadDict["alignedRead"] = alignedRead
+                    oneReadDict["pileupRead"] = pileupRead
+                    #oneReadDict["qname"] = alignedRead.query_name                          # qname
+                    #oneReadDict["flag"] = alignedRead.flag                                 # flag
+                    #oneReadDict["rname"] = alignedRead.reference_name                      # rname
+                    oneReadDict["start"] = alignedRead.reference_start                      # pos
+                    #oneReadDict["mapQual"] = alignedRead.mapping_quality                   # mapq
+                    #oneReadDict["cigar"] = alignedRead.cigar                               # cigar
+                    #oneReadDict["mateName"] = alignedRead.next_reference_name              # rnext
+                    oneReadDict["mateStart"] = alignedRead.next_reference_start             # pnext or mpos
+                    #oneReadDict["insertSize"] = alignedRead.template_length                # isize or tlen
+                    #oneReadDict["sequence"] = alignedRead.seq                              # seq
+                    #oneReadDict["qualities"] = alignedRead.qual                            # qual
+                    oneReadDict["qlen"] = alignedRead.query_length                          # qlen
+                    oneReadDict["base"] = alignedRead.seq[pileupRead.query_position]
+                    oneReadDict["baseQual"] = alignedRead.qual[pileupRead.query_position]
+                    oneReadDict["sequenceIndex"] = pileupRead.query_position
                     oneReadDict["chrom"] = chrom
                     oneReadDict["pos"] = pos
                     oneReadDict["strand"] = strand
                     oneReadDict["refBase"] = refBase
                     
                     #if (anIsDebug):
-                    #    logging.debug("name=%s, oneReadDict=%s", alignedread.query_name, oneReadDict)
+                    #    logging.debug("name=%s, oneReadDict=%s", alignedRead.query_name, oneReadDict)
                     
                     # add it to the dictionary of reads
-                    readsDict[alignedread.query_name].append(oneReadDict)
+                    readsDict[alignedRead.query_name].append(oneReadDict)
                     
                 if (anIsDebug):
                     logging.debug("group_reads_by_name(): %s:%s added %s out of %s reads to initial reads dict, readsDictLen=%s", chrom, pos, keptReads, totalReads, len(readsDict.keys()))
@@ -790,6 +794,233 @@ class Club():
         return True, "perfect"
 
 
+    def get_score(self, anExpRefCount, anExpMutCount, anObsRefCount, anObsMutCount, aMaxSize, aFactLogList, anIsDebug):
+        
+        if (anIsDebug):
+            logging.debug("anExpRefCount=%s, anExpMutCount=%s, anObsRefCount=%s, anObsMutCount=%s", anExpRefCount, anExpMutCount, anObsRefCount, anObsMutCount)
+            logging.debug("1st R-tail maxSize=%s", aMaxSize)
+        
+        pValue = self.get_right_tail(anExpRefCount, anExpMutCount, anObsRefCount, anObsMutCount, aMaxSize, aFactLogList, anIsDebug)
+        
+        if (anIsDebug):
+            logging.debug("after R-tail p-value=%s", pValue)
+        
+        if math.isnan(pValue):
+            logging.warning("Warning: unable to calculate R-tail p-value failure: expRef=%s, expAlt=%s, obsRef=%s, obsAlt=%s", anExpRefCount, anExpMutCount, anObsRefCount, anObsMutCount)
+        
+        # If p-value is 1, do left-sided test
+        if(pValue >= 0.999):
+            
+            if (anIsDebug):
+                logging.debug("1st L-tail maxSize=%s", aMaxSize)
+            
+            pValue = self.get_left_tail(anExpRefCount, anExpMutCount, anObsRefCount, anObsMutCount, aMaxSize, aFactLogList, anIsDebug)
+            
+            if math.isnan(pValue):
+                logging.warning("Warning: unable to calculate L-tail p-value failure: expRef=%s, expAlt=%s, obsRef=%s, obsAlt=%s", anExpRefCount, anExpMutCount, anObsRefCount, anObsMutCount)
+            
+        # if pValue is nan, then an error occurred
+        # warning messages were written
+        if math.isnan(pValue):
+            pValue = 1
+        
+        # calculate the phred score
+        if (pValue > 0):
+            phred = 0 - (10 * math.log(pValue, 10))
+        elif (pValue < 0):
+            #pValue = 1 - pValue
+            #phred = 0 - (10 * math.log(pValue, 10))
+            phred = 0
+        # the pvalue is 0
+        else:
+            phred = 255
+        
+        if (phred > 255):
+            phred = 255
+        
+        return '{0:1.2e}'.format(pValue), int(round(phred))
+
+
+    def get_pvalue(self, a, b, c, d, aMaxSize, aFactLogList, anIsDebug):
+        try:
+            n = a + b + c + d
+            
+            if (anIsDebug):
+                logging.debug("a=%s, b=%s, c=%s, d=%s, n=%s, a+b=%s, c+d=%s, a+c=%s, b+d=%s", a, b, c, d, n, a+b, c+d, a+c, b+d)
+                logging.debug("f[a+b]=%s, f[c+d]=%s, f[a+c]=%s, f[b+d]=%s, adds=%s", aFactLogList[a+b], aFactLogList[c+d], aFactLogList[a+c], aFactLogList[b+d], (aFactLogList[a + b] + aFactLogList[c + d] + aFactLogList[a + c] + aFactLogList[b + d]))
+                logging.debug("f[a]=%s, f[b]=%s, f[c]=%s, f[d]=%s, f[n]=%s, minuses=%s", aFactLogList[a], aFactLogList[b], aFactLogList[c], aFactLogList[d], aFactLogList[n], (aFactLogList[a] + aFactLogList[b] + aFactLogList[c] + aFactLogList[d] + aFactLogList[n]))
+            
+            p = (aFactLogList[a + b] + aFactLogList[c + d] + aFactLogList[a + c] + aFactLogList[b + d]) - (aFactLogList[a] + aFactLogList[b] + aFactLogList[c] + aFactLogList[d] + aFactLogList[n])
+            
+            if (anIsDebug):
+                logging.debug("factorial=%s, pvalue=%s", p, math.exp(p))
+            
+            return math.exp(p)
+        except:
+            return float("nan")
+
+
+    def get_right_tail(self, a, b, c, d, aMaxSize, aFactLogList, anIsDebug):
+        n = a + b + c + d
+        if (n > aMaxSize):
+            logging.warning("Problem calculating R-tail: n=%s > maxSize=%s", n, aMaxSize)
+            return float("nan")
+        
+        # get the first p-value
+        p = self.get_pvalue(a, b, c, d, aMaxSize, aFactLogList, anIsDebug)
+        
+        if (anIsDebug):
+            logging.debug("doing R-tail: p=%s, a=%s, b=%s, c=%s, d=%s", p, a, b, c, d)
+        
+        if (c < b):
+            minRight = c
+        else:
+            minRight = b
+        
+        for i in xrange(0, minRight):
+            # if we've reached the pvalue giving us the max phred score of 255, just return
+            if (p < 0.00000000000000000000000001):
+                return p
+            
+            a += 1
+            b -= 1
+            c -= 1
+            d += 1
+            pTemp = self.get_pvalue(a, b, c, d, aMaxSize, aFactLogList, anIsDebug)
+            p += pTemp
+            
+            if (anIsDebug):
+                logging.debug("doing round %s:", i)
+                logging.debug("\tpTemp = %s", pTemp)
+                logging.debug("\ta=%s, b=%s, c=%s, d=%s",  a, b, c, d)
+        return p
+
+
+    def get_left_tail(self, a, b, c, d, aMaxSize, aFactLogList, anIsDebug):
+        n = a + b + c + d
+        if (n > aMaxSize):
+            logging.warning("Problem calculating L-tail: n=%s > maxSize=%s", n, aMaxSize)
+            return float("nan")
+        
+        # get the first p-value
+        p = self.get_pvalue(a, b, c, d, aMaxSize, aFactLogList, anIsDebug)
+        
+        if (anIsDebug):
+            logging.debug("doing L-tail: p=%s, a=%s, b=%s, c=%s, d=%s", p, a, b, c, d)
+        
+        if (a < d):
+            minLeft = a
+        else:
+            minLeft = d
+        
+        for i in xrange(0, minLeft):
+            # if we've reached the pvalue giving us the max phred score of 255, just return
+            if (p < 0.00000000000000000000000001):
+                logging.warning("L-tail breaking out of round %s of %s", i, minLeft)
+                return p
+            
+            a -= 1
+            b += 1
+            c += 1
+            d -= 1
+            pTemp = self.get_pvalue(a, b, c, d, aMaxSize, aFactLogList, anIsDebug)
+            p += pTemp
+            
+            if (anIsDebug):
+                logging.debug("doing round %s:", i)
+                logging.debug("\tpTemp=%s", pTemp)
+                logging.debug("\ta=%s, b=%s, c=%s, d=%s",  a, b, c, d)
+
+        return p
+    
+    
+    def init_factorial(self, aFactLogList, aPreviousMaxSize, aNewMaxSize, anIsDebug):
+        
+        if (aPreviousMaxSize == 0):
+            aFactLogList[0] = 0.0
+            aPreviousMaxSize = 1
+        else:
+            logging.warning("increasingMaxSize aPreviousMaxSize=%s, aNewMaxSize=%s", aPreviousMaxSize, aNewMaxSize)
+        
+        for index in xrange(aPreviousMaxSize, aNewMaxSize+1):
+            aFactLogList[index] = aFactLogList[index - 1] + math.log(index)
+        
+        return aFactLogList
+
+
+    def parse_info_field(self, anInfoField, anIsDebug):
+    
+        # parse the info field and create a dict
+        infoDict = collections.defaultdict(list)
+        infoFieldList = anInfoField.split(";")
+        for info in infoFieldList:
+            keyValueList = info.split("=")
+            # some keys are just singular without a value (e.g. DB, SOMATIC, etc.)
+            if (len(keyValueList) == 1):
+                infoDict[keyValueList[0]] = ["True"]
+            else:
+                # the value can be a comma separated list
+                infoDict[keyValueList[0]] = keyValueList[1].split(",")
+        
+        return infoDict
+
+
+    def parse_sample_data(self, aFormatField, aDataField, anAlleleList, anIsDebug):
+        
+        # GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB
+        # 0/1:7:2,5:0.29,0.71:0:0:0:0:1,3:1,1:1,0:82,71:1.0,1.0
+        
+        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
+        ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth at this position in the sample">
+        ##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Depth of reads supporting allele (in order specified by GT)">
+        ##FORMAT=<ID=AF,Number=.,Type=Float,Description="Fraction of reads supporting allele (in order specified by GT)">
+        ##FORMAT=<ID=INS,Number=1,Type=Integer,Description="Number of small insertions at this location">
+        ##FORMAT=<ID=DEL,Number=1,Type=Integer,Description="Number of small deletions at this location">
+        ##FORMAT=<ID=START,Number=1,Type=Integer,Description="Number of reads starting at this position">
+        ##FORMAT=<ID=STOP,Number=1,Type=Integer,Description="Number of reads stopping at this position">
+        ##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description="Number of mapping quality zero reads harboring allele (in order specified by GT)">
+        ##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description="Maximum mapping quality of read harboring allele (in order specified by GT)">
+        ##FORMAT=<ID=MQA,Number=.,Type=Integer,Description="Avg mapping quality for reads supporting allele (in order specified by GT)">
+        ##FORMAT=<ID=BQ,Number=.,Type=Integer,Description="Avg base quality for reads supporting allele (in order specified by GT)">
+        ##FORMAT=<ID=SB,Number=.,Type=Float,Description="Strand Bias for reads supporting allele (in order specified by GT)">
+        
+        alleleSpecificFormats = ["AD", "AF", "BQ", "SB", "MQ0", "MMQ", "MQA"]
+        dataDict = dict()
+        formatFieldList = aFormatField.split(":")
+        dataFieldList = aDataField.split(":")
+        
+        for (formatItem, dataItem) in izip(formatFieldList, dataFieldList):
+            if (formatItem == "GT"):
+                sep = "/"
+            else:
+                sep = ","
+            
+            # if this is an allele specific item
+            if formatItem in alleleSpecificFormats:
+                
+                if (dataItem != "."):
+                    tmpList = dataItem.split(sep)
+                else:
+                    tmpList = [0] * len(anAlleleList)
+                
+                alleleDict = dict()
+                alleleIndex = 0
+                for allele in anAlleleList:
+                    alleleDict[allele] = tmpList[alleleIndex]
+                    alleleIndex += 1
+                
+                dataDict[formatItem] = alleleDict
+                
+            # split on the separator
+            else:
+                if (dataItem != "."):
+                    dataDict[formatItem] = dataItem.split(sep)
+                else:
+                    dataDict[formatItem] = "0"
+        
+        return dataDict
+
+
     def filter_by_read_support(self, aChromList, aPosList, aTranscriptStrandList, aRefList, anAltList, aMutSS, aMutType, aBamOrigin, aParamsDict, anIsDebug):
         
         if (anIsDebug):
@@ -832,7 +1063,7 @@ class Club():
                 
         # group all of the reads by name
         readsDict = self.group_reads_by_name(aChromList, aPosList, aTranscriptStrandList, aBamOrigin, aParamsDict, aMutSS, aMutType, anIsDebug)
-        
+
         # get all of the non-overlapping reads
         nonOverlappingReadsList = self.find_non_overlapping_reads(readsDict, aParamsDict["minBaseQual"], anIsDebug)
         
@@ -862,7 +1093,7 @@ class Club():
                     logging.debug("found read with mutation, number of reads with mutations=%s", mutCountReads)
                 
                 # if the base and map quals are good enough
-                if (not low_base_and_map_quals(pileupread, aParamsDict, anIsDebug)):
+                if (not low_base_or_map_quals(pileupread, aParamsDict, anIsDebug)):
                     
                     mutCountQualReads +=1
                     
@@ -1011,6 +1242,7 @@ if __name__ == '__main__':
     usage = "usage: python %prog vcfFile [Options]"
     cmdLineParser = OptionParser(usage=usage)
     cmdLineParser.add_option("-c", "--allVCFCalls", action="store_false", default=True, dest="passedVCFCallsOnly", help="by default only the VCF calls that have passed all filters thus far are processed, include this argument if all of the VCF calls should be processed")
+    cmdLineParser.add_option("-s", "--scoreAllVCFCalls", action="store_false", default=True, dest="scorePassingVCFCallsOnly", help="by default the score will only be calculated for all passing VCF calls, include this argument if the score should be calculated for all VCF calls")
     cmdLineParser.add_option("-o", "--outputFilename", default=sys.stdout, dest="outputFilename", metavar="OUTPUT_FILE", help="the name of the output file, STDOUT by default")
     cmdLineParser.add_option("-l", "--log", dest="logLevel", default="WARNING", metavar="LOG", help="the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL), %default by default")
     cmdLineParser.add_option("-g", "--logFilename", dest="logFilename", metavar="LOG_FILE", help="the name of the log file, STDOUT by default")
@@ -1054,6 +1286,7 @@ if __name__ == '__main__':
     
     # get the optional parameters with defaults    
     i_passedVCFCallsOnlyFlag = cmdLineOptions.passedVCFCallsOnly
+    i_scorePassingVCFCallsOnly = cmdLineOptions.scorePassingVCFCallsOnly
     i_logLevel = cmdLineOptions.logLevel
     i_rnaIncludeSecondaryAlignments = cmdLineOptions.rnaIncludeSecondaryAlignments
     i_maxReadSoftClipPct = cmdLineOptions.maxReadSoftClipPct
@@ -1111,6 +1344,7 @@ if __name__ == '__main__':
         logging.debug("logLevel=%s", i_logLevel)
         logging.debug("logFile=%s", i_logFilename)
         logging.debug("passingVCFCallsOnlyFlag=%s", i_passedVCFCallsOnlyFlag)
+        logging.debug("scorePassingVCFCallsOnly=%s", i_scorePassingVCFCallsOnly)
         logging.debug("transcriptNameTag=%s", i_transcriptNameTag)
         logging.debug("transcriptCoordinateTag=%s", i_transcriptCoordinateTag)
         logging.debug("transcriptStrandTag=%s", i_transcriptStrandTag)
@@ -1162,6 +1396,12 @@ if __name__ == '__main__':
     headerLines += "##FILTER=<ID=perfectcount,Description=\"The number of perfect reads was not above the minimum\">\n"
     headerLines += "##FILTER=<ID=perfectsbias,Description=\"A strand bias exists on the perfect reads\">\n"
     headerLines += "##FILTER=<ID=perfectpbias,Description=\"A positional bias exists on the perfect reads\">\n"
+    headerLines += "##FILTER=<ID=pbias,Description=\"A positional bias exists\">\n"
+    
+    # initialize the factorial list
+    factLogList = collections.defaultdict(float)
+    maxSize = 1000
+    factLogList = club.init_factorial(factLogList, 0, maxSize, i_debug)
     
     #loop through and categorize all calls
     for line in vcf:
@@ -1190,13 +1430,14 @@ if __name__ == '__main__':
             # if this is a somatic mutation or an RNA editing event
             if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "Somatic" or curr_data.info["SS"] == "2" or curr_data.info["SS"] == "4"):
     
-                # Pebbles doesn't have the ORIGIN flag
+                # When merging multiple callers, non-RADIA calls won't have the ORIGIN flag
                 if (curr_data.info["ORIGIN"] == None):
                     curr_data.filter = club.filter_by_read_support([curr_data.chrom], [curr_data.pos], [None], curr_data.ref, curr_data.alt, curr_data.info["SS"], curr_data.info["MT"], "DNA", params, i_debug)
                 # These are RADIA calls
                 else:
                     dnaFilter = list()
                     rnaFilter = list()
+                    
                     originFlags = curr_data.info["ORIGIN"].split(",")
                     
                     # A call can be made by the DNA or RNA
@@ -1237,6 +1478,183 @@ if __name__ == '__main__':
                     if (i_debug):
                         logging.debug("dnaFilter=%s, rnaFilter=%s, curr_data.filter=%s", dnaFilter, rnaFilter, curr_data.filter)
             
+            # calculating the score is computationally expensive, so only do it for all passing calls by default
+            pvalue = 0.98
+            phred = 0
+            if ((i_scorePassingVCFCallsOnly and "PASS" in curr_data.filter) or (not i_scorePassingVCFCallsOnly)):
+                # a dict with either
+                #    - the format item as key (e.g. DP) and single items as values or
+                #    - the format item as key (e.g. AD) and a new dict with the alleles as keys and then values
+                # e.g. rnaTumorDict["DP"] = 100
+                # e.g. rnaTumorDict["AD"]["A"] = 50
+                # e.g. rnaTumorDict["AD"]["T"] = 50
+                dnaNormalDict = None
+                rnaNormalDict = None
+                dnaTumorDict = None
+                rnaTumorDict = None
+                try:
+                    # if we have a 9th column, figure out which dataset it is
+                    if (len(currVCF.headers) > 9):
+                        if (currVCF.headers[9] == "DNA_NORMAL"):
+                            dnaNormalDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[1], [curr_data.ref] + curr_data.alt, i_debug)
+                        elif (currVCF.headers[9] == "RNA_NORMAL"):
+                            rnaNormalDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[1], [curr_data.ref] + curr_data.alt, i_debug)
+                        elif (currVCF.headers[9] == "DNA_TUMOR"):
+                            dnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[1], [curr_data.ref] + curr_data.alt, i_debug)
+                        elif (currVCF.headers[9] == "RNA_TUMOR"):
+                            rnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[1], [curr_data.ref] + curr_data.alt, i_debug)
+                    # if we have a 10th column, figure out which dataset it is
+                    if (len(currVCF.headers) > 10):
+                        if (currVCF.headers[10] == "RNA_NORMAL"):
+                            rnaNormalDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[2], [curr_data.ref] + curr_data.alt, i_debug)
+                        elif (currVCF.headers[10] == "DNA_TUMOR"):
+                            dnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[2], [curr_data.ref] + curr_data.alt, i_debug)
+                        elif (currVCF.headers[10] == "RNA_TUMOR"):
+                            rnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[2], [curr_data.ref] + curr_data.alt, i_debug)
+                    # if we have a 11th column, figure out which dataset it is
+                    if (len(currVCF.headers) > 11):
+                        if (currVCF.headers[11] == "DNA_TUMOR"):
+                            dnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[3], [curr_data.ref] + curr_data.alt, i_debug)
+                        elif (currVCF.headers[11] == "RNA_TUMOR"):
+                            rnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[3], [curr_data.ref] + curr_data.alt, i_debug)
+                    # if we have a 12th column, figure out which dataset it is
+                    if (len(currVCF.headers) > 12):
+                        if (currVCF.headers[12] == "RNA_TUMOR"):
+                            rnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[4], [curr_data.ref] + curr_data.alt, i_debug)
+                    
+                    # parse the info dict
+                    infoDict = club.parse_info_field(dataAsList[7], i_debug)
+                except:
+                    logging.error("Problem with this line: %s", line)
+                    raise
+                
+                if ("GERM" in infoDict["MT"]):
+                    for (modType, modChange) in izip(infoDict["MT"], infoDict["MC"]):
+                        if (i_debug):
+                            logging.debug("modType=%s, modChange=%s", modType, modChange)
+                        
+                        if (modType == "GERM"):
+                            ref, alt = modChange.split(">")
+                            totalRefReads = 0
+                            totalAltReads = 0
+                            if (dnaNormalDict != None):
+                                totalRefReads += int(dnaNormalDict["AD"][ref])
+                                totalAltReads += int(dnaNormalDict["AD"][alt])
+                            if (rnaNormalDict != None):
+                                totalRefReads += int(rnaNormalDict["AD"][ref])
+                                totalAltReads += int(rnaNormalDict["AD"][alt])
+                            if (dnaTumorDict != None):
+                                totalRefReads += int(dnaTumorDict["AD"][ref])
+                                totalAltReads += int(dnaTumorDict["AD"][alt])
+                            if (rnaTumorDict != None):
+                                totalRefReads += int(rnaTumorDict["AD"][ref])
+                                totalAltReads += int(rnaTumorDict["AD"][alt])
+                            
+                            totalCoverage = totalRefReads + totalAltReads
+                            
+                            newMaxSize = totalCoverage * 2
+                            if (newMaxSize > maxSize):
+                                factLogList = club.init_factorial(factLogList, maxSize, newMaxSize, i_debug)
+                                maxSize = newMaxSize
+                            pvalue, phred = club.get_score(totalCoverage, 0, totalRefReads, totalAltReads, maxSize, factLogList, i_debug)
+                            if (i_debug):
+                                logging.debug("pval=%s, phred=%s", pvalue, phred)
+                            
+                            curr_data.qual = str(phred)
+                            curr_data.info["SSC"] = "0"
+                            curr_data.info["PVAL"] = str(pvalue)
+                
+                elif ("SOM" in infoDict["MT"]):
+                    for (modType, modChange) in izip(infoDict["MT"], infoDict["MC"]):
+                        logging.debug("modType=%s, modChange=%s", modType, modChange)
+                        if (modType == "SOM"):
+                            ref, alt = modChange.split(">")
+                            normalRefReads = 0
+                            normalAltReads = 0
+                            tumorRefReads = 0
+                            tumorAltReads = 0
+                            
+                            if (dnaNormalDict != None):
+                                normalRefReads += int(dnaNormalDict["AD"][ref])
+                                normalAltReads += int(dnaNormalDict["AD"][alt])
+                            if (rnaNormalDict != None):
+                                normalRefReads += int(rnaNormalDict["AD"][ref])
+                                normalAltReads += int(rnaNormalDict["AD"][alt])
+                            if (dnaTumorDict != None):
+                                tumorRefReads += int(dnaTumorDict["AD"][ref])
+                                tumorAltReads += int(dnaTumorDict["AD"][alt])
+                            if (rnaTumorDict != None):
+                                tumorRefReads += int(rnaTumorDict["AD"][ref])
+                                tumorAltReads += int(rnaTumorDict["AD"][alt])
+                            
+                            totalCoverage = normalRefReads + normalAltReads + tumorRefReads + tumorAltReads
+                            
+                            newMaxSize = totalCoverage
+                            if (newMaxSize > maxSize):
+                                factLogList = club.init_factorial(factLogList, maxSize, newMaxSize, i_debug)
+                                maxSize = newMaxSize
+                            pvalue, phred = club.get_score(normalRefReads, normalAltReads, tumorRefReads, tumorAltReads, maxSize, factLogList, i_debug)
+                            if (i_debug):
+                                logging.debug("pval=%s, phred=%s", pvalue, phred)
+                            
+                            curr_data.qual = str(phred)
+                            curr_data.info["SSC"] = str(phred)
+                            curr_data.info["PVAL"] = str(pvalue)
+                            
+                elif ("TUM_EDIT" in infoDict["MT"]):
+                    for (modType, modChange) in izip(infoDict["MT"], infoDict["MC"]):
+                        logging.debug("modType=%s, modChange=%s", modType, modChange)
+                        if (modType == "TUM_EDIT"):
+                            ref, alt = modChange.split(">")
+                            totalRefReads = 0
+                            totalAltReads = 0
+                            editingRefReads = 0
+                            editingAltReads = 0
+                            if (dnaNormalDict != None):
+                                totalRefReads += int(dnaNormalDict["AD"][ref])
+                                totalAltReads += int(dnaNormalDict["AD"][alt])
+                            if (rnaNormalDict != None):
+                                totalRefReads += int(rnaNormalDict["AD"][ref])
+                                totalAltReads += int(rnaNormalDict["AD"][alt])
+                                editingRefReads += int(rnaNormalDict["AD"][ref])
+                                editingAltReads += int(rnaNormalDict["AD"][alt])
+                            if (dnaTumorDict != None):
+                                totalRefReads += int(dnaTumorDict["AD"][ref])
+                                totalAltReads += int(dnaTumorDict["AD"][alt])
+                            if (rnaTumorDict != None):
+                                totalRefReads += int(rnaTumorDict["AD"][ref])
+                                totalAltReads += int(rnaTumorDict["AD"][alt])
+                                editingRefReads += int(rnaTumorDict["AD"][ref])
+                                editingAltReads += int(rnaTumorDict["AD"][alt])
+                            
+                            totalCoverage = totalRefReads + totalAltReads
+                            
+                            newMaxSize = totalCoverage + editingRefReads + editingAltReads
+                            if (newMaxSize > maxSize):
+                                factLogList = club.init_factorial(factLogList, maxSize, newMaxSize, i_debug)
+                                maxSize = newMaxSize
+                            pvalue, phred = club.get_score(totalCoverage, 0, editingRefReads, editingAltReads, maxSize, factLogList, i_debug)
+                            if (i_debug):
+                                logging.debug("pval=%s, phred=%s", pvalue, phred)
+                            
+                            curr_data.qual = str(phred)
+                            curr_data.info["SSC"] = "0"
+                            curr_data.info["PVAL"] = str(pvalue)
+                else:
+                    # these are RNA_TUM_VAR lines that have little or no DNA
+                    curr_data.qual = str(phred)
+                    curr_data.info["SSC"] = str(phred)
+                    curr_data.info["PVAL"] = str(pvalue)
+            else:
+                # calculating the score is computationally expensive, so only do it for all passing calls by default
+                # these are non-passing lines
+                curr_data.qual = str(phred)
+                curr_data.info["SSC"] = str(phred)
+                curr_data.info["PVAL"] = str(pvalue)
+            
+            if (i_debug):
+                logging.debug("pos=%s, qual=%s, pval=%s, phred=%s", curr_data.pos, curr_data.qual, pvalue, phred)
+            
             # output the final line
             i_outputFileHandler.write(str(curr_data) + "\n")
         else:
@@ -1245,4 +1663,3 @@ if __name__ == '__main__':
             logging.error("Here is the VCF line: %s", line.strip())
             sys.exit(1)
     
-
