@@ -1095,6 +1095,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=MFT,Number=.,Type=String,Description=\"Modification filter types at this location with format origin_modType_modChange\">\n"
     vcfHeader += "##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description=\"Indicates if record is a somatic mutation\">\n"
     vcfHeader += "##INFO=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal,0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
+    vcfHeader += "##INFO=<ID=SSC,Number=1,Type=Integer,Description=\"Somatic score in Phred scale (0-255) derived from p-value\">\n"
+    vcfHeader += "##INFO=<ID=PVAL,Number=1,Type=Float,Description=\"Fisher's Exact Test P-value\">";
     vcfHeader += "##INFO=<ID=SST,Number=1,Type=String,Description=\"Somatic status of variant\">\n"
     vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n"
     
@@ -1658,7 +1660,7 @@ def main():
     i_starts = list()
     i_stops = list()
     # when a coordinates file is provided: 
-    #     - get all of the chroms, starts, stops 
+    #     - get all of the chroms, starts, and stops 
     if (i_coordinatesFilename != None):
         coordinatesFileHandler = get_read_fileHandler(i_coordinatesFilename)  
         for line in coordinatesFileHandler:
