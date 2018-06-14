@@ -291,8 +291,8 @@ def low_neighbor_base_quals(aPileupread, aParamsDict, anIsDebug):
         # but this is only true for the 'query_qualities' and 'query_alignment_qualities'
         # we need to subtract the offset for the 'qual' field
         baseQualConverted = ord(qualScore)-33
-        if (anIsDebug):
-            logging.debug("checking neighbor base query_pos=%s, start=%s, stop=%s, index=%s, qual=%s, ordQual=%s, convertedQual=%s", aPileupread.query_position, start, stop, index, qualScore, ord(qualScore), baseQualConverted)
+        #if (anIsDebug):
+        #    logging.debug("checking neighbor base query_pos=%s, start=%s, stop=%s, index=%s, qual=%s, ordQual=%s, convertedQual=%s", aPileupread.query_position, start, stop, index, qualScore, ord(qualScore), baseQualConverted)
         
         if baseQualConverted < aParamsDict["minNeighborBaseQual"]: #MINNQS
             if (anIsDebug):
@@ -378,20 +378,20 @@ def mismatch_counts(aCigarNum, aChrom, aRefIndex, aQueryIndex, aTranscriptStrand
         
         if readBase == refBase:
             refs += 1
-            if (anIsDebug):
-                logging.debug("mismatch_counts() base matches ref:  aRefIndex=%s, aQueryIndex=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aRefIndex, aQueryIndex, offset, aChrom, refPos, orgReadBase, orgRefBase, readBase, refBase)
+            #if (anIsDebug):
+            #    logging.debug("mismatch_counts() base matches ref:  aRefIndex=%s, aQueryIndex=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aRefIndex, aQueryIndex, offset, aChrom, refPos, orgReadBase, orgRefBase, readBase, refBase)
         elif aChrom in aGermlineDict and str(refPos) in aGermlineDict[aChrom] and readBase in aGermlineDict[aChrom][str(refPos)]:
             germs += 1
-            if (anIsDebug):
-                logging.debug("mismatch_counts() germline found:  aRefIndex=%s, aQueryIndex=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aRefIndex, aQueryIndex, offset, aChrom, refPos, orgReadBase, orgRefBase, readBase, refBase)
+            #if (anIsDebug):
+            #    logging.debug("mismatch_counts() germline found:  aRefIndex=%s, aQueryIndex=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aRefIndex, aQueryIndex, offset, aChrom, refPos, orgReadBase, orgRefBase, readBase, refBase)
         elif (aChrom in aTranscriptGermlineDict and str(refPos) in aTranscriptGermlineDict[aChrom] and readBase in aTranscriptGermlineDict[aChrom][str(refPos)]):
             germs += 1
-            if (anIsDebug):
-                logging.debug("mismatch_counts() transcript germline found:  aRefIndex=%s, aQueryIndex=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, germlineAlts=%s", aRefIndex, aQueryIndex, offset, aChrom, refPos, orgReadBase, orgRefBase, readBase, refBase, aTranscriptGermlineDict[aChrom][str(refPos)])
+            #if (anIsDebug):
+            #    logging.debug("mismatch_counts() transcript germline found:  aRefIndex=%s, aQueryIndex=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, germlineAlts=%s", aRefIndex, aQueryIndex, offset, aChrom, refPos, orgReadBase, orgRefBase, readBase, refBase, aTranscriptGermlineDict[aChrom][str(refPos)])
         else:
             muts += 1
-            if (anIsDebug):
-                logging.debug("mismatch_counts() mutation found:  aRefIndex=%s, aQueryIndex=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aRefIndex, aQueryIndex, offset, aChrom, refPos, orgReadBase, orgRefBase, readBase, refBase)
+            #if (anIsDebug):
+            #    logging.debug("mismatch_counts() mutation found:  aRefIndex=%s, aQueryIndex=%s, offset=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s", aRefIndex, aQueryIndex, offset, aChrom, refPos, orgReadBase, orgRefBase, readBase, refBase)
 
         # as soon as the muts count is >= the maxMutsPerRead, return
         if (muts >= aParamsDict["maxMutsPerRead"]):
@@ -574,7 +574,6 @@ class Club():
         '
         ' aReadsDict:    The dictionary of reads grouped by their read name
         ' aMinBaseQual:  A minimum base quality score for the base
-        ' aCoordinate:   The genomic coordinate
         ' anIsDebug:     A flag for outputting debug messages to STDERR
         '''
         # loop through read pairs
@@ -709,9 +708,9 @@ class Club():
             
             (cigarOp, cigarNum) = cigarTuple
             
-            if (anIsDebug):
-                logging.debug("is_perfect() alignedread.cigar=%s, cigarstring=%s, cigarOpCode=%s, cigarOp=%s, cigarNum=%s", alignedRead.cigar, alignedRead.cigarstring, cigarOp, cigarDict[cigarOp], cigarNum)
-                logging.debug("refIndex=%s, queryIndex=%s", refIndex, queryIndex)
+            #if (anIsDebug):
+            #    logging.debug("is_perfect() alignedread.cigar=%s, cigarstring=%s, cigarOpCode=%s, cigarOp=%s, cigarNum=%s", alignedRead.cigar, alignedRead.cigarstring, cigarOp, cigarDict[cigarOp], cigarNum)
+            #    logging.debug("refIndex=%s, queryIndex=%s", refIndex, queryIndex)
             
             '''
             # this cigardict deciphers the cigarOp integer code
@@ -1069,8 +1068,8 @@ class Club():
         
         # loop over the non-overlapping reads
         for readDict in nonOverlappingReadsList:
-            alignedread = readDict["alignedRead"]
-            pileupread = readDict["pileupRead"]
+            alignedRead = readDict["alignedRead"]
+            pileupRead = readDict["pileupRead"]
             
             readBase = readDict["base"]
             readBaseQual = readDict["baseQual"]
@@ -1081,8 +1080,8 @@ class Club():
             #readInsertSize = readDict["insertSize"]
             #readFlag = readDict["flag"]
             
-            if (anIsDebug):
-                logging.debug("found aligned read at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedread)
+            #if (anIsDebug):
+            #    logging.debug("found aligned read at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedread)
             
             # if this read supports the alternative allele
             if is_mutation(readDict, aRefList, anAltList, aBamOrigin, anIsDebug):
@@ -1093,7 +1092,7 @@ class Club():
                     logging.debug("found read with mutation, number of reads with mutations=%s", mutCountReads)
                 
                 # if the base and map quals are good enough
-                if (not low_base_or_map_quals(pileupread, aParamsDict, anIsDebug)):
+                if (not low_base_or_map_quals(pileupRead, aParamsDict, anIsDebug)):
                     
                     mutCountQualReads +=1
                     
@@ -1104,19 +1103,19 @@ class Club():
                         logging.debug("mutation read passed base and map quals, qualReads=%s", mutCountQualReads)
                     
                     # count the positions in the reads
-                    readLength = len(alignedread.query_sequence)
-                    if (pileupread.query_position/float(readLength) <= 0.33):
+                    readLength = len(alignedRead.query_sequence)
+                    if (pileupRead.query_position/float(readLength) <= 0.33):
                         starts += 1
-                    elif (pileupread.query_position/float(readLength) <= 0.66):
+                    elif (pileupRead.query_position/float(readLength) <= 0.66):
                         middles += 1
                     else:
                         ends += 1
                     
                     if (anIsDebug):
-                        logging.debug("pbias query_pos=%s, readLength=%s, starts=%s, middles=%s, ends=%s", pileupread.query_position, readLength, starts, middles, ends)
+                        logging.debug("pbias query_pos=%s, readLength=%s, starts=%s, middles=%s, ends=%s", pileupRead.query_position, readLength, starts, middles, ends)
                     
                     # see if this read is perfect
-                    isPerfectFlag, reasonNotPerfect = self.is_perfect(pileupread, aBamOrigin, fastafile, aMutSS, readDict, aParamsDict, anIsDebug)
+                    isPerfectFlag, reasonNotPerfect = self.is_perfect(pileupRead, aBamOrigin, fastafile, aMutSS, readDict, aParamsDict, anIsDebug)
                     
                     if (anIsDebug):
                         logging.debug("isPerfect?=%s, reason=%s", isPerfectFlag, reasonNotPerfect)
@@ -1141,22 +1140,22 @@ class Club():
                         numPerfect += 1
                         
                         # determine the strand
-                        if alignedread.is_reverse:
+                        if alignedRead.is_reverse:
                             perfectRevStrand += 1
                         else:
                             perfectForStrand += 1
                         
                         # count the perfect positions in the reads
-                        readLength = len(alignedread.query_sequence)
-                        if (pileupread.query_position/float(readLength) <= 0.33):
+                        readLength = len(alignedRead.query_sequence)
+                        if (pileupRead.query_position/float(readLength) <= 0.33):
                             perfectStarts += 1
-                        elif (pileupread.query_position/float(readLength) <= 0.66):
+                        elif (pileupRead.query_position/float(readLength) <= 0.66):
                             perfectMiddles += 1
                         else:
                             perfectEnds += 1
                         
                         if (anIsDebug):
-                            logging.debug("perfectpbias: query_pos=%s, readLength=%s, perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s", pileupread.query_position, readLength, perfectStarts, perfectMiddles, perfectEnds)
+                            logging.debug("perfectpbias: query_pos=%s, readLength=%s, perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s", pileupRead.query_position, readLength, perfectStarts, perfectMiddles, perfectEnds)
                     
                     if (anIsDebug):
                         logging.debug("perfect read counts for %s:%s, mutSS=%s, mutType=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], aMutSS, aMutType, numPerfect)
@@ -1164,11 +1163,14 @@ class Club():
                     lowQualCount += 1
             else:
                 refCount +=1
+                bases += readBase
+                baseQuals += readBaseQual
         
         if (anIsDebug):
             logging.debug("pysam bases=%s", bases)
             logging.debug("pysam quals=%s", baseQuals)
-            logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, number of reads with lowQualCount=%s, improperPairs=%s, ins=%s, dels=%s, neighborBQ=%s, maxMuts=%s, maxSoftClips=%s, numPerfect=%s", aChromList, aPosList, aMutSS, aMutType, lowQualCount, readsWithImproperPairs, readsWithIns, readsWithDels, readsWithNeighborBaseQuals, readsWithMaxMuts, readsWithMaxSoftClips, numPerfect)
+            logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, refCount=%s, mutCountReads=%s, mutCountQualReads=%s", aChromList, aPosList, aMutSS, aMutType, refCount, mutCountReads, mutCountQualReads)
+            logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, lowQualCount=%s, improperPairs=%s, ins=%s, dels=%s, neighborBQ=%s, maxMuts=%s, maxSoftClips=%s, numPerfect=%s", aChromList, aPosList, aMutSS, aMutType, lowQualCount, readsWithImproperPairs, readsWithIns, readsWithDels, readsWithNeighborBaseQuals, readsWithMaxMuts, readsWithMaxSoftClips, numPerfect)
         
         # keep track of all filters
         filters = []
