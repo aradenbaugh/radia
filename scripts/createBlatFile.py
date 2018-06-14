@@ -1,5 +1,7 @@
 #!/usr/bin/env python
-
+__requires__=['pysam>=0.8.1']
+import pkg_resources
+import pysam
 import sys
 import time
 import re
@@ -318,7 +320,98 @@ def execute_samtools_cmd(aBamFile, aMappingQuality, aChrom, aCoordinate, aUseChr
     return pileups.split("\n")[0:aMaxReadDepth]
 
 
-def group_reads_by_name(aReadsList, aReadsDict, aMinMapQual, aGenomicCoordinate, aTranscriptCoordinate, aTranscriptStrand, anInfoDict, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
+def group_reads_by_name(aChromList, aPosList, aTranscriptStrandList, aBamFile, aFastaFile, aBamOrigin, anRnaIncludeSecondaryAlignmentsFlag, aMaxDepth, anIsDebug):
+        
+        readsDict = collections.defaultdict(list)
+        # loop through all of the transcripts
+        for (chrom, pos, strand) in izip(aChromList, list(map(int, aPosList)), aTranscriptStrandList):
+            
+            # vcfs are 1-based and pysam requires a 0-based coordinate
+            pos = pos - 1
+            
+            # get the reference base from the fasta
+            refBase = aFastaFile.fetch(chrom, pos, pos+1).upper()
+            
+            if (anIsDebug):
+                logging.debug("getting pileups for chrom=%s, pos=%s", chrom, pos)
+            
+            # get the pileups
+            for pileupColumn in aBamFile.pileup(chrom, pos, pos+1, stepper="nofilter", max_depth=aMaxDepth):
+                
+                # move through pileup until at the correct position
+                if pileupColumn.pos < pos:
+                    #if (anIsDebug):
+                    #    logging.debug("continue pileupColumn.pos=%s, pos=%s", pileupColumn.pos, pos)
+                    continue
+                if pileupColumn.pos > pos:
+                    #if (anIsDebug):
+                    #    logging.debug("break out pileupColumn.pos=%s, pos=%s", pileupColumn.pos, pos)
+                    break
+                
+                totalReads = 0
+                keptReads = 0
+                
+                # loop through the reads and create a dictionary
+                for pileupRead in pileupColumn.pileups:
+                    
+                    totalReads += 1
+                    alignedRead = pileupRead.alignment
+                    
+                    # skip over reads with problems
+                    if (alignedRead.is_qcfail or alignedRead.is_unmapped or alignedRead.is_duplicate or pileupRead.is_del or pileupRead.is_refskip):
+                        #if (anIsDebug):
+                        #    logging.debug("read is unmapped, duplicate, qcfail, del, or refskip at %s:%s", chrom, pos)
+                        continue;
+                    # no longer needed?? indel length for the position following the current pileup site
+                    if pileupRead.indel != 0:
+                    #    #if (anIsDebug):
+                    #    #    logging.debug("base is an indel at %s:%s", chrom, pos)
+                        continue;
+                    # skip over secondary mappings for RNA if the param is not set to include them
+                    if (aBamOrigin == "RNA" and not anRnaIncludeSecondaryAlignmentsFlag and pileupRead.alignment.is_secondary):
+                        #if (anIsDebug):
+                        #    logging.debug("read is secondary alignment but flag to include secondary alignments for RNA is not set %s:%s", chrom, pos)
+                        continue;
+                    
+                    # keep a dictionary of all reads, using the readName as the key
+                    # due to the inclusion of secondary alignments for RNA-Seq, there could be more than 2 reads that are paired
+                    oneReadDict = {}
+                    keptReads += 1
+                    oneReadDict["alignedRead"] = alignedRead
+                    oneReadDict["pileupRead"] = pileupRead
+                    #oneReadDict["qname"] = alignedRead.query_name                          # qname
+                    oneReadDict["flag"] = alignedRead.flag                                  # flag
+                    oneReadDict["name"] = alignedRead.query_name                            # qname
+                    oneReadDict["start"] = alignedRead.reference_start                      # pos
+                    oneReadDict["mapQual"] = alignedRead.mapping_quality                    # mapq
+                    #oneReadDict["cigar"] = alignedRead.cigar                               # cigar
+                    #oneReadDict["mateName"] = alignedRead.next_reference_name              # rnext
+                    oneReadDict["mateStart"] = alignedRead.next_reference_start             # pnext or mpos
+                    oneReadDict["insertSize"] = alignedRead.template_length                 # isize or tlen
+                    oneReadDict["sequence"] = alignedRead.seq                               # seq
+                    #oneReadDict["qualities"] = alignedRead.qual                            # qual
+                    oneReadDict["qlen"] = alignedRead.query_length                          # qlen
+                    oneReadDict["base"] = alignedRead.seq[pileupRead.query_position]
+                    oneReadDict["baseQual"] = alignedRead.qual[pileupRead.query_position]
+                    oneReadDict["sequenceIndex"] = pileupRead.query_position
+                    oneReadDict["chrom"] = chrom
+                    oneReadDict["pos"] = pos
+                    oneReadDict["strand"] = strand
+                    oneReadDict["refBase"] = refBase
+                    
+                    #if (anIsDebug):
+                    #    logging.debug("name=%s, oneReadDict=%s", alignedRead.query_name, oneReadDict)
+                    
+                    # add it to the dictionary of reads
+                    readsDict[alignedRead.query_name].append(oneReadDict)
+                    
+                if (anIsDebug):
+                    logging.debug("group_reads_by_name(): %s:%s added %s out of %s reads to initial reads dict, readsDictLen=%s", chrom, pos, keptReads, totalReads, len(readsDict.keys()))
+        
+        return readsDict
+
+
+def group_reads_by_name_old(aReadsList, aReadsDict, aMinMapQual, aGenomicCoordinate, aTranscriptCoordinate, aTranscriptStrand, anInfoDict, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
     '''
     ' This function loops through the reads that were returned from the "samtools view" command and
     ' creates a dictionary where the reads are grouped by their read name.  Reads with the following 
@@ -544,7 +637,7 @@ def group_reads_by_name(aReadsList, aReadsDict, aMinMapQual, aGenomicCoordinate,
     return aReadsDict
 
 
-def find_non_overlapping_reads(aReadsDict, aMinBaseQual, aGenomicCoordinate, anIsDebug):
+def find_non_overlapping_reads(aReadsDict, aMinBaseQual, anIsDebug):
     '''
     ' This function loops through the reads with the same name.  Due to the inclusion of secondary
     ' alignments for RNA-Seq, there could be more than 2 reads that are paired.  If the read pairs overlap and
@@ -554,7 +647,6 @@ def find_non_overlapping_reads(aReadsDict, aMinBaseQual, aGenomicCoordinate, anI
     '
     ' aReadsDict:               The dictionary of reads grouped by their read name
     ' aMinBaseQual:             A minimum base quality score for the base
-    ' aGenomicCoordinate:       The genomic coordinate
     ' anIsDebug:                A flag for outputting debug messages to STDERR
     '''
     # loop through read pairs
@@ -568,13 +660,13 @@ def find_non_overlapping_reads(aReadsDict, aMinBaseQual, aGenomicCoordinate, anI
      
     nonOverlappingReadsList = []
     for (readName, readPairsList) in aReadsDict.iteritems():
-        if (anIsDebug):
-            logging.debug("readList=%s", readPairsList)
+        #if (anIsDebug):
+        #    logging.debug("readName=%s, len=%s, readList=%s", readName, len(readPairsList), readPairsList)
         
         # if there is only one read, then no overlapping reads exist
         if (len(readPairsList) == 1):
-            if (anIsDebug):
-                logging.debug("only one read %s", readName)
+            #if (anIsDebug):
+            #    logging.debug("only one read %s", readName)
             nonOverlappingReadsList.append(readPairsList[0])
         # check for overlapping reads
         else:
@@ -586,28 +678,26 @@ def find_non_overlapping_reads(aReadsDict, aMinBaseQual, aGenomicCoordinate, anI
             # for each read
             for index in range(0, len(readPairsList)):
                 readStart = readPairsList[index]["start"]
-                #readAlignedLength = readPairsList[index]["alignedLength"]
-                readLength = len(readPairsList[index]["sequence"])
                 readSequenceIndex = readPairsList[index]["sequenceIndex"]
                 readMateStart = readPairsList[index]["mateStart"]
+                readLength = readPairsList[index]["qlen"]
                 # abs(p->b->core.pos + p->qpos - p->b->core.mpos) < p->b->core.l_qseq)
                 # samtools view pos = reference_start = 1-based leftmost coordinate
                 # pysam pos = reference_start = 0-based leftmost coordinate
                 # samtools view pnext (1-based) = pysam mpos (0-based) = next_reference_start = the position of the mate/next read.
                 # sequenceIndex pysam qpos = query_position = position of the read base at the pileup site, 0-based. None if is_del or is_refskip is set.
                 # len(sequence) or pysam qlen = query_length length of the query sequence
-                
-                if (anIsDebug):
-                    logging.debug("aGenomicCoordinate=%s, readStart(pos)=%s, readSequenceIndex(qpos)=%s, readMateStart(mpos)=%s, readLength(l_qseq)=%s", aGenomicCoordinate, readStart, readSequenceIndex, readMateStart, readLength)
-                    logging.debug("%s (readStart + readSequenceIndex): abs(readStart + readSequenceIndex - readMateStart) %s <? (readLength) %s", (readStart + readSequenceIndex), abs(readStart + readSequenceIndex - readMateStart), readLength)
                     
+                #if (anIsDebug):
+                #    logging.debug("readStart(pos)=%s, readSequenceIndex(qpos)=%s, readMateStart(mpos)=%s, readLength(l_qseq)=%s", readStart, readSequenceIndex, readMateStart, readLength)
+                #    logging.debug("%s (readStart + readSequenceIndex): abs(readStart + readSequenceIndex - readMateStart) %s <? (readAlignedLength) %s", (readStart + readSequenceIndex), abs(readStart + readSequenceIndex - readMateStart), readLength)
+                
                 # if the reads overlap
-                # if abs(p->b->core.pos + p->qpos - p->b->core.mpos) < p->b->core.l_qseq)           
-                # if (abs(readStart + readSequenceIndex - readMateStart) < readAlignedLength):
+                # if abs(p->b->core.pos + p->qpos - p->b->core.mpos) < p->b->core.l_qseq)
                 if (abs(readStart + readSequenceIndex - readMateStart) < readLength):            
                     
-                    if (anIsDebug):
-                        logging.debug("reads overlap readStart=%s, sequenceIndex=%s, readMateStart=%s, abs=%s, readLength=%s", str(readStart), str(readSequenceIndex), str(readMateStart), str(abs(readStart + readSequenceIndex - readMateStart)), str(readLength))
+                    #if (anIsDebug):
+                    #    logging.debug("reads overlap readStart=%s, sequenceIndex=%s, readMateStart=%s, abs=%s, alignedLen=%s", str(readStart), str(readSequenceIndex), str(readMateStart), str(abs(readStart + readSequenceIndex - readMateStart)), str(readLength))
                     base = readPairsList[index]["base"]
                     qual = ord(readPairsList[index]["baseQual"])-33
                     basesSet.add(base)
@@ -620,66 +710,72 @@ def find_non_overlapping_reads(aReadsDict, aMinBaseQual, aGenomicCoordinate, anI
                         maxBaseQualIndex = index
                     elif (qual > nextMaxBaseQual):
                         nextMaxBaseQual = qual
-                    if (anIsDebug):
-                        logging.debug("base=%s, qual=%s, maxBaseQual=%s, maxBaseQualIndex=%s, basesSet=%s", base, str(qual), str(maxBaseQual), str(maxBaseQualIndex), basesSet)    
+                    #if (anIsDebug):
+                    #    logging.debug("base=%s, qual=%s, maxBaseQual=%s, maxBaseQualIndex=%s, basesSet=%s", base, str(qual), str(maxBaseQual), str(maxBaseQualIndex), basesSet)
                 # if they don't overlap, then just add the reads
                 else:
-                    if (anIsDebug):
-                        logging.debug("reads don't overlap readStart=%s, sequenceIndex=%s, readMateStart=%s, abs=%s, readLength=%s", str(readStart), str(readSequenceIndex), str(readMateStart), str(abs(readStart + readSequenceIndex - readMateStart)), str(readLength))
+                    #if (anIsDebug):
+                    #    logging.debug("reads don't overlap readStart=%s, sequenceIndex=%s, readMateStart=%s, abs=%s, alignedLen=%s", str(readStart), str(readSequenceIndex), str(readMateStart), str(abs(readStart + readSequenceIndex - readMateStart)), str(readLength))
                     nonOverlappingReadsList.append(readPairsList[index])
-                    
+            
             # if all the bases agree, then keep the one with the highest base quality and avoid double counting
             if (len(basesSet) == 1):
-                if (anIsDebug):
-                    logging.debug("all bases in overlapping reads agree, keeping=%s, %s %s", str(maxBaseQualIndex), readName, readPairsList)
+                #if (anIsDebug):
+                #    logging.debug("all bases in overlapping reads agree, keeping=%s, %s %s", str(maxBaseQualIndex), readName, readPairsList)
                 nonOverlappingReadsList.append(readPairsList[maxBaseQualIndex])
             # if the bases disagree, then it's likely a sequencing error. only keep the read with a high qual if the other reads have a low qual
             elif(maxBaseQual >= aMinBaseQual and nextMaxBaseQual < aMinBaseQual):
-                if (anIsDebug):
-                    logging.debug("not all bases in overlapping reads agree, but keeping a high qual one, maxBaseQual=%s, nextMaxBaseQual=%s, minBaseQual=%s, keeping=%s, %s %s", str(maxBaseQual), str(nextMaxBaseQual), str(aMinBaseQual), str(maxBaseQualIndex), readName, readPairsList)
+                #if (anIsDebug):
+                #    logging.debug("not all bases in overlapping reads agree, but keeping a high qual one, maxBaseQual=%s, nextMaxBaseQual=%s, minBaseQual=%s, keeping=%s, %s %s", str(maxBaseQual), str(nextMaxBaseQual), str(aMinBaseQual), str(maxBaseQualIndex), readName, readPairsList)
                 nonOverlappingReadsList.append(readPairsList[maxBaseQualIndex])
-            elif anIsDebug:
-                logging.debug("bases in overlapping reads don't agree and no obvious read to select based on qual scores, maxBaseQual=%s, nextMaxBaseQual=%s, minBaseQual=%s, %s %s", str(maxBaseQual), str(nextMaxBaseQual), str(aMinBaseQual), readName, readPairsList)
+            #elif anIsDebug:
+            #    logging.debug("bases in overlapping reads don't agree and no obvious read to select based on qual scores, maxBaseQual=%s, nextMaxBaseQual=%s, minBaseQual=%s, %s %s", str(maxBaseQual), str(nextMaxBaseQual), str(aMinBaseQual), readName, readPairsList)
+    
+    if (anIsDebug):
+        logging.debug("find_non_overlapping_reads(): nonOverlappingReadsListLen=%s", len(nonOverlappingReadsList))
     
     return nonOverlappingReadsList
+
    
-   
-def write_to_blat_file(aBlatFileHandler, aChr, aGenomicCoordinate, aTranscriptNameTag, aTranscriptCoordinateTag, aTranscriptStrandTag, aParamsDict, anInfoDict, aPrefix, anAltOnlyFlag, anRnaIncludeSecondaryAlignmentsFlag, aMaxReadDepth, anIsDebug):
+def write_to_blat_file(aBlatFileHandler, aGenomicChr, aGenomicCoordinate, aChromList, aPosList, aTranscriptStrandList, aParamsDict, anInfoDict, aPrefix, anAltOnlyFlag, anRnaIncludeSecondaryAlignmentsFlag, aMaxDepth, anIsDebug):
     '''
     ' This function gets all of the reads at a specific coordinate and creates a BLAT input file.
     '
     ' aBlatFileHandler:                        A file handler where all the BLAT query data is written
-    ' aChr:                                    The chromosome that we are selecting from
-    ' aGenomicCoordinate:                      The genomic stop coordinate of the selection
-    ' aTranscriptNameTag:                      The transcript name
-    ' aTranscriptCoordinateTag:                The transcript coordinate
-    ' aTranscriptStrandTag:                    The transcript strand
+    ' aGenomicChr:                             The genomic chromosome
+    ' aGenomicCoordinate:                      The genomic stop coordinate
+    ' aChromList:                              A list of chromosomes or transcript names to process
+    ' aPosList:                                A list of coordinates to process
+    ' aTranscriptStrandList:                   A list of transcript strands
     ' aParamsDict:                             The parameters from the header
     ' anInfoDict:                              A dictionary of the INFO column
     ' aPrefix:                                 The prefix for the parameters dictionary
     ' anAltOnlyFlag:                           If all reads should be processed or only those that have the alternate allele
     ' anRnaIncludeSecondaryAlignmentsFlag:     A flag to include the RNA secondary alignments
-    ' aMaxReadDepth:                           The maximum depth of reads to process from the samtools view command
+    ' aMaxDepth                                The max depth for the pysam pileup command
     ' anIsDebug:                               A flag for outputting debug messages to STDERR
     '''
     
     # get the info for executing the samtools command
-    bamFile = aParamsDict[aPrefix + "Filename"]
-    minMapQual = aParamsDict[aPrefix + "MinMappingQuality"]
+    bamFilename = aParamsDict[aPrefix + "Filename"]
+    fastaFilename = aParamsDict[aPrefix + "FastaFilename"]
     minBaseQual = aParamsDict[aPrefix + "MinBaseQuality"]
-    useChrPrefixString = aParamsDict[aPrefix + "UseChrPrefix"]
+    bamOrigin = anInfoDict["ORIGIN"]
     
-    if (useChrPrefixString == "True"):
-        useChrPrefix = True
-    else:
-        useChrPrefix = False
-
-    if (not os.path.isfile(bamFile)):
-        logging.critical("The BAM file specified in the VCF header does not exist: %s", bamFile)
+    if (not os.path.isfile(bamFilename)):
+        logging.critical("The BAM file specified in the VCF header does not exist: %s", bamFilename)
         sys.exit(1)
-
-    # if we are processing the RNA and
-    # the transcript name and coordinate should be used instead of the genomic chrom and coordinate
+    
+    if (not os.path.isfile(fastaFilename)):
+        logging.critical("The FASTA file specified in the VCF header does not exist: %s", fastaFilename)
+        sys.exit(1)
+    
+    bamFile = pysam.Samfile(bamFilename, 'rb')
+    fastaFile = pysam.Fastafile(fastaFilename)
+    
+    '''
+    # if we are processing the RNA and the transcript name and
+    # coordinate should be used instead of the genomic chrom and coordinate
     transcriptName = None
     transcriptCoordinate = None
     transcriptStrand = None
@@ -704,7 +800,8 @@ def write_to_blat_file(aBlatFileHandler, aChr, aGenomicCoordinate, aTranscriptNa
             
             if (anIsDebug):     
                 logging.debug("readsDictLen=%s", len(readsDict.keys()))
-    else:            
+    else:
+    
         # execute the samtools command
         reads = execute_samtools_cmd(bamFile, minMapQual, aChr, aGenomicCoordinate, useChrPrefix, False, aMaxReadDepth, anIsDebug)
         #reads = get_read_data(aBamFile, anIsDebug)
@@ -722,13 +819,14 @@ def write_to_blat_file(aBlatFileHandler, aChr, aGenomicCoordinate, aTranscriptNa
         
         if (anIsDebug):
             logging.debug("readsDictLen=%s", len(readsDict.keys()))
+    '''
+       
+    # group all of the reads by name
+    readsDict = group_reads_by_name(aChromList, aPosList, aTranscriptStrandList, bamFile, fastaFile, bamOrigin, anRnaIncludeSecondaryAlignmentsFlag, aMaxDepth, anIsDebug)
         
     # get all of the non-overlapping reads
-    nonOverlappingReadsList = find_non_overlapping_reads(readsDict, minBaseQual, aGenomicCoordinate, anIsDebug)
+    nonOverlappingReadsList = find_non_overlapping_reads(readsDict, minBaseQual, anIsDebug)
     
-    if (anIsDebug):
-        logging.debug("nonOverlappingReadsListLen=%s", len(nonOverlappingReadsList))
-
     modChanges = anInfoDict["MC"]
     modTypes = anInfoDict["MT"]
     altSet = []
@@ -778,10 +876,7 @@ def write_to_blat_file(aBlatFileHandler, aChr, aGenomicCoordinate, aTranscriptNa
             if (baseQualityConverted >= int(minBaseQual)):
                 numAltsFound += 1
                 if (anIsDebug):
-                    if (transcriptName != None and transcriptCoordinate != None):
-                        logging.debug("found an alt for %s:%s, base=%s, baseQual=%s", transcriptName, str(transcriptCoordinate), readBase, str(baseQualityConverted))
-                    else:
-                        logging.debug("found an alt for %s:%s, base=%s, baseQual=%s", aChr, str(aGenomicCoordinate), readBase, str(baseQualityConverted))
+                    logging.debug("found an alt for %s:%s, base=%s, baseQual=%s", aChromList, aPosList, readBase, str(baseQualityConverted))
                         
                 # position in read
                 readLength = len(readSequence)
@@ -793,7 +888,7 @@ def write_to_blat_file(aBlatFileHandler, aChr, aGenomicCoordinate, aTranscriptNa
                     position = "end"
             
                 # we want to use the genomic chr and stop coordinate in the output instead of the transcript coordinate
-                outputList = [aPrefix, aChr, str(aGenomicCoordinate), readName.replace("_", ""), readBase, str(baseQualityConverted), str(readMapQual), position, str(readFlag), str(readInsertSize), str(readLength)]
+                outputList = [aPrefix, aGenomicChr, str(aGenomicCoordinate), readName.replace("_", ""), readBase, str(baseQualityConverted), str(readMapQual), position, str(readFlag), str(readInsertSize), str(readLength)]
                 if (aBlatFileHandler != None):
                     aBlatFileHandler.write("> " + "_".join(outputList) + "\n")
                     aBlatFileHandler.write(readSequence + "\n")
@@ -802,10 +897,7 @@ def write_to_blat_file(aBlatFileHandler, aChr, aGenomicCoordinate, aTranscriptNa
                     print >> sys.stdout, readSequence
 
     if (anIsDebug): 
-        if (transcriptCoordinate): 
-            logging.debug("For transcriptCoordinate=%s, numNonRefAltBasesFound=%s, numAltsFound=%s, numRefsFound=%s, numTotal=%s", transcriptCoordinate, str(numNonRefAltBasesFound), str(numAltsFound), str(numRefsFound), str(numRefsFound + numAltsFound + numNonRefAltBasesFound))
-        else:
-            logging.debug("For stopCoordinate=%s, numNonRefAltBasesFound=%s, numAltsFound=%s, numRefsFound=%s, numTotal=%s", aGenomicCoordinate, str(numNonRefAltBasesFound), str(numAltsFound), str(numRefsFound), str(numRefsFound + numAltsFound + numNonRefAltBasesFound))
+        logging.debug("For %s:%s, numNonRefAltBasesFound=%s, numAltsFound=%s, numRefsFound=%s, numTotal=%s", aChromList, aPosList, str(numNonRefAltBasesFound), str(numAltsFound), str(numRefsFound), str(numRefsFound + numAltsFound + numNonRefAltBasesFound))
         logging.debug("samtools view bases=%s", samtoolsViewBases)
         logging.debug("samtools view quals=%s", samtoolsViewQuals)
                                     
@@ -946,18 +1038,99 @@ def main():
         
         modTypes = vcfInfoDict["MT"]
         for modType in modTypes:
+            
             # get the reads contributing to a call and put them in a blat query file
             if (i_blatDnaNormalReads):
-                write_to_blat_file(i_outputFileHandler, vcfChr, vcfStopCoordinate, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, vcfParamsDict, vcfInfoDict, "dnaNormal", i_altBasesOnlyFlag, False, i_maxReadDepth, i_debug)
+                write_to_blat_file(i_outputFileHandler, 
+                                   vcfChr, 
+                                   vcfStopCoordinate, 
+                                   [vcfChr], 
+                                   [vcfStopCoordinate], 
+                                   [None], 
+                                   vcfParamsDict, 
+                                   vcfInfoDict, 
+                                   "dnaNormal", 
+                                   i_altBasesOnlyFlag, 
+                                   False,
+                                   i_maxReadDepth, 
+                                   i_debug)
                 
             if (modType == "NOR_EDIT" and i_blatRnaNormalReads):
-                write_to_blat_file(i_outputFileHandler, vcfChr, vcfStopCoordinate, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, vcfParamsDict, vcfInfoDict, "rnaNormal", i_altBasesOnlyFlag, i_rnaIncludeSecondaryAlignments, i_maxReadDepth, i_debug)
+                # if we should process the transcripts
+                if ((i_transcriptNameTag != None) and (i_transcriptNameTag in vcfInfoDict)):
+                    write_to_blat_file(i_outputFileHandler, 
+                                       vcfChr, 
+                                       vcfStopCoordinate, 
+                                       vcfInfoDict[i_transcriptNameTag], 
+                                       vcfInfoDict[i_transcriptCoordinateTag], 
+                                       vcfInfoDict[i_transcriptStrandTag], 
+                                       vcfParamsDict, 
+                                       vcfInfoDict, 
+                                       "rnaNormal", 
+                                       i_altBasesOnlyFlag, 
+                                       i_rnaIncludeSecondaryAlignments,
+                                       i_maxReadDepth, 
+                                       i_debug)
+                else:
+                    write_to_blat_file(i_outputFileHandler, 
+                                       vcfChr, 
+                                       vcfStopCoordinate, 
+                                       [vcfChr], 
+                                       [vcfStopCoordinate], 
+                                       [None], 
+                                       vcfParamsDict, 
+                                       vcfInfoDict, 
+                                       "rnaNormal", 
+                                       i_altBasesOnlyFlag, 
+                                       i_rnaIncludeSecondaryAlignments, 
+                                       i_maxReadDepth,
+                                       i_debug)
             
             if (i_blatDnaTumorReads):
-                write_to_blat_file(i_outputFileHandler, vcfChr, vcfStopCoordinate, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, vcfParamsDict, vcfInfoDict, "dnaTumor", i_altBasesOnlyFlag, False, i_maxReadDepth, i_debug)
+                write_to_blat_file(i_outputFileHandler, 
+                                   vcfChr, 
+                                   vcfStopCoordinate, 
+                                   [vcfChr], 
+                                   [vcfStopCoordinate], 
+                                   [None], 
+                                   vcfParamsDict, 
+                                   vcfInfoDict, 
+                                   "dnaTumor", 
+                                   i_altBasesOnlyFlag, 
+                                   False, 
+                                   i_maxReadDepth,
+                                   i_debug)
                 
             if ((modType == "SOM" or modType == "TUM_EDIT") and i_blatRnaTumorReads):
-                write_to_blat_file(i_outputFileHandler, vcfChr, vcfStopCoordinate, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, vcfParamsDict, vcfInfoDict, "rnaTumor", i_altBasesOnlyFlag, i_rnaIncludeSecondaryAlignments, i_maxReadDepth, i_debug)
+                # if we should process the transcripts
+                if ((i_transcriptNameTag != None) and (i_transcriptNameTag in vcfInfoDict)):
+                    write_to_blat_file(i_outputFileHandler, 
+                                       vcfChr, 
+                                       vcfStopCoordinate,
+                                       list(vcfInfoDict[i_transcriptNameTag]), 
+                                       vcfInfoDict[i_transcriptCoordinateTag], 
+                                       vcfInfoDict[i_transcriptStrandTag], 
+                                       vcfParamsDict, 
+                                       vcfInfoDict, 
+                                       "rnaTumor", 
+                                       i_altBasesOnlyFlag, 
+                                       i_rnaIncludeSecondaryAlignments,
+                                       i_maxReadDepth, 
+                                       i_debug)
+                else:
+                    write_to_blat_file(i_outputFileHandler, 
+                                       vcfChr, 
+                                       vcfStopCoordinate, 
+                                       [vcfChr], 
+                                       [vcfStopCoordinate], 
+                                       [None], 
+                                       vcfParamsDict, 
+                                       vcfInfoDict, 
+                                       "rnaTumor", 
+                                       i_altBasesOnlyFlag, 
+                                       i_rnaIncludeSecondaryAlignments,
+                                       i_maxReadDepth, 
+                                       i_debug)
             
     stopTime = time.time()       
     logging.info("createBlatFile.py Id %s: Total time=%s hrs, %s mins, %s secs", i_id, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))         
