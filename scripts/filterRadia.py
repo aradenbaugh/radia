@@ -5,6 +5,7 @@ from optparse import OptionParser   # used for parsing command line arguments
 import radiaUtil                    # utility functions for rna editing
 import logging
 import os
+#import time
 import subprocess
 import gzip
 
@@ -82,10 +83,14 @@ def filter_blacklist(aPythonExecutable, anId, aChromId, anInputFilename, anOutpu
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -122,10 +127,14 @@ def flag_dbSnp(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, 
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -161,10 +170,14 @@ def flag_retroGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutput
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)  
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1) 
             
     return outputFilename
@@ -200,10 +213,14 @@ def flag_pseudoGenes(aPythonExecutable, anId, aChromId, anInputFilename, anOutpu
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -239,10 +256,14 @@ def flag_cosmic(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir,
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -278,10 +299,14 @@ def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputD
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -330,10 +355,14 @@ def filter_mpileupSupport_dna(aPythonExecutable, anId, aChromId, anInputFilename
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -379,10 +408,14 @@ def filter_mpileupSupport_rna(aPythonExecutable, anId, aChromId, anInputFilename
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -418,10 +451,14 @@ def radia_compare(aPythonExecutable, anId, aChromId, anRnaFilename, aDnaFilename
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return overlapFilename, nonOverlapFilename
@@ -452,15 +489,14 @@ def filter_rnaOnly(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobLi
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
         
         # grep returns 0 if selected lines are found and 1 otherwise. But the exit status is 2 if an error occurred, 
         # unless the -q or --quiet or --silent option is used and a selected line is found. 
         
-        
         #if (subprocessCall.returncode != 0):
         #    logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-        #    logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+        #    logging.error("Error from %s:\n%s", command, stdErr)
                     
     return outputFilename
 
@@ -488,15 +524,14 @@ def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobL
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
         
         # grep returns 0 if selected lines are found and 1 otherwise. But the exit status is 2 if an error occurred, 
         # unless the -q or --quiet or --silent option is used and a selected line is found. 
         
-        
         #if (subprocessCall.returncode != 0):
         #    logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-        #    logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+        #    logging.error("Error from %s:\n%s", command, stdErr)
                     
     return outputFilename
 
@@ -533,11 +568,11 @@ def filter_runSnpEff(anId, aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome,
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
         
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)  
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1) 
                     
     return outputFilename
@@ -574,10 +609,14 @@ def filter_createBlatInput(aPythonExecutable, anId, aChromId, anInputFilename, a
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
         
     return outputFilename
@@ -603,10 +642,11 @@ def filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, 
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)  
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return blatOutputFilename
@@ -672,10 +712,14 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return (blatOutputFilename, outputFilename)
@@ -710,10 +754,14 @@ def filter_positionalBias(aPythonExecutable, anId, aChromId, anInputFilename, aB
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)  
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1) 
             
     return outputFilename
@@ -746,10 +794,14 @@ def filter_rnaBlacklist(aPythonExecutable, anId, aChromId, anInputFilename, aGen
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)  
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1) 
             
     return outputFilename
@@ -783,10 +835,14 @@ def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename, anRnaFilena
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -816,10 +872,14 @@ def merge_passingAndOriginals(aPythonExecutable, anId, aChromId, aPassingCallsFi
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)
             
     return outputFilename
@@ -862,10 +922,14 @@ def filter_readSupport(aPythonExecutable, anId, aChromId, anInputFilename, aTran
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr) 
+            logging.error("Error from %s:\n%s", command, stdErr)
             sys.exit(1)  
             
     return outputFilename
@@ -887,10 +951,10 @@ def remove_tmpFiles(aRmTmpFilesList, aJobListFileHandler, anIsDebug):
         aJobListFileHandler.write(command + "\n")    
     else:    
         subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (samtoolsStdOut, samtoolsStdErr) = subprocessCall.communicate()
+        (stdOut, stdErr) = subprocessCall.communicate()
         if (subprocessCall.returncode != 0):
             logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, samtoolsStdErr)   
+            logging.error("Error from %s:\n%s", command, stdErr)
             
     return
 
@@ -1189,52 +1253,17 @@ def main():
         if (i_blacklistFlag):
             previousFilename = filter_blacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_blacklistDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
-           
+        
         # flag snp
         if (i_dbSnpFlag):
             previousFilename = flag_dbSnp(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_dbSnpDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # flag retro genes
-        if (i_retroGenesFlag):                
-            previousFilename = flag_retroGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_retroGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-            rmTmpFilesList.append(previousFilename)
-    
-        # flag pseudo genes
-        if (i_pseudoGenesFlag):
-            previousFilename = flag_pseudoGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_pseudoGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-            rmTmpFilesList.append(previousFilename)
-    
-        # flag cosmic
-        if (i_cosmicFlag):                
-            previousFilename = flag_cosmic(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_cosmicDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-            rmTmpFilesList.append(previousFilename)
-        
-        # filter targets
-        if (i_targetsFlag):            
-            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-            rmTmpFilesList.append(previousFilename)
-        
-        # filter mpileup
-        previousFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, previousFilename, None, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-        rmTmpFilesList.append(previousFilename)
-        
-    else:        
-        # filter by blacklist
-        if (i_blacklistFlag):    
-            previousFilename = filter_blacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_blacklistDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-            rmTmpFilesList.append(previousFilename)
-            
-        # filter by dbsnp
-        if (i_dbSnpFlag):
-            previousFilename = flag_dbSnp(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_dbSnpDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-            rmTmpFilesList.append(previousFilename)
-
-        # flag retro genes
         if (i_retroGenesFlag):
             previousFilename = flag_retroGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_retroGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
-    
+        
         # flag pseudo genes
         if (i_pseudoGenesFlag):
             previousFilename = flag_pseudoGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_pseudoGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
@@ -1249,7 +1278,42 @@ def main():
         if (i_targetsFlag):
             previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
+        
+        # filter mpileup
+        previousFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, previousFilename, None, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+        rmTmpFilesList.append(previousFilename)
     
+    else:        
+        # filter by blacklist
+        if (i_blacklistFlag):
+            previousFilename = filter_blacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_blacklistDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
+        # filter by dbsnp
+        if (i_dbSnpFlag):
+            previousFilename = flag_dbSnp(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_dbSnpDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
+        # flag retro genes
+        if (i_retroGenesFlag):
+            previousFilename = flag_retroGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_retroGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
+        # flag pseudo genes
+        if (i_pseudoGenesFlag):
+            previousFilename = flag_pseudoGenes(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_pseudoGenesDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
+        # flag cosmic
+        if (i_cosmicFlag):
+            previousFilename = flag_cosmic(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_cosmicDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
+        # filter targets
+        if (i_targetsFlag):
+            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
         # filter RNA mpileup
         # the output file contains all filters for all possible mod types and no final mod type is chosen
         rnaFilename = filter_mpileupSupport_rna(i_pythonExecutable, i_id, i_chr, previousFilename, True, i_rnaMpileupMinMapQual, i_rnaMpileupMinAvgMapQual, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
@@ -1286,7 +1350,7 @@ def main():
                 rmTmpFilesList.append(blatInputFilename)
             
             # filter by BLAT
-            if (i_blatFlag):    
+            if (i_blatFlag):
                 (blatOutputFilename, previousFilename) = filter_blat(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, blatInputFilename, i_blatFastaFilename, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
                 rmTmpFilesList.append(blatOutputFilename)
                 rmTmpFilesList.append(previousFilename)
@@ -1302,7 +1366,7 @@ def main():
                     # filter by positional bias
                     previousFilename = filter_positionalBias(i_pythonExecutable, i_id, i_chr, previousFilename, blatInputFilename, False, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
                 rmTmpFilesList.append(previousFilename)
-                
+        
         # if RNA only, just merge the RNA Confirmation and RNA Rescue calls
         if (i_rnaOnlyFlag):
             # the dnaFilename and --dnaHeaderOnly=True means that we only extract the header from the dnaFilename and ignore the rest
@@ -1313,7 +1377,7 @@ def main():
             # the dnaFilename and --dnaHeaderOnly=False means that we merge the header and the results in the dnaFilename
             previousFilename = merge_rnaAndDna(i_pythonExecutable, i_id, i_chr, dnaFilename, rnaFilename, overlapFilename, previousFilename, False, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
-        
+    
     if (i_snpEffFlag):
         # keep track of the orginal file
         preSnpEffFilename = previousFilename
@@ -1321,21 +1385,24 @@ def main():
         # extracting passing calls
         previousFilename = extract_passing(i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
-      
+        
         previousFilename = filter_runSnpEff(i_id, i_chr, previousFilename, i_snpEffDir, i_snpEffGenome, i_snpEffCanonical, i_outputDir, i_prefix, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
-    
+        
         if (not i_dnaOnlyFlag and i_rnaBlacklistFlag):
             # filter RNA by geneNames/Families
             previousFilename = filter_rnaBlacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_rnaGeneBlckFilename, i_rnaGeneFamilyBlckFilename, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
-    
+        
         # merge passing with snpEff back with originals 
         previousFilename = merge_passingAndOriginals(i_pythonExecutable, i_id, i_chr, previousFilename, preSnpEffFilename, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
-                    
+    
     # everything gets run through the read support filter
+    #startTime = time.time()
     previousFilename = filter_readSupport(i_pythonExecutable, i_id, i_chr, previousFilename, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, i_rnaIncludeSecondaryAlignments, i_readSupportMinMapQual, i_outputDir, i_prefix, i_outputFilename, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+    #stopTime = time.time()
+    #logging.info("filter_readSupport: prefix=%s: Total time=%s hrs, %s mins, %s secs", i_prefix, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
     
     # if we aren't debugging, then remove all the tmp files
     if (not i_debug):
