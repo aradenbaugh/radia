@@ -4,8 +4,6 @@ import pkg_resources
 import pysam
 import sys
 import time
-import re
-import subprocess
 from optparse import OptionParser
 import radiaUtil
 import collections
@@ -14,7 +12,6 @@ from itertools import izip
 import os
 import gzip
 
-i_reverseCompDict = {"A": "T", "C": "G", "G": "C", "T": "A", "N": "N"}
 
 '''
 '    RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.
@@ -33,8 +30,6 @@ i_reverseCompDict = {"A": "T", "C": "G", "G": "C", "T": "A", "N": "N"}
 '    You should have received a copy of the GNU Affero General Public License
 '    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
-i_cigarRegEx = re.compile("[0-9]+[MIDNSHPX=]")
 
 
 def get_read_fileHandler(aFilename):
@@ -61,33 +56,6 @@ def get_write_fileHandler(aFilename):
         return open(aFilename,'w')
     
     
-def get_append_fileHandler(aFilename):
-    '''
-    ' Open aFilename for appending and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'ab')
-    else:
-        return open(aFilename,'a')
-    
-    
-def reverse_complement_nucleotide(aNucleotide):
-    '''
-    ' This function returns the reverse complement of the parameter aNucleotide
-    '
-    ' aNucleotide:    A nucleotide to reverse complement
-    '''
-    if aNucleotide in i_reverseCompDict:
-        return i_reverseCompDict[aNucleotide]
-    else:
-        logging.error("Trying to reverse complement an unknown nucleotide: %s", aNucleotide)
-        sys.exit(1)
-        
-    return None
-
-
 def get_vcf_data(aVcfFile, aHeaderFile, aPassOnlyFlag, anIsDebug):
     '''
     ' This function reads from a .vcf input file and uses the python generator to yield the information
@@ -232,94 +200,6 @@ def get_vcf_data(aVcfFile, aHeaderFile, aPassOnlyFlag, anIsDebug):
     return
 
 
-def get_read_data(aReadFile, anIsDebug):
-    '''
-    ' This function returns reads from a test file.
-    '
-    ' aReadFile:  An test file that has the output from a samtools view command
-    ' anIsDebug: A flag for outputting debug messages to STDERR
-    '''
-    
-    # open the file
-    fileHandler = get_read_fileHandler(aReadFile)
-    reads = fileHandler.readlines()
-    fileHandler.close()
-    
-    return reads
-
-
-def execute_samtools_cmd(aBamFile, aMappingQuality, aChrom, aCoordinate, aUseChrPrefix, anRnaIncludeSecondaryAlignmentsFlag, aMaxReadDepth, anIsDebug):
-    '''
-    ' This function executes an external command.  The command is the "samtools view" command which returns all 
-    ' the information about the sequencing reads that overlap a specific coordinate.  Some .bam files use the 'chr' 
-    ' prefix when specifying the region.  If the 'chr' prefix is required, then specify the --useChrPrefix argument.
-    ' Here are some examples of the commands that can be copy/pasted to the command line to view the output:
-    '
-    ' samtools view -q 10 myBamfile.bam 10:8100500-8100500
-    ' samtools view -q 10 myBamfile.bam chr10:8100500-8100500
-    '
-    ' aBamFile:                              A .bam file to be read from
-    ' aMappingQuality:                       The mapping quality score for the samtools command
-    ' aChrom:                                The chromosome or transcript name that we are selecting from
-    ' aCoordinate:                           The coordinate of the selection
-    ' aUseChrPrefix:                         Whether the 'chr' should be used in the samtools command
-    ' anRnaIncludeSecondayAlignmentsFlag:    If you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools command
-    ' aMaxReadDepth:                         The maximum depth of reads to process from the samtools view command
-    ' anIsDebug:                             A flag for outputting debug messages to STDERR
-    '''
-    if (not os.path.isfile(aBamFile)):
-        logging.critical("The BAM file specified in the VCF header does not exist: %s", aBamFile)
-        sys.exit(1)
-
-    if (aUseChrPrefix):
-        # create the samtools command
-        samtoolsSelectStatement = "samtools view -q " + str(aMappingQuality) + " " + aBamFile + " chr" + aChrom + ":" + str(aCoordinate) + "-" + str(aCoordinate)
-    else:
-        # create the samtools command
-        samtoolsSelectStatement = "samtools view -q " + str(aMappingQuality) + " " + aBamFile + " " + aChrom + ":" + str(aCoordinate) + "-" + str(aCoordinate)
-    
-    # for the samtools mpileup command, the flags are:
-    # --ff (exclude flags):  unmapped reads, reads that fail quality checks, pcr duplicates
-    # --rf (include flags):  everything else (including secondary alignments)
-    # --ff, --excl-flags STR|INT  filter flags: skip reads with mask bits set [UNMAP,SECONDARY,QCFAIL,DUP]
-    # --rf, --incl-flags STR|INT  required flags: skip reads with mask bits unset []
-    
-    # for the samtools view command, the flags are:
-    # -F (exclude flags):  unmapped reads, reads that fail quality checks, pcr duplicates
-    # -f (include flags):  everything else (including secondary alignments)
-    # -F INT   only include reads with none of the bits set in INT set in FLAG [0]
-    # -f INT   only include reads with all bits set in INT set in FLAG [0]
-    if (anRnaIncludeSecondaryAlignmentsFlag):
-        # for the samtools mpileup command:
-        #samtoolsSelectStatement += " --ff 1540 --rf 2555"
-        # for the samtools view command, we only need the -F flag
-        samtoolsSelectStatement += " -F 1540"
-    
-    # keep track of how long it takes to run the samtools command
-    if (anIsDebug):
-        timeSamtoolsStart = time.time()
-        logging.debug(samtoolsSelectStatement)
-    
-    # execute the samtools command
-    samtoolsCall = subprocess.Popen(samtoolsSelectStatement, shell=True, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-    # communicate() waits for the process to finish
-    (pileups, samtoolsStdErr) = samtoolsCall.communicate()
-    
-    if (anIsDebug):
-        timeSamtoolsEnd = time.time()
-        logging.debug("Time spent executing samtools command: %s", str(timeSamtoolsEnd-timeSamtoolsStart)) 
-    
-    # for some reason, we have to get the stdout.readlines() before the stderr.readlines(), otherwise the process hangs
-    if (samtoolsCall.returncode != 0):
-        logging.error("Error from '%s':\n %s", samtoolsSelectStatement, samtoolsStdErr)
-        sys.exit(1)
-    # if the stdErr is not empty, then just warn the user
-    elif samtoolsStdErr:
-        logging.warning("Message from '%s':\n %s", samtoolsSelectStatement, samtoolsStdErr)
-        
-    return pileups.split("\n")[0:aMaxReadDepth]
-
-
 def group_reads_by_name(aChromList, aPosList, aTranscriptStrandList, aBamFile, aFastaFile, aBamOrigin, anRnaIncludeSecondaryAlignmentsFlag, aMaxDepth, anIsDebug):
         
         readsDict = collections.defaultdict(list)
@@ -409,232 +289,6 @@ def group_reads_by_name(aChromList, aPosList, aTranscriptStrandList, aBamFile, a
                     logging.debug("group_reads_by_name(): %s:%s added %s out of %s reads to initial reads dict, readsDictLen=%s", chrom, pos, keptReads, totalReads, len(readsDict.keys()))
         
         return readsDict
-
-
-def group_reads_by_name_old(aReadsList, aReadsDict, aMinMapQual, aGenomicCoordinate, aTranscriptCoordinate, aTranscriptStrand, anInfoDict, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
-    '''
-    ' This function loops through the reads that were returned from the "samtools view" command and
-    ' creates a dictionary where the reads are grouped by their read name.  Reads with the following 
-    ' conditions are ignored:
-    '    - unmapped
-    '    - not passing QC
-    '    - PCR duplicate
-    '    - paired but not properly paired
-    '    - mapping quality < aMinMapQual
-    '
-    ' aReadsList:                            The list of reads returned from the samtools view command
-    ' aReadsDict:                            A dictionary that collects a list of reads with the same name
-    ' aMinMapQuality:                        A minimum mapping quality score for the reads
-    ' aGenomicCoordinate:                    The genomic coordinate
-    ' aTranscriptCoordinate:                 The transcript coordinate
-    ' aTranscriptStrand:                     The transcript strand
-    ' anInfoDict                             An INFO dict for this VCF call
-    ' anRnaIncludeSecondaryAlignmentsFlag    A flag to include the RNA secondary alignments
-    ' anIsDebug:                             A flag for outputting debug messages to STDERR
-    '''
-    
-    numReadsSkipped = 0
-    samtoolsViewBases = ""
-    samtoolsViewQuals = ""
-    
-    # if there was data for this coordinate
-    if (len(aReadsList) > 0):
-        # for each line representing one coordinate
-        for line in aReadsList:
-            # if the samtools view statement returns no reads which can happen when the batch size is
-            # small and the selection is done in an area with no reads, then a warning message will be
-            # returned that starts with [main_samview], [sam_header_read2], or [fai_build_core].  We can 
-            # ignore the message and move on to the next view statement.
-            if (line == "" or line.isspace() or line.startswith("[")):
-                continue;
-
-            # strip the carriage return and newline characters
-            line = line.rstrip("\r\n")
-            
-            if (anIsDebug):
-                logging.debug("samtools read: %s", line)
-
-            # split the line on the tab
-            splitLine = line.split("\t")
-
-            readName = splitLine[0]
-            readFlag = int(splitLine[1])
-            #readRefName = splitLine[2]
-            readStart = int(splitLine[3])
-            readMapQual = int(splitLine[4])
-            readCigar = splitLine[5]
-            #readMateRef = splitLine[6]
-            readMateStart = int(splitLine[7])
-            readInsertSize = int(splitLine[8])
-            readSequence = splitLine[9]
-            readQualScores = splitLine[10]
-                        
-            # if this read is properly paired
-            readPaired = readFlag & 0x1
-            properlyPaired = readFlag & 0x2
-            unmapped = readFlag & 0x4
-            mateUnmapped = readFlag & 0x8
-            seqReversed = readFlag & 0x10
-            mateSeqReversed = readFlag & 0x20
-            firstSegment = readFlag & 0x40
-            lastSegment = readFlag & 0x80
-            secondaryAlignment = readFlag & 0x100
-            notPassingQC = readFlag & 0x200
-            pcrDup = readFlag & 0x400
-            supplementaryAlignment = readFlag & 0x800
-            #if (readPaired and properlyPaired and not unmapped and not mateUnmapped and not secondaryAlignment and not notPassingQC and not pcrDup):
-            
-            if (anIsDebug):
-                logging.debug("readPaired=%s, properlyPaired=%s, unmapped=%s, mateUnmapped=%s, seqReversed=%s, mateSeqReversed=%s, firstSeg=%s, lastSeg=%s, secondaryAlignment=%s, notPassingQC=%s, pcrDup=%s, suppAlign=%s", readPaired, properlyPaired, unmapped, mateUnmapped, seqReversed, mateSeqReversed, firstSegment, lastSegment, secondaryAlignment, notPassingQC, pcrDup, supplementaryAlignment)
-            
-            # don't process these reads
-            if (unmapped or notPassingQC or pcrDup):
-                numReadsSkipped += 1
-                continue
-            
-            # skip over secondary mappings for RNA if the param is not set to include them
-            if (anInfoDict["ORIGIN"] == "RNA" and not anRnaIncludeSecondaryAlignmentsFlag and secondaryAlignment):
-                #if (anIsDebug):
-                #    logging.debug("read is secondary alignment but flag to include secondary alignments for RNA is not set %s:%s", readName, readStart)
-                continue;
-            
-            # MapSplice doesn't set the proper pair flag for RNA-Seq reads, so only do this for DNA reads
-            if ((readPaired and properlyPaired) or (not readPaired)):
-                if (anIsDebug):
-                    logging.debug("read properly paired or not paired at all %s", readFlag)
-                    logging.debug("readMapQual=%s, minMapQual=%s", readMapQual, aMinMapQual)
-                
-                # if the mapping quality is good
-                if (readMapQual >= int(aMinMapQual)):
-                    
-                    # if we are processing the RNA and the transcript coordinate 
-                    # should be used instead of the genomic coordinate
-                    if (aTranscriptCoordinate != None):
-                        refsNeededToConsume = aTranscriptCoordinate - readStart + 1
-                    else:
-                        refsNeededToConsume = aGenomicCoordinate - readStart + 1
-                     
-                    refsConsumed = 0
-                    queryIndex = 0
-                    cigarAtIndex = ""
-                    
-                    # create an iterator over the cigar string for this read
-                    cigarIter = i_cigarRegEx.finditer(readCigar)
-                    
-                    # for each cigar operation and cigar number in the cigar string
-                    for regEx in cigarIter:
-                        
-                        cigar = regEx.group()
-                        cigarOp = cigar[-1]
-                        cigarNum = int(cigar[0:len(cigar)-1])
-                        
-                        if (anIsDebug):
-                            logging.debug("cigar=%s, cigarNum=%s, cigarOp=%s", cigar, cigarNum, cigarOp)
-                            logging.debug("begin innerloop: refsConsumed=%s, refsNeededToConsume=%s, queryIndex=%s", refsConsumed, refsNeededToConsume, queryIndex)
-                        
-                        # Op    Description                                        Consumes Query    Consumes Ref
-                        # M     alignment match (can be match or mismatch)                yes            yes
-                        # I     insertion to the ref                                      yes            no
-                        # D     deletion from the ref                                     no             yes
-                        # N     skipped region from the ref                               no             yes
-                        # S     soft-clipping (clipped sequences not present in query)    yes            no
-                        # H     hard-clipping (clipped sequences not present in query)    no             no
-                        # P     padding (silent deletion from padded ref)                 no             no
-                        # =     sequence match                                            yes            yes
-                        # X     sequence mismatch                                         yes            yes
-                        
-                        # these operations don't consume the query or the ref
-                        if (cigarOp == "H" or cigarOp == "P"):
-                            continue
-                        # these operations consume a ref base
-                        elif (cigarOp == "M" or cigarOp == "D" or cigarOp == "N" or cigarOp == "=" or cigarOp == "X"):
-                            # these operations consume both the query and ref
-                            if (cigarOp == "M" or cigarOp == "=" or cigarOp == "X"):
-                                if (refsConsumed + cigarNum >= refsNeededToConsume):
-                                    consumed = (refsNeededToConsume - refsConsumed)
-                                    refsConsumed += consumed
-                                    queryIndex += consumed
-                                    cigarAtIndex = cigarOp
-                                    break
-                                else:
-                                    refsConsumed += cigarNum
-                                    queryIndex += cigarNum
-                                    
-                            # these operations consume just the ref
-                            if (cigarOp == "D" or cigarOp == "N"):
-                                if (refsConsumed + cigarNum >= refsNeededToConsume):
-                                    refsConsumed += (refsNeededToConsume - refsConsumed)
-                                    cigarAtIndex = cigarOp
-                                    break
-                                else:
-                                    refsConsumed += cigarNum
-                                
-                        # these operations consume the query but not the ref
-                        elif (cigarOp == "I" or cigarOp == "S"):
-                            queryIndex += cigarNum
-                        
-                        if (anIsDebug):
-                            logging.debug("end innerloop: refsConsumed=%s, refsNeededToConsume=%s, queryIndex=%s", refsConsumed, refsNeededToConsume, queryIndex)
-                    
-                    if (anIsDebug):
-                        logging.debug("readDone: refsConsumed=%s, refsNeededToConsume=%s, cigarAtIndex=%s, queryIndex=%s", refsConsumed, refsNeededToConsume, cigarAtIndex, queryIndex)
-                    
-                    # the VCF file is 1-based
-                    # the samtools view returns reads that are 1-based.
-                    # pysam is 0-based.
-                    # The SAM, GFF and Wiggle formats are using the 1-based coordinate system.
-                    # The BAM, BED, and PSL formats are using the 0-based coordinate system.
-                       
-                    if (cigarAtIndex == "M" or cigarAtIndex == "=" or cigarAtIndex == "X"):
-                        
-                        queryIndex = queryIndex - 1
-                        base = readSequence[queryIndex]
-                        baseQual = readQualScores[queryIndex]
-                        
-                        # is the transcript fasta strand was on the reverse, then reverse comp the base
-                        if (aTranscriptStrand != None and aTranscriptStrand == "-"):
-                            base = reverse_complement_nucleotide(base)
-                        
-                        if (anIsDebug):
-                            logging.debug("final refsConsumed=%s, refsNeededToConsume=%s, queryIndex=%s, (queryIndex + readStart)=%s", refsConsumed, refsNeededToConsume, queryIndex, str(queryIndex + readStart))
-                            logging.debug("queryIndex=%s, baseAtIndex=%s, finalBaseAtIndex=%s, refsConsumed=%s, refsNeededToConsume=%s", str(queryIndex), readSequence[queryIndex-7:queryIndex] + "[" + readSequence[queryIndex] + "]" + readSequence[queryIndex+1:queryIndex+7], base, str(refsConsumed), str(refsNeededToConsume))
-                        
-                        samtoolsViewBases += base
-                        samtoolsViewQuals += baseQual
-                        
-                        # keep a dictionary of all reads, using the readName as the key
-                        # due to the inclusion of secondary alignments for RNA-Seq, there could be more than 2 reads that are paired
-                        oneReadDict = {}
-                        oneReadDict["name"] = readName
-                        oneReadDict["read"] = line
-                        oneReadDict["base"] = base
-                        oneReadDict["baseQual"] = baseQual
-                        oneReadDict["mapQual"] = readMapQual
-                        oneReadDict["flag"] = readFlag
-                        oneReadDict["insertSize"] = readInsertSize
-                        oneReadDict["sequenceIndex"] = queryIndex
-                        oneReadDict["sequence"] = readSequence
-                        oneReadDict["start"] = readStart
-                        oneReadDict["mateStart"] = readMateStart
-                        #oneReadDict["alignedLength"] = alignedLength
-                        # add it to the dictionary of reads
-                        aReadsDict[readName].append(oneReadDict)
-                    # base at this coordinate for this read doesn't align
-                    else:
-                        numReadsSkipped += 1      
-                # read low mapping quality
-                else:
-                    numReadsSkipped += 1
-            # read not properly paired
-            else:
-                numReadsSkipped += 1
-    
-    if (anIsDebug):
-        logging.debug("numReadsSkipped(unmap, QC, dupe, pairing, MQ, non-align)=%s", numReadsSkipped)
-        logging.debug("samtools view aligned bases: %s", samtoolsViewBases)
-        logging.debug("samtools view aligned quals: %s", samtoolsViewQuals)
-    
-    return aReadsDict
 
 
 def find_non_overlapping_reads(aReadsDict, aMinBaseQual, anIsDebug):
@@ -772,54 +426,6 @@ def write_to_blat_file(aBlatFileHandler, aGenomicChr, aGenomicCoordinate, aChrom
     
     bamFile = pysam.Samfile(bamFilename, 'rb')
     fastaFile = pysam.Fastafile(fastaFilename)
-    
-    '''
-    # if we are processing the RNA and the transcript name and
-    # coordinate should be used instead of the genomic chrom and coordinate
-    transcriptName = None
-    transcriptCoordinate = None
-    transcriptStrand = None
-    if ((aPrefix == "rnaNormal" or aPrefix == "rnaTumor") and (aTranscriptNameTag != None) and (aTranscriptNameTag in anInfoDict)):
-        
-        readsDict = collections.defaultdict(list)
-        # for each transcript isoform that contributed to this call
-        for (transcriptName, transcriptCoordinate, transcriptStrand) in izip(anInfoDict[aTranscriptNameTag], list(map(int, anInfoDict[aTranscriptCoordinateTag])), anInfoDict[aTranscriptStrandTag]):
-            # execute the samtools command
-            reads = execute_samtools_cmd(bamFile, minMapQual, transcriptName, transcriptCoordinate, useChrPrefix, anRnaIncludeSecondaryAlignmentsFlag, aMaxReadDepth, anIsDebug)
-            #reads += get_read_data(aBamFile, anIsDebug)
-        
-            if (anIsDebug):
-                logging.debug("samtools number of reads selected from %s:%s=%s", transcriptName, transcriptCoordinate, len(reads))
-                
-            try:
-                # group all the reads by readName and add the base and baseQual
-                readsDict = group_reads_by_name(reads, readsDict, minMapQual, aGenomicCoordinate, transcriptCoordinate, transcriptStrand, anInfoDict, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug)
-            except:
-                logging.error("Problem with the following genomic coordinate: %s:%s (transcript coordinate %s:%s)", aChr, aGenomicCoordinate, transcriptName, transcriptCoordinate)
-                raise
-            
-            if (anIsDebug):     
-                logging.debug("readsDictLen=%s", len(readsDict.keys()))
-    else:
-    
-        # execute the samtools command
-        reads = execute_samtools_cmd(bamFile, minMapQual, aChr, aGenomicCoordinate, useChrPrefix, False, aMaxReadDepth, anIsDebug)
-        #reads = get_read_data(aBamFile, anIsDebug)
-        
-        if (anIsDebug):
-            logging.debug("samtools number of reads selected from %s:%s=%s", aChr, aGenomicCoordinate, len(reads))
-    
-        try:
-            readsDict = collections.defaultdict(list)
-            # group all the reads by readName and add the base and baseQual
-            readsDict = group_reads_by_name(reads, readsDict, minMapQual, aGenomicCoordinate, transcriptCoordinate, transcriptStrand, anInfoDict, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug)
-        except:
-            logging.error("Problem with the following genomic coordinate: %s:%s (transcript coordinate %s:%s)", aChr, aGenomicCoordinate, transcriptName, transcriptCoordinate)
-            raise
-        
-        if (anIsDebug):
-            logging.debug("readsDictLen=%s", len(readsDict.keys()))
-    '''
        
     # group all of the reads by name
     readsDict = group_reads_by_name(aChromList, aPosList, aTranscriptStrandList, bamFile, fastaFile, bamOrigin, anRnaIncludeSecondaryAlignmentsFlag, aMaxDepth, anIsDebug)
