@@ -6,8 +6,6 @@ import sys                          # system module
 import collections
 import logging
 from itertools import izip
-import time
-import subprocess
 import re
 from math import floor
 import gzip
@@ -60,20 +58,21 @@ def get_write_fileHandler(aFilename):
         return open(aFilename,'w')
 
 
-def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aGTMinDepth, aGTMinPct):
+def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aParamsDict):
     '''
     ' This method assigns the genotype.
     '
-    ' aChrom: The chrom
-    ' aRefList: The list of ref alleles
-    ' anAltList: The list of alt alleles
+    ' aChrom:             The chrom
+    ' aRefList:           The list of ref alleles
+    ' anAltList:          The list of alt alleles
     ' anAlleleDepthsList: The list of depths for all alleles
-    ' aGTMinDepth: The minimum depth needed for the genotyping
-    ' aGTMinPct: The minimum percent needed for the genotyping
+    ' aParamsDict:        Contains the minGTdp and minGTpct
     '''
     singleGenotypeChroms = ["chrY", "Y"]
     mChroms = ["chrM", "chrMT", "M", "MT"]
     refAltList = aRefList + anAltList
+    gtMinDepth = aParamsDict["MinGenotypeDepth"]
+    gtMinPct = aParamsDict["MinGenotypePct"]
     
     # if it is a single chrom, then we can only assign one allele for the genotype
     # if one of the alts has a depth and percent above the mins, then use it, otherwise use the ref
@@ -94,7 +93,7 @@ def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aGTMinDepth, 
             maxAltPct = round(maxAltDepth/float(totalDepth), 2)
             
             # if the max alt depth is large enough
-            if (maxAltDepth >= aGTMinDepth and maxAltPct >= aGTMinPct):
+            if (maxAltDepth >= gtMinDepth and maxAltPct >= gtMinPct):
                 # find the index for the max depth on the original list
                 maxAltIndex = refAltList.index(maxAltBase)
             else:
@@ -124,7 +123,7 @@ def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aGTMinDepth, 
                 # calculate the percent
                 percent = round(depth/float(totalDepth), 2)
                 # if the max alt depth and percent are large enough
-                if (depth >= aGTMinDepth and percent >= aGTMinPct):
+                if (depth >= gtMinDepth and percent >= gtMinPct):
                     # add the index to the list
                     index = refAltList.index(base)
                     tmpGenotypes.append(index)
@@ -164,7 +163,7 @@ def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aGTMinDepth, 
             max2Pct = round(max2Depth/float(totalDepth), 2)
             
             # if the max depth is large enough
-            if (max2Depth >= aGTMinDepth and max2Pct >= aGTMinPct):
+            if (max2Depth >= gtMinDepth and max2Pct >= gtMinPct):
                 # if the two maxes are the same depth, then return the second index
                 if (max1Depth == max2Depth):
                     # get all indices for this depth
@@ -186,7 +185,7 @@ def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aGTMinDepth, 
     return genotypes
 
 
-def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANormalDepths, anRNANormalDepths, aDNATumorDepths, anRNATumorDepths, aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct):
+def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANormalDepths, anRNANormalDepths, aDNATumorDepths, anRNATumorDepths, aParamsDict):
     
     aModTypeList = anInfoDict["MT"]
     aModChangeList = anInfoDict["MC"]
@@ -194,6 +193,11 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
     # make copies of the lists to manipulate
     modTypesList = list(aModTypeList)
     modChangesList = list(aModChangeList)
+    
+    modMinDepth = aParamsDict["MinModDepth"]
+    modMinPct = aParamsDict["MinModPct"]
+    lohMaxDepth = aParamsDict["MaxLohDepth"]
+    lohMaxPct = aParamsDict["MaxLohPct"]
     
     try:
         # for each modification type and change
@@ -227,15 +231,15 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                     sourcePct = round(sourceDepth/float(totalNormalDepth), 2)
                     
                     # if the depth doesn't reach minimum, then remove it and add filters
-                    if (sourceDepth < aModMinDepth or sourcePct < aModMinPct):
+                    if (sourceDepth < modMinDepth or sourcePct < modMinPct):
                         modTypesList.remove(modType)
                         modChangesList.remove(modChange)
                        
                         if (modType == "SOM"):
                             # add the filters
-                            if (sourceDepth < aModMinDepth):
+                            if (sourceDepth < modMinDepth):
                                 anAllFiltersSet.add("dnmnrb")
-                            if (sourcePct < aModMinPct):
+                            if (sourcePct < modMinPct):
                                 anAllFiltersSet.add("dnmnrp")
                             continue;
                 
@@ -246,7 +250,7 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                     else:
                         normalTargetPct = 0.0
                     
-                    if (modType == "GERM" and (normalTargetDepth < aModMinDepth or normalTargetPct < aModMinPct)):
+                    if (modType == "GERM" and (normalTargetDepth < modMinDepth or normalTargetPct < modMinPct)):
                 
                         # get the tumor depth
                         totalTumorDepth = sum(aDNATumorDepths)
@@ -257,7 +261,7 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                             targetPct = round(targetDepth/float(totalTumorDepth), 2)
                              
                             # if the tumor depth is above the minimum, then add it (these were mis-classified by original radia script)
-                            if (targetDepth >= aModMinDepth or targetPct >= aModMinPct):
+                            if (targetDepth >= modMinDepth or targetPct >= modMinPct):
                                 modTypesList.append("SOM")
                                 modChangesList.append(modChange)
                         
@@ -276,7 +280,7 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                     targetDNANormalPct = round(targetDNANormalDepth/float(totalDNANormalDepth), 2)
                      
                     # if the normal depth is above the minimum, then add it (these were mis-classified by original radia script)
-                    if (targetDNANormalDepth >= aModMinDepth or targetDNANormalPct >= aModMinPct):
+                    if (targetDNANormalDepth >= modMinDepth or targetDNANormalPct >= modMinPct):
                         modTypesList.append("GERM")
                         modChangesList.append(modChange)
                     # these are calls with normal DNA reads, but not enough variant reads to be considered as germline, maybe they're edits
@@ -286,7 +290,7 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                 
                 # if this is classified as a normal edit, but the rna normal variant depth is not sufficient, maybe it is a tumor edit
                 targetRNANormalDepth = anRNANormalDepths[targetIndex]
-                if (targetRNANormalDepth < aModMinDepth):
+                if (targetRNANormalDepth < modMinDepth):
             
                     # get the tumor depth
                     totalRNATumorDepth = sum(anRNATumorDepths)
@@ -297,7 +301,7 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                         targetRNATumorPct = round(targetRNATumorDepth/float(totalRNATumorDepth), 2)
                          
                         # if the tumor depth is above the minimum, then add it (these were mis-classified by original radia script)
-                        if (targetRNATumorDepth >= aModMinDepth or targetRNATumorPct >= aModMinPct):
+                        if (targetRNATumorDepth >= modMinDepth or targetRNATumorPct >= modMinPct):
                             modTypesList.append("TUM_EDIT")
                             modChangesList.append(modChange)
                         
@@ -316,7 +320,7 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                     targetDNATumorPct = round(targetDNATumorDepth/float(totalDNATumorDepth), 2)
                      
                     # if the tumor depth is above the minimum, then add it (these were mis-classified by original radia script)
-                    if (targetDNATumorDepth >= aModMinDepth or targetDNATumorPct >= aModMinPct):
+                    if (targetDNATumorDepth >= modMinDepth or targetDNATumorPct >= modMinPct):
                         modTypesList.append("SOM")
                         modChangesList.append(modChange)
                     # these are calls with DNA, but not enough DNA (by default 1 read) to be considered as somatic, maybe they're edits
@@ -346,18 +350,18 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                     sourceTumorPct = round(sourceTumorDepth/float(totalTumorDepths), 2)
                     
                     # if the normal depth is above the minimum, and the tumor depth is below the maximum, then it's valid
-                    if (sourceNormalDepth >= aModMinDepth and sourceNormalPct >= aModMinPct and 
-                        sourceTumorDepth <= anLohMaxDepth and sourceTumorPct <= anLohMaxPct):
+                    if (sourceNormalDepth >= modMinDepth and sourceNormalPct >= modMinPct and
+                        sourceTumorDepth <= lohMaxDepth and sourceTumorPct <= lohMaxPct):
                         validSources.append(sourceNormal)
                     #else:
                     elif (modType == "SOM"):
-                        if (sourceNormalDepth < aModMinDepth):
+                        if (sourceNormalDepth < modMinDepth):
                             anAllFiltersSet.add("dnmnrb")
-                        if (sourceTumorDepth < anLohMaxDepth):
+                        if (sourceTumorDepth < lohMaxDepth):
                             anAllFiltersSet.add("dtmnrb")
-                        if (sourceNormalPct < aModMinPct):
+                        if (sourceNormalPct < modMinPct):
                             anAllFiltersSet.add("dnmnrp")
-                        if (sourceTumorPct < anLohMaxPct):
+                        if (sourceTumorPct < lohMaxPct):
                             anAllFiltersSet.add("dtmnrp")
                   
                 # if there is a valid source, then change the modType      
@@ -623,8 +627,8 @@ def get_mpileup_header(anAddOriginFlag):
         
     # add all the filters
     headerDict["filter"]["blat"] = "##FILTER=<ID=blat,Description=\"The call did not pass the BLAT filter\">\n"
-    headerDict["filter"]["pbias"] = "##FILTER=<ID=pbias,Description=\"A positional bias exists\">\n"
-    headerDict["filter"]["multi"] = "##FILTER=<ID=multi,Description=\"There are multiple ALT alleles across all samples at this position\">\n"
+    headerDict["filter"]["indel"] = "##FILTER=<ID=indel,Description=\"The number of INDELS across all samples is above the maximum\">\n"
+    headerDict["filter"]["multi"] = "##FILTER=<ID=multi,Description=\"There are multiple ALT alleles across all samples\">\n"
     headerDict["filter"]["rnacall"] = "##FILTER=<ID=rnacall,Description=\"This is a dummy filter for a call that originated in the RNA being filtered by the DNA\">\n"
     headerDict["filter"]["dnacall"] = "##FILTER=<ID=dnacall,Description=\"This is a dummy filter for a call that originated in the DNA being filtered by the RNA\">\n"
     
@@ -678,10 +682,15 @@ def get_mpileup_header(anAddOriginFlag):
     headerDict["filter"]["rnmxerr"] = "##FILTER=<ID=rnmxerr,Description=\"RNA Normal total ALT percentage attributed to error (sequencing, contamination, etc.) is greater than the maximum\">\n"
     headerDict["filter"]["rtmxerr"] = "##FILTER=<ID=rtmxerr,Description=\"RNA Tumor total ALT percentage attributed to error (sequencing, contamination, etc.) is greater than the maximum\">\n"
     
-    headerDict["filter"]["dnsbias"] = "##FILTER=<ID=dnsbias,Description=\"Strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
-    headerDict["filter"]["dtsbias"] = "##FILTER=<ID=dtsbias,Description=\"Strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
-    headerDict["filter"]["rnsbias"] = "##FILTER=<ID=rnsbias,Description=\"Strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
-    headerDict["filter"]["rtsbias"] = "##FILTER=<ID=rtsbias,Description=\"Strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
+    headerDict["filter"]["dnsbias"] = "##FILTER=<ID=dnsbias,Description=\"DNA Normal strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
+    headerDict["filter"]["dtsbias"] = "##FILTER=<ID=dtsbias,Description=\"DNA Tumor strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
+    headerDict["filter"]["rnsbias"] = "##FILTER=<ID=rnsbias,Description=\"RNA Normal strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
+    headerDict["filter"]["rtsbias"] = "##FILTER=<ID=rtsbias,Description=\"RNA Tumor strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
+
+    headerDict["filter"]["dnmxindel"] = "##FILTER=<ID=dnmxindel,Description=\"DNA Normal INDEL count is above the maximum\">\n"
+    headerDict["filter"]["dtmxindel"] = "##FILTER=<ID=dtmxindel,Description=\"DNA Tumor INDEL count is above the maximum\">\n"
+    headerDict["filter"]["rnmxindel"] = "##FILTER=<ID=rnmxindel,Description=\"RNA Normal INDEL count is above the maximum\">\n"
+    headerDict["filter"]["rtmxindel"] = "##FILTER=<ID=rtmxindel,Description=\"RNA Tumor INDEL count is above the maximum\">\n"
 
     return headerDict
 
@@ -793,7 +802,7 @@ def output_header(aHeaderDict, aSortFlag, anOutputFileHandler):
 
 
 
-def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOutputFilename, aFilterUsingRNAFlag, anAddOriginFlag, aCmdLineParams, aDnaNormParamsDict, aDnaTumParamsDict, anRnaNormParamsDict, anRnaTumParamsDict, aGTMinDepth, aGTMinPct, aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct, anIsDebug):
+def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOutputFilename, aFilterUsingRNAFlag, anAddOriginFlag, aCmdLineParams, aDnaNormParamsDict, aDnaTumParamsDict, anRnaNormParamsDict, anRnaTumParamsDict, aParamsDict, anIsDebug):
     '''
     ' This function filters based on the mpileup read support.
     '
@@ -809,10 +818,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
     ' aDnaTumParamsDict:       The parameters for the tumor DNA
     ' anRnaNormParamsDict:     The parameters for the normal RNA
     ' anRnaTumParamsDict:      The parameters for the tumor RNA
-    ' aGTMinDepth:             The minimum depth needed for the genotype
-    ' aGTMinPct:               The minimum percent needed for the genotype
-    ' aModMinDepth:            The minimum depth needed to make a call
-    ' aModMinPct:              The minimum percent needed to make a call
+    ' aParamsDict:             General parameters
     ' anIsDebug:               A flag for outputting debug messages to STDERR
     '''
     
@@ -1008,16 +1014,16 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         # fix the original genotypes
         genotypeIndex = event_formatList.index("GT")
         if (haveDnaNormData):
-            event_dnaNormalDict["GT"] = fix_genotypes(event_chr, event_refList, event_altList, map(int, event_dnaNormalDict["AD"]), aGTMinDepth, aGTMinPct)
+            event_dnaNormalDict["GT"] = fix_genotypes(event_chr, event_refList, event_altList, map(int, event_dnaNormalDict["AD"]), aParamsDict)
             event_dnaNormalList[genotypeIndex] = "/".join(map(str, event_dnaNormalDict["GT"]))
         if (haveRnaNormData):
-            event_rnaNormalDict["GT"] = fix_genotypes(event_chr, event_refList, event_altList, map(int, event_rnaNormalDict["AD"]), aGTMinDepth, aGTMinPct)
+            event_rnaNormalDict["GT"] = fix_genotypes(event_chr, event_refList, event_altList, map(int, event_rnaNormalDict["AD"]), aParamsDict)
             event_rnaNormalList[genotypeIndex] = "/".join(map(str, event_rnaNormalDict["GT"]))
         if (haveDnaTumData):
-            event_dnaTumorDict["GT"] = fix_genotypes(event_chr, event_refList, event_altList, map(int, event_dnaTumorDict["AD"]), aGTMinDepth, aGTMinPct)
+            event_dnaTumorDict["GT"] = fix_genotypes(event_chr, event_refList, event_altList, map(int, event_dnaTumorDict["AD"]), aParamsDict)
             event_dnaTumorList[genotypeIndex] = "/".join(map(str, event_dnaTumorDict["GT"]))
         if (haveRnaTumData):
-            event_rnaTumorDict["GT"] = fix_genotypes(event_chr, event_refList, event_altList, map(int, event_rnaTumorDict["AD"]), aGTMinDepth, aGTMinPct)
+            event_rnaTumorDict["GT"] = fix_genotypes(event_chr, event_refList, event_altList, map(int, event_rnaTumorDict["AD"]), aParamsDict)
             event_rnaTumorList[genotypeIndex] = "/".join(map(str, event_rnaTumorDict["GT"]))
         
         # combine the refs and alts in one list
@@ -1026,7 +1032,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         allFiltersSet = set()
         
         # get rid of bad mod types that don't meet the minimum requirements
-        (event_infoDict, allFiltersSet) = pre_filter_mod_types(refPlusAltList, allFiltersSet, event_infoDict, map(int, event_dnaNormalDict["AD"]), map(int, event_rnaNormalDict["AD"]), map(int, event_dnaTumorDict["AD"]), map(int, event_rnaTumorDict["AD"]), aModMinDepth, aModMinPct, anLohMaxDepth, anLohMaxPct)
+        (event_infoDict, allFiltersSet) = pre_filter_mod_types(refPlusAltList, allFiltersSet, event_infoDict, map(int, event_dnaNormalDict["AD"]), map(int, event_rnaNormalDict["AD"]), map(int, event_dnaTumorDict["AD"]), map(int, event_rnaTumorDict["AD"]), aParamsDict)
         if (anIsDebug):
             logging.debug("after pre_filter_mod_types(): modTypes=%s, modChanges=%s", list(event_infoDict["MT"]), list(event_infoDict["MC"]))
             
@@ -1055,7 +1061,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     isValidMod = False
                     filterSet.add("dnmntb")
                         
-                elif (int(event_dnaNormalDict["DP"][0]) > aDnaNormParamsDict["MaxTotalNumBases"]):
+                elif (int(event_dnaNormalDict["DP"][0]) >= aDnaNormParamsDict["MaxTotalNumBases"]):
                     isValidMod = False
                     filterSet.add("dnmxtb")
                     
@@ -1089,6 +1095,11 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     isValidMod = False
                     filterSet.add("dnmxmq0")
                 
+                # check to make sure the number of normal DNA sample INDELs is below the maximum
+                if ((int(event_dnaNormalDict["INS"][0]) + int(event_dnaNormalDict["DEL"][0])) >= aDnaNormParamsDict["MaxIndels"]):
+                    isValidMod = False
+                    filterSet.add("dnmxindel")
+                
                 # check to make sure the normal variant reads don't have a strand bias
                 if (filterByStrandBias(aDnaNormParamsDict, event_dnaNormalDict, sourceIndex, targetIndex)):
                     isValidMod = False
@@ -1108,7 +1119,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         if (int(event_rnaNormalDict["DP"][0]) < anRnaNormParamsDict["MinTotalNumBases"]):
                             isValidMod = False
                             filterSet.add("rnmntb")
-                        elif (int(event_rnaNormalDict["DP"][0]) > anRnaNormParamsDict["MaxTotalNumBases"]):
+                        elif (int(event_rnaNormalDict["DP"][0]) >= anRnaNormParamsDict["MaxTotalNumBases"]):
                             isValidMod = False
                             filterSet.add("rnmxtb")
 
@@ -1142,6 +1153,11 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                             isValidMod = False
                             filterSet.add("rnmxmq0")
                         
+                        # check to make sure the number of normal RNA sample INDELs is below the maximum
+                        if ((int(event_rnaNormalDict["INS"][0]) + int(event_rnaNormalDict["DEL"][0])) >= anRnaNormParamsDict["MaxIndels"]):
+                            isValidMod = False
+                            filterSet.add("rnmxindel")
+                        
                         # check to make sure the normal variant reads don't have a strand bias
                         if (filterByStrandBias(anRnaNormParamsDict, event_rnaNormalDict, sourceIndex, targetIndex)):
                             isValidMod = False
@@ -1172,7 +1188,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                             if (int(event_dnaNormalDict["DP"][0]) < aDnaNormParamsDict["MinTotalNumBases"]):
                                 isValidMod = False
                                 filterSet.add("dnmntb")
-                            elif (int(event_dnaNormalDict["DP"][0]) > aDnaNormParamsDict["MaxTotalNumBases"]):
+                            elif (int(event_dnaNormalDict["DP"][0]) >= aDnaNormParamsDict["MaxTotalNumBases"]):
                                 isValidMod = False
                                 filterSet.add("dnmxtb")
                             # we want to make sure the normal DNA sample error percentage is below the max
@@ -1189,7 +1205,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     if (int(event_rnaNormalDict["DP"][0]) < anRnaNormParamsDict["MinTotalNumBases"]):
                         isValidMod = False
                         filterSet.add("rnmntb")
-                    elif (int(event_rnaNormalDict["DP"][0]) > anRnaNormParamsDict["MaxTotalNumBases"]):
+                    elif (int(event_rnaNormalDict["DP"][0]) >= anRnaNormParamsDict["MaxTotalNumBases"]):
                         isValidMod = False
                         filterSet.add("rnmxtb")
                     
@@ -1223,6 +1239,11 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         isValidMod = False
                         filterSet.add("rnmxmq0")
                         
+                    # check to make sure the number of normal RNA sample INDELs is below the maximum
+                    if ((int(event_rnaNormalDict["INS"][0]) + int(event_rnaNormalDict["DEL"][0])) >= anRnaNormParamsDict["MaxIndels"]):
+                        isValidMod = False
+                        filterSet.add("rnmxindel")
+                    
                     # check to make sure the normal variant reads don't have a strand bias
                     if (filterByStrandBias(anRnaNormParamsDict, event_rnaNormalDict, sourceIndex, targetIndex)):
                         isValidMod = False
@@ -1246,7 +1267,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                 if (int(event_dnaTumorDict["DP"][0]) < aDnaTumParamsDict["MinTotalNumBases"]):
                     isValidMod = False
                     filterSet.add("dtmntb")
-                elif (int(event_dnaTumorDict["DP"][0]) > aDnaTumParamsDict["MaxTotalNumBases"]):
+                elif (int(event_dnaTumorDict["DP"][0]) >= aDnaTumParamsDict["MaxTotalNumBases"]):
                     isValidMod = False
                     filterSet.add("dtmxtb")
 
@@ -1279,6 +1300,11 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     isValidMod = False
                     filterSet.add("dtmxmq0")
                 
+                # check to make sure the number of tumor DNA sample INDELs is below the maximum
+                if ((int(event_dnaTumorDict["INS"][0]) + int(event_dnaTumorDict["DEL"][0])) >= aDnaTumParamsDict["MaxIndels"]):
+                    isValidMod = False
+                    filterSet.add("dtmxindel")
+                
                 # check to make sure the tumor variant reads don't have a strand bias
                 if (filterByStrandBias(aDnaTumParamsDict, event_dnaTumorDict, sourceIndex, targetIndex)):
                     isValidMod = False
@@ -1295,7 +1321,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     if (int(event_dnaNormalDict["DP"][0]) < aDnaNormParamsDict["MinTotalNumBases"]):
                         isValidMod = False
                         filterSet.add("dnmntb")
-                    elif (int(event_dnaNormalDict["DP"][0]) > aDnaNormParamsDict["MaxTotalNumBases"]):
+                    elif (int(event_dnaNormalDict["DP"][0]) >= aDnaNormParamsDict["MaxTotalNumBases"]):
                         isValidMod = False
                         filterSet.add("dnmxtb")
                     # we want to make sure the normal DNA sample error percentage is below the max
@@ -1323,7 +1349,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         if (int(event_rnaTumorDict["DP"][0]) < anRnaTumParamsDict["MinTotalNumBases"]):
                             isValidMod = False
                             filterSet.add("rtmntb")
-                        elif (int(event_rnaTumorDict["DP"][0]) > anRnaTumParamsDict["MaxTotalNumBases"]):
+                        elif (int(event_rnaTumorDict["DP"][0]) >= anRnaTumParamsDict["MaxTotalNumBases"]):
                             isValidMod = False
                             filterSet.add("rtmxtb")
                         
@@ -1357,6 +1383,11 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                             isValidMod = False
                             filterSet.add("rtmxmq0")
                         
+                        # check to make sure the number of tumor RNA sample INDELs is below the maximum
+                        if ((int(event_rnaTumorDict["INS"][0]) + int(event_rnaTumorDict["DEL"][0])) >= anRnaTumParamsDict["MaxIndels"]):
+                            isValidMod = False
+                            filterSet.add("rtmxindel")
+                        
                         # check to make sure the tumor variant reads don't have a strand bias
                         if (filterByStrandBias(anRnaTumParamsDict, event_rnaTumorDict, sourceIndex, targetIndex)):
                             isValidMod = False
@@ -1388,7 +1419,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                             if (int(event_dnaNormalDict["DP"][0]) < aDnaNormParamsDict["MinTotalNumBases"]):
                                 isValidMod = False
                                 filterSet.add("dnmntb")
-                            elif (int(event_dnaNormalDict["DP"][0]) > aDnaNormParamsDict["MaxTotalNumBases"]):
+                            elif (int(event_dnaNormalDict["DP"][0]) >= aDnaNormParamsDict["MaxTotalNumBases"]):
                                 isValidMod = False
                                 filterSet.add("dnmxtb")
                             # we want to make sure the normal DNA sample error percentage is below the max
@@ -1406,7 +1437,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                             if (int(event_dnaTumorDict["DP"][0]) < aDnaTumParamsDict["MinTotalNumBases"]):
                                 isValidMod = False
                                 filterSet.add("dtmntb")
-                            elif (int(event_dnaTumorDict["DP"][0]) > aDnaTumParamsDict["MaxTotalNumBases"]):
+                            elif (int(event_dnaTumorDict["DP"][0]) >= aDnaTumParamsDict["MaxTotalNumBases"]):
                                 isValidMod = False
                                 filterSet.add("dtmxtb")
                             # we want to make sure the tumor DNA sample error percentage is below the max
@@ -1423,7 +1454,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     if (int(event_rnaTumorDict["DP"][0]) < anRnaTumParamsDict["MinTotalNumBases"]):
                         isValidMod = False
                         filterSet.add("rtmntb")
-                    elif (int(event_rnaTumorDict["DP"][0]) > anRnaTumParamsDict["MaxTotalNumBases"]):
+                    elif (int(event_rnaTumorDict["DP"][0]) >= anRnaTumParamsDict["MaxTotalNumBases"]):
                         isValidMod = False
                         filterSet.add("rtmxtb")
                         
@@ -1457,6 +1488,11 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         isValidMod = False
                         filterSet.add("rtmxmq0")
                     
+                    # check to make sure the number of tumor RNA sample INDELs is below the maximum
+                    if ((int(event_rnaTumorDict["INS"][0]) + int(event_rnaTumorDict["DEL"][0])) >= anRnaTumParamsDict["MaxIndels"]):
+                        isValidMod = False
+                        filterSet.add("rtmxindel")
+                    
                     # check to make sure the tumor variant reads don't have a strand bias
                     if (filterByStrandBias(anRnaTumParamsDict, event_rnaTumorDict, sourceIndex, targetIndex)):
                         isValidMod = False
@@ -1471,6 +1507,13 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                 else:
                     isValidMod = False
                     filterSet.add("rnacall")
+            
+            # filters for all mod types start here
+            
+            # check to make sure the number of INDELs across all samples is below the maximum
+            if ((int(event_infoDict["INS"][0]) + int(event_infoDict["DEL"][0])) >= aParamsDict["MaxIndels"]):
+                isValidMod = False
+                filterSet.add("indel")
                 
             if (anIsDebug):
                 logging.debug("modType=%s, modChange=%s, isValidMod=%s, filters=%s", modType, modChange, isValidMod, filterSet)
@@ -1565,8 +1608,8 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         else:
             print >> sys.stdout, "\t".join(vcfOutputList)
                 
-    logging.info("Chrom %s and Id %s: %s events passed out of %s total events", aChrom, anId, includedEvents, totalEvents)
-    logging.info("\t".join([anId, aChrom, str(somEventsPassing), str(somEventsWithTumorRna), str(somEventsWithTumorAltRna)]))
+    logging.info("filterByMpileupSupport.py Chrom %s and Id %s: %s events passed out of %s total events", aChrom, anId, includedEvents, totalEvents)
+    #logging.info("\t".join([anId, aChrom, str(somEventsPassing), str(somEventsWithTumorRna), str(somEventsWithTumorAltRna)]))
     
     # close the files 
     if (anOutputFilename != None):
@@ -1578,7 +1621,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
 
 def main():
     
-    # python filterByReadSupportVCF.py TCGA-AB-2995 12 ../data/test/TCGA-AB-2995.vcf --log=DEBUG
+    # python filterByReadSupport.py TCGA-AB-2995 12 ../data/test/TCGA-AB-2995.vcf --log=DEBUG
     
     # create the usage statement
     usage = "usage: python %prog id chrom vcfFile [Options]"
@@ -1600,9 +1643,10 @@ def main():
     i_cmdLineParser.add_option("", "--modMinPct", type="float", default=float(0.10), dest="modMinPct", metavar="MOD_MIN_PCT", help="the minimum percentage of reads required for a modification, %default by default")
     i_cmdLineParser.add_option("", "--lohMaxDepth", type="int", default=int(2), dest="lohMaxDepth", metavar="LOH_MAX_DP", help="the maximum number of bases allowed in the tumor DNA for an LOH, %default by default")
     i_cmdLineParser.add_option("", "--lohMaxPct", type="float", default=float(0.02), dest="lohMaxPct", metavar="LOH_MAX_PCT", help="the maximum percentage of reads in the tumor DNA for an LOH, %default by default")
+    i_cmdLineParser.add_option("", "--maxIndels", type="int", default=int(3), dest="maxIndels", metavar="MAX_INDELS", help="the maximum number of INDELS allowed at this position across all samples, %default by default")
     
     i_cmdLineParser.add_option("", "--dnaNormalMinTotalBases", type="int", default=int(10), dest="dnaNormalMinTotalNumBases", metavar="DNA_NOR_MIN_TOTAL_BASES", help="the minimum number of overall normal DNA reads covering a position, %default by default")
-    i_cmdLineParser.add_option("", "--dnaNormalMaxTotalBases", type="int", default=int(20000), dest="dnaNormalMaxTotalNumBases", metavar="DNA_NOR_MAX_TOTAL_BASES", help="the maximum number of overall normal DNA reads covering a position, %default by default")
+    i_cmdLineParser.add_option("", "--dnaNormalMaxTotalBases", type="int", default=int(8000), dest="dnaNormalMaxTotalNumBases", metavar="DNA_NOR_MAX_TOTAL_BASES", help="the maximum number of overall normal DNA reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMinAltBases", type="int", default=int(4), dest="dnaNormalMinAltNumBases", metavar="DNA_NOR_MIN_ALT_BASES", help="the minimum number of alternative normal DNA reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMinAltPct", type="float", default=float(0.10), dest="dnaNormalMinAltPct", metavar="DNA_NOR_MIN_ALT_PCT", help="the minimum percentage of alternative normal DNA reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMaxErrPct", type="float", default=float(0.01), dest="dnaNormalMaxErrPct", metavar="DNA_NOR_MAX_ERR_PCT", help="the maximum percentage of alternative normal DNA reads allowed that support a variant, %default by default")
@@ -1613,9 +1657,10 @@ def main():
     i_cmdLineParser.add_option("", "--dnaNormalMinAltAvgMapQual", type="int", default=int(15), dest="dnaNormalMinAltAvgMapQual", metavar="DNA_NOR_MIN_ALT_AVG_MQ", help="the minimum average mapping quality for the ALT reads, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMinAltMapQual", type="int", default=int(20), dest="dnaNormalMinAltMapQual", metavar="DNA_NOR_MIN_ALT_MQ", help="at least 1 ALT read needs this minimum mapping quality, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMaxAltMapQualZeroPct", type="float", default=float(0.50), dest="dnaNormalMaxAltMapQualZeroPct", metavar="DNA_NOR_MAX_ALT_MQ0_PCT", help="the maximum percentage of mapping quality zero reads for the ALT reads, %default by default")
+    i_cmdLineParser.add_option("", "--dnaNormalMaxIndels", type="int", default=int(3), dest="dnaNormalMaxIndels", metavar="DNA_NOR_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
     
     i_cmdLineParser.add_option("", "--dnaTumorMinTotalBases", type="int", default=int(10), dest="dnaTumorMinTotalNumBases", metavar="DNA_TUM_MIN_TOTAL_BASES", help="the minimum number of overall tumor DNA reads covering a position, %default by default")
-    i_cmdLineParser.add_option("", "--dnaTumorMaxTotalBases", type="int", default=int(20000), dest="dnaTumorMaxTotalNumBases", metavar="DNA_TUM_MAX_TOTAL_BASES", help="the maximum number of overall tumor DNA reads covering a position, %default by default")
+    i_cmdLineParser.add_option("", "--dnaTumorMaxTotalBases", type="int", default=int(8000), dest="dnaTumorMaxTotalNumBases", metavar="DNA_TUM_MAX_TOTAL_BASES", help="the maximum number of overall tumor DNA reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMinAltBases", type="int", default=int(4), dest="dnaTumorMinAltNumBases", metavar="DNA_TUM_MIN_ALT_BASES", help="the minimum number of alternative tumor DNA reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMinAltPct", type="float", default=float(0.10), dest="dnaTumorMinAltPct", metavar="DNA_TUM_MIN_ALT_PCT", help="the minimum percentage of alternative tumor DNA reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMaxErrPct", type="float", default=float(0.01), dest="dnaTumorMaxErrPct", metavar="DNA_TUM_MAX_ERR_PCT", help="the maximum percentage of alternative tumor DNA reads allowed that support a variant in the tumor RNA, %default by default")
@@ -1626,9 +1671,10 @@ def main():
     i_cmdLineParser.add_option("", "--dnaTumorMinAltAvgMapQual", type="int", default=int(15), dest="dnaTumorMinAltAvgMapQual", metavar="DNA_TUM_MIN_ALT_AVG_MQ", help="the minimum average mapping quality for the ALT reads, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMinAltMapQual", type="int", default=int(20), dest="dnaTumorMinAltMapQual", metavar="DNA_TUM_MIN_ALT_MQ", help="at least 1 ALT read needs this minimum mapping quality, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMaxAltMapQualZeroPct", type="float", default=float(0.50), dest="dnaTumorMaxAltMapQualZeroPct", metavar="DNA_TUM_MAX_ALT_MQ0_PCT", help="the maximum percentage of mapping quality zero reads for the ALT reads, %default by default")
+    i_cmdLineParser.add_option("", "--dnaTumorMaxIndels", type="int", default=int(3), dest="dnaTumorMaxIndels", metavar="DNA_TUM_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
     
     i_cmdLineParser.add_option("", "--rnaNormalMinTotalBases", type="int", default=int(10), dest="rnaNormalMinTotalNumBases", metavar="RNA_NOR_MIN_TOTAL_BASES", help="the minimum number of overall normal RNA-Seq reads covering a position, %default by default")
-    i_cmdLineParser.add_option("", "--rnaNormalMaxTotalBases", type="int", default=int(20000), dest="rnaNormalMaxTotalNumBases", metavar="RNA_NOR_MAX_TOTAL_BASES", help="the maximum number of overall normal RNA-Seq reads covering a position, %default by default")
+    i_cmdLineParser.add_option("", "--rnaNormalMaxTotalBases", type="int", default=int(8000), dest="rnaNormalMaxTotalNumBases", metavar="RNA_NOR_MAX_TOTAL_BASES", help="the maximum number of overall normal RNA-Seq reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMinAltBases", type="int", default=int(4), dest="rnaNormalMinAltNumBases", metavar="RNA_NOR_MIN_ALT_BASES", help="the minimum number of alternative normal RNA-Seq reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMinAltPct", type="float", default=float(0.10), dest="rnaNormalMinAltPct", metavar="RNA_NOR_MIN_ALT_PCT", help="the minimum percentage of alternative normal RNA-Seq reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMaxErrPct", type="float", default=float(0.01), dest="rnaNormalMaxErrPct", metavar="RNA_NOR_MAX_ERR_PCT", help="the maximum percentage of alternative normal RNA reads allowed that support a variant in the tumor, %default by default")
@@ -1639,9 +1685,10 @@ def main():
     i_cmdLineParser.add_option("", "--rnaNormalMinAltAvgMapQual", type="int", default=int(15), dest="rnaNormalMinAltAvgMapQual", metavar="RNA_NOR_MIN_ALT_AVG_MQ", help="the minimum average mapping quality for the ALT reads, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMinAltMapQual", type="int", default=int(20), dest="rnaNormalMinAltMapQual", metavar="RNA_NOR_MIN_ALT_MQ", help="at least 1 ALT read needs this minimum mapping quality, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMaxAltMapQualZeroPct", type="float", default=float(0.50), dest="rnaNormalMaxAltMapQualZeroPct", metavar="RNA_NOR_MAX_ALT_MQ0_PCT", help="the maximum percentage of mapping quality zero reads for the ALT reads, %default by default")
+    i_cmdLineParser.add_option("", "--rnaNormalMaxIndels", type="int", default=int(3), dest="rnaNormalMaxIndels", metavar="RNA_NOR_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
     
     i_cmdLineParser.add_option("", "--rnaTumorMinTotalBases", type="int", default=int(10), dest="rnaTumorMinTotalNumBases", metavar="RNA_TUM_MIN_TOTAL_BASES", help="the minimum number of overall tumor RNA-Seq reads covering a position, %default by default")
-    i_cmdLineParser.add_option("", "--rnaTumorMaxTotalBases", type="int", default=int(20000), dest="rnaTumorMaxTotalNumBases", metavar="RNA_TUM_MAX_TOTAL_BASES", help="the maximum number of overall tumor RNA-Seq reads covering a position, %default by default")
+    i_cmdLineParser.add_option("", "--rnaTumorMaxTotalBases", type="int", default=int(8000), dest="rnaTumorMaxTotalNumBases", metavar="RNA_TUM_MAX_TOTAL_BASES", help="the maximum number of overall tumor RNA-Seq reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaTumorMinAltBases", type="int", default=int(4), dest="rnaTumorMinAltNumBases", metavar="RNA_TUM_MIN_ALT_BASES", help="the minimum number of alternative tumor RNA-Seq reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaTumorMinAltPct", type="float", default=float(0.10), dest="rnaTumorMinAltPct", metavar="RNA_TUM_MIN_ALT_PCT", help="the minimum percentage of alternative tumor RNA-Seq reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaTumorMaxErrPct", type="float", default=float(0.01), dest="rnaTumorMaxErrPct", metavar="RNA_TUM_MAX_ERR_PCT", help="the maximum percentage of alternative tumor RNA reads allowed that support a variant in a future data type, %default by default")
@@ -1652,6 +1699,7 @@ def main():
     i_cmdLineParser.add_option("", "--rnaTumorMinAltAvgMapQual", type="int", default=int(15), dest="rnaTumorMinAltAvgMapQual", metavar="RNA_TUM_MIN_ALT_AVG_MQ", help="the minimum average mapping quality for the ALT reads, %default by default")
     i_cmdLineParser.add_option("", "--rnaTumorMinAltMapQual", type="int", default=int(20), dest="rnaTumorMinAltMapQual", metavar="RNA_TUM_MIN_ALT_MQ", help="at least 1 ALT read needs this minimum mapping quality, %default by default")
     i_cmdLineParser.add_option("", "--rnaTumorMaxAltMapQualZeroPct", type="float", default=float(0.50), dest="rnaTumorMaxAltMapQualZeroPct", metavar="RNA_TUM_MAX_ALT_MQ0_PCT", help="the maximum percentage of mapping quality zero reads for the ALT reads, %default by default")
+    i_cmdLineParser.add_option("", "--rnaTumorMaxIndels", type="int", default=int(3), dest="rnaTumorMaxIndels", metavar="RNA_TUM_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
     
     # range(inclusiveFrom, exclusiveTo, by)
     i_possibleArgLengths = range(3,58,1)
@@ -1674,14 +1722,17 @@ def main():
     i_addOrigin = i_cmdLineOptions.addOrigin
     i_filterUsingRNA = i_cmdLineOptions.filterUsingRNA
     i_filterUsingDNA = i_cmdLineOptions.filterUsingDNA
-    i_genotypeMinDepth = i_cmdLineOptions.genotypeMinDepth
-    i_genotypeMinPct = i_cmdLineOptions.genotypeMinPct
-    i_modMinDepth = i_cmdLineOptions.modMinDepth
-    i_modMinPct = i_cmdLineOptions.modMinPct
-    #i_maxAltDepth = i_cmdLineOptions.maxAltDepth
-    #i_maxAltPct = i_cmdLineOptions.maxAltPct
-    i_lohMaxDepth = i_cmdLineOptions.lohMaxDepth
-    i_lohMaxPct = i_cmdLineOptions.lohMaxPct
+    
+    i_paramsDict = {}
+    i_paramsDict["MinGenotypeDepth"] = i_cmdLineOptions.genotypeMinDepth
+    i_paramsDict["MinGenotypePct"] = i_cmdLineOptions.genotypeMinPct
+    i_paramsDict["MinModDepth"] = i_cmdLineOptions.modMinDepth
+    i_paramsDict["MinModPct"] = i_cmdLineOptions.modMinPct
+    #i_paramsDict["MaxModDepth"] = i_cmdLineOptions.modMaxDepth
+    #i_paramsDict["MaxModPct"] = i_cmdLineOptions.modMaxPct
+    i_paramsDict["MaxLohDepth"] = i_cmdLineOptions.lohMaxDepth
+    i_paramsDict["MaxLohPct"] = i_cmdLineOptions.lohMaxPct
+    i_paramsDict["MaxIndels"] = i_cmdLineOptions.maxIndels
     
     i_dnaNormParams = {}
     i_dnaNormParams["MinTotalNumBases"] = i_cmdLineOptions.dnaNormalMinTotalNumBases
@@ -1696,6 +1747,7 @@ def main():
     i_dnaNormParams["MinAltAvgMapQual"] = i_cmdLineOptions.dnaNormalMinAltAvgMapQual
     i_dnaNormParams["MinAltMapQual"] = i_cmdLineOptions.dnaNormalMinAltMapQual
     i_dnaNormParams["MaxAltMapQualZeroPct"] = i_cmdLineOptions.dnaNormalMaxAltMapQualZeroPct
+    i_dnaNormParams["MaxIndels"] = i_cmdLineOptions.dnaNormalMaxIndels
     
     i_dnaTumParams = {}
     i_dnaTumParams["MinTotalNumBases"] = i_cmdLineOptions.dnaTumorMinTotalNumBases
@@ -1710,6 +1762,7 @@ def main():
     i_dnaTumParams["MinAltAvgMapQual"] = i_cmdLineOptions.dnaTumorMinAltAvgMapQual
     i_dnaTumParams["MinAltMapQual"] = i_cmdLineOptions.dnaTumorMinAltMapQual
     i_dnaTumParams["MaxAltMapQualZeroPct"] = i_cmdLineOptions.dnaTumorMaxAltMapQualZeroPct
+    i_dnaTumParams["MaxIndels"] = i_cmdLineOptions.dnaTumorMaxIndels
     
     i_rnaNormParams = {}
     i_rnaNormParams["MinTotalNumBases"] = i_cmdLineOptions.rnaNormalMinTotalNumBases
@@ -1724,6 +1777,7 @@ def main():
     i_rnaNormParams["MinAltAvgMapQual"] = i_cmdLineOptions.rnaNormalMinAltAvgMapQual
     i_rnaNormParams["MinAltMapQual"] = i_cmdLineOptions.rnaNormalMinAltMapQual
     i_rnaNormParams["MaxAltMapQualZeroPct"] = i_cmdLineOptions.rnaNormalMaxAltMapQualZeroPct
+    i_rnaNormParams["MaxIndels"] = i_cmdLineOptions.rnaNormalMaxIndels
     
     i_rnaTumParams = {}
     i_rnaTumParams["MinTotalNumBases"] = i_cmdLineOptions.rnaTumorMinTotalNumBases
@@ -1738,6 +1792,7 @@ def main():
     i_rnaTumParams["MinAltAvgMapQual"] = i_cmdLineOptions.rnaTumorMinAltAvgMapQual
     i_rnaTumParams["MinAltMapQual"] = i_cmdLineOptions.rnaTumorMinAltMapQual
     i_rnaTumParams["MaxAltMapQualZeroPct"] = i_cmdLineOptions.rnaTumorMaxAltMapQualZeroPct
+    i_rnaTumParams["MaxIndels"] = i_cmdLineOptions.rnaTumorMaxIndels
     
     # try to get any optional parameters with no defaults    
     i_readFilenameList = [i_vcfFilename]
@@ -1790,12 +1845,13 @@ def main():
         logging.debug("filterUsingDNA=%s" % i_filterUsingDNA)
         logging.debug("addOrigin=%s" % i_addOrigin)
         
-        logging.debug("genotypeMinDepth=%s" % i_genotypeMinDepth)
-        logging.debug("genotypeMinPct=%s" % i_genotypeMinPct)
-        logging.debug("modMinDepth=%s" % i_modMinDepth)
-        logging.debug("modMinPct=%s" % i_modMinPct)
-        logging.debug("lohMaxDepth=%s" % i_lohMaxDepth)
-        logging.debug("lohMaxPct=%s" % i_lohMaxPct)
+        logging.debug("genotypeMinDepth=%s" % i_paramsDict["MinGentypeDepth"])
+        logging.debug("genotypeMinPct=%s" % i_paramsDict["MinGenotypePct"])
+        logging.debug("modMinDepth=%s" % i_paramsDict["MinModDepth"])
+        logging.debug("modMinPct=%s" % i_paramsDict["MinModPct"])
+        logging.debug("lohMaxDepth=%s" % i_paramsDict["MaxLohDepth"])
+        logging.debug("lohMaxPct=%s" % i_paramsDict["MaxLohPct"])
+        logging.debug("maxIndels=%s" % i_paramsDict["MaxIndels"])
         
         logging.debug("dna normal minTotalBases: %s" % i_dnaNormParams["MinTotalNumBases"])
         logging.debug("dna normal maxTotalBases: %s" % i_dnaNormParams["MaxTotalNumBases"])
@@ -1809,6 +1865,7 @@ def main():
         logging.debug("dna normal minAltAvgMapQual: %s" % i_dnaNormParams["MinAltAvgMapQual"])
         logging.debug("dna normal minAltMapQual: %s" % i_dnaNormParams["MinAltMapQual"])
         logging.debug("dna normal maxAltMapQualZeroPct: %s" % i_dnaNormParams["MaxAltMapQualZeroPct"])
+        logging.debug("dna normal maxIndels: %s" % i_dnaNormParams["MaxIndels"])
         
         logging.debug("dna tumor minTotalBases: %s" % i_dnaTumParams["MinTotalNumBases"])
         logging.debug("dna tumor maxTotalBases: %s" % i_dnaTumParams["MaxTotalNumBases"])
@@ -1822,6 +1879,7 @@ def main():
         logging.debug("dna tumor minAltAvgMapQual: %s" % i_dnaTumParams["MinAltAvgMapQual"])
         logging.debug("dna tumor minAltMapQual: %s" % i_dnaTumParams["MinAltMapQual"])
         logging.debug("dna tumor maxAltMapQualZeroPct: %s" % i_dnaTumParams["MaxAltMapQualZeroPct"])
+        logging.debug("dna tumor maxIndels: %s" % i_dnaTumParams["MaxIndels"])
         
         logging.debug("rna normal minTotalBases: %s" % i_rnaNormParams["MinTotalNumBases"])
         logging.debug("rna normal maxTotalBases: %s" % i_rnaNormParams["MaxTotalNumBases"])
@@ -1835,6 +1893,7 @@ def main():
         logging.debug("rna normal minAltAvgMapQual: %s" % i_rnaNormParams["MinAltAvgMapQual"])
         logging.debug("rna normal minAltMapQual: %s" % i_rnaNormParams["MinAltMapQual"])
         logging.debug("rna normal maxAltMapQualZeroPct: %s" % i_rnaNormParams["MaxAltMapQualZeroPct"])
+        logging.debug("rna normal maxIndels: %s" % i_rnaNormParams["MaxIndels"])
         
         logging.debug("rna tumor minTotalBases: %s" % i_rnaTumParams["MinTotalNumBases"])
         logging.debug("rna tumor maxTotalBases: %s" % i_rnaTumParams["MaxTotalNumBases"])
@@ -1848,12 +1907,13 @@ def main():
         logging.debug("rna tumor minAltAvgMapQual: %s" % i_rnaTumParams["MinAltAvgMapQual"])
         logging.debug("rna tumor minAltMapQual: %s" % i_rnaTumParams["MinAltMapQual"])
         logging.debug("rna tumor maxAltMapQualZeroPct: %s" % i_rnaTumParams["MaxAltMapQualZeroPct"])
+        logging.debug("rna tumor maxIndels: %s" % i_rnaTumParams["MaxIndels"])
                     
     # check for any errors
     if (not radiaUtil.check_for_argv_errors(i_dirList, i_readFilenameList, i_writeFilenameList)):
         sys.exit(1)
     
-    filter_by_mpileup_support(i_id, i_chrom, i_vcfFilename, i_headerFilename, i_outputFilename, i_filterUsingRNA, i_addOrigin, i_cmdLineOptionsDict, i_dnaNormParams, i_dnaTumParams, i_rnaNormParams, i_rnaTumParams, i_genotypeMinDepth, i_genotypeMinPct, i_modMinDepth, i_modMinPct, i_lohMaxDepth, i_lohMaxPct, i_debug)
+    filter_by_mpileup_support(i_id, i_chrom, i_vcfFilename, i_headerFilename, i_outputFilename, i_filterUsingRNA, i_addOrigin, i_cmdLineOptionsDict, i_dnaNormParams, i_dnaTumParams, i_rnaNormParams, i_rnaTumParams, i_paramsDict, i_debug)
     return
 
 main()
