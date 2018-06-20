@@ -390,7 +390,7 @@ def main():
     startTime = time.time()
     
     # create the usage statement
-    usage = "usage: python %prog id chrom vcfFile blatInputFile blatOutputFile [Options]"
+    usage = "usage: python %prog id chrom vcfFile blatOutputFile [Options]"
     i_cmdLineParser = OptionParser(usage=usage)
     
     # add the optional parameters
@@ -427,8 +427,7 @@ def main():
     (i_cmdLineOptions, i_cmdLineArgs) = i_cmdLineParser.parse_args()
     i_id = str(i_cmdLineArgs[0])
     i_vcfFilename = str(i_cmdLineArgs[1])
-    i_blatInputFilename = str(i_cmdLineArgs[2])
-    i_blatOutputFilename = str(i_cmdLineArgs[3])
+    i_blatOutputFilename = str(i_cmdLineArgs[2])
     
     # get the optional params with default values
     i_passedVCFCallsOnlyFlag = i_cmdLineOptions.passedVCFCallsOnly
@@ -474,7 +473,6 @@ def main():
     if (i_debug):
         logging.debug("id=%s", i_id)
         logging.debug("vcfFilename=%s", i_vcfFilename)
-        logging.debug("blatInputFilename=%s", i_blatInputFilename)
         logging.debug("blatOutputFilename=%s", i_blatOutputFilename)
         logging.debug("passedCallsOnly? %s", i_passedVCFCallsOnlyFlag)
         logging.debug("keepPreviousFiltersFlag? %s", i_keepPreviousFiltersFlag)
@@ -495,7 +493,7 @@ def main():
     if (i_logFilename != None):
         i_writeFilenameList = [i_logFilename]
         
-    i_readFilenameList = [i_vcfFilename, i_blatInputFilename, i_blatOutputFilename]
+    i_readFilenameList = [i_vcfFilename, i_blatOutputFilename]
     
     if (not radiaUtil.check_for_argv_errors(None, i_readFilenameList, i_writeFilenameList)):
         sys.exit(1)
@@ -638,7 +636,7 @@ def main():
             print >> sys.stdout, "\t".join(output)
             
     stopTime = time.time()  
-    logging.info("Total time for Id %s: Total time=%s hrs, %s mins, %s secs", i_id, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime)) 
+    logging.info("filterByBlat.py for Id %s: Total time=%s hrs, %s mins, %s secs", i_id, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
         
     # close the files 
     if (i_outputFilename != None):
