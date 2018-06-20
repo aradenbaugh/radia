@@ -938,8 +938,6 @@ class Club():
         if (aPreviousMaxSize == 0):
             aFactLogList[0] = 0.0
             aPreviousMaxSize = 1
-        else:
-            logging.warning("increasingMaxSize aPreviousMaxSize=%s, aNewMaxSize=%s", aPreviousMaxSize, aNewMaxSize)
         
         for index in xrange(aPreviousMaxSize, aNewMaxSize+1):
             aFactLogList[index] = aFactLogList[index - 1] + math.log(index)
