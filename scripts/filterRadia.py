@@ -622,7 +622,7 @@ def filter_createBlatInput(aPythonExecutable, anId, aChromId, anInputFilename, a
     return outputFilename
 
 
-def filter_runBlat(anId, aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug):
+def filter_runBlat(aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug):
 
     blatOutputFilename = anOutputDir + aPrefix + "_blatOutput_chr" + aChromId + ".blast"    
     #command = "blat -stepSize=5 -repMatch=2253 -minScore=0 -minIdentity=0 -t=dna -q=rna " + aFastaFile + " " + aBlatInputFilename + " -out=blast8 " + blatOutputFilename
@@ -696,7 +696,7 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
         outputFilename = os.path.join(anOutputDir, aPrefix + "_blatFiltered_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "filterByBlat.py")
-    command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " " + blatOutputFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
+    command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + blatOutputFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
     
     if (anIsDebug):
         logging.debug("Input: %s", anInputFilename)
@@ -723,48 +723,6 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
             sys.exit(1)
             
     return (blatOutputFilename, outputFilename)
-
-
-def filter_positionalBias(aPythonExecutable, anId, aChromId, anInputFilename, aBlatInputFilename, aKeepPreviousFiltersFlag, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
-
-    if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, aPrefix + "_pbias_chr" + aChromId + ".vcf.gz")
-    else:
-        outputFilename = os.path.join(anOutputDir, aPrefix + "_pbias_chr" + aChromId + ".vcf")
-        
-    script = os.path.join(aScriptsDir, "filterByPositionalBias.py")
-    if (aKeepPreviousFiltersFlag):
-        command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " -o " + outputFilename + " --keepPreviousFilters"
-    else:
-        command = aPythonExecutable + " " + script + " " + anId + " " + anInputFilename + " " + aBlatInputFilename + " -o " + outputFilename
-    
-    if (anIsDebug):
-        logging.debug("Script: %s", script)
-        logging.debug("Input: %s", anInputFilename)
-        logging.debug("Input: %s", aBlatInputFilename)
-        logging.debug("Output: %s", outputFilename)
-        logging.debug("Filter: %s", command)
-    
-    readFilenameList = [script, anInputFilename, aBlatInputFilename]
-    writeFilenameList = [outputFilename]
-    if (not radiaUtil.check_for_argv_errors(None, readFilenameList, writeFilenameList)):
-        sys.exit(1)
-    
-    if (aJobListFileHandler != None):
-        aJobListFileHandler.write(command + "\n")    
-    else:    
-        subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
-        (stdOut, stdErr) = subprocessCall.communicate()
-        
-        if ("WARNING" in stdErr):
-            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
-        
-        if (subprocessCall.returncode != 0):
-            logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-            logging.error("Error from %s:\n%s", command, stdErr)
-            sys.exit(1) 
-            
-    return outputFilename
 
 
 def filter_rnaBlacklist(aPythonExecutable, anId, aChromId, anInputFilename, aGeneBlckFilename, aGeneFamilyBlckFilename, anOutputDir, aPrefix, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
@@ -994,7 +952,6 @@ def main():
     i_cmdLineParser.add_option("", "--noPseudoGenes", action="store_false", default=True, dest="pseudoGenes", help="include this argument if the info/pseudogenes filter should not be applied")
     i_cmdLineParser.add_option("", "--noCosmic", action="store_false", default=True, dest="cosmic", help="include this argument if the cosmic annotation should not be applied")
     i_cmdLineParser.add_option("", "--noBlat", action="store_false", default=True, dest="blat", help="include this argument if the blat filter should not be applied")
-    i_cmdLineParser.add_option("", "--noPositionalBias", action="store_false", default=True, dest="pbias", help="include this argument if the positional bias filter should not be applied")
     i_cmdLineParser.add_option("", "--noRnaBlacklist", action="store_false", default=True, dest="rnaBlacklist", help="include this argument if the RNA blacklist filter should not be applied")
     i_cmdLineParser.add_option("", "--noSnpEff", action="store_false", default=True, dest="snpEff", help="include this argument if the snpEff annotation should not be applied (without the snpEff annotation, filtering of RNA blacklisted genes will also not be applied")
     i_cmdLineParser.add_option("", "--dnaOnly", action="store_true", default=False, dest="dnaOnly", help="include this argument if you only have DNA or filtering should only be done on the DNA")
@@ -1043,7 +1000,6 @@ def main():
     i_pseudoGenesFlag = i_cmdLineOptions.pseudoGenes
     i_cosmicFlag = i_cmdLineOptions.cosmic
     i_blatFlag = i_cmdLineOptions.blat
-    i_pbiasFlag = i_cmdLineOptions.pbias
     i_snpEffFlag = i_cmdLineOptions.snpEff
     i_dnaOnlyFlag = i_cmdLineOptions.dnaOnly
     i_rnaOnlyFlag = i_cmdLineOptions.rnaOnly
@@ -1168,7 +1124,6 @@ def main():
         logging.debug("pseudoGenesFlag? %s", i_pseudoGenesFlag)
         logging.debug("cosmicFlag? %s", i_cosmicFlag)
         logging.debug("blatFlag? %s", i_blatFlag)
-        logging.debug("pbiasFlag? %s", i_pbiasFlag)
         logging.debug("dnaOnlyFlag? %s", i_dnaOnlyFlag)
         logging.debug("rnaOnlyFlag? %s", i_rnaOnlyFlag)
         logging.debug("blacklistDir %s", i_blacklistDir)
@@ -1343,30 +1298,17 @@ def main():
         # if we have something to blat
         if (os.path.isfile(previousFilename) and os.stat(previousFilename).st_size > 20):
             
-            # the blat input is needed for the blat and pbias filters
-            if (i_blatFlag or i_pbiasFlag):
+            # create the blat input file
+            if (i_blatFlag):
                 # create blat input
                 blatInputFilename = filter_createBlatInput(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, i_rnaIncludeSecondaryAlignments, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_debug)
                 rmTmpFilesList.append(blatInputFilename)
             
-            # filter by BLAT
-            if (i_blatFlag):
+                # filter by BLAT
                 (blatOutputFilename, previousFilename) = filter_blat(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, blatInputFilename, i_blatFastaFilename, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
                 rmTmpFilesList.append(blatOutputFilename)
                 rmTmpFilesList.append(previousFilename)
             
-            # the blat input is needed
-            if (i_pbiasFlag and os.path.isfile(previousFilename) and os.stat(previousFilename).st_size > 20):
-                # if we filtered via blat, then keep the previous filters so that the blat filter gets passed on
-                if (i_blatFlag):
-                    # filter by positional bias
-                    previousFilename = filter_positionalBias(i_pythonExecutable, i_id, i_chr, previousFilename, blatInputFilename, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-                # if we didn't filter via blat, then don't keep the previous filters
-                else:
-                    # filter by positional bias
-                    previousFilename = filter_positionalBias(i_pythonExecutable, i_id, i_chr, previousFilename, blatInputFilename, False, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
-                rmTmpFilesList.append(previousFilename)
-        
         # if RNA only, just merge the RNA Confirmation and RNA Rescue calls
         if (i_rnaOnlyFlag):
             # the dnaFilename and --dnaHeaderOnly=True means that we only extract the header from the dnaFilename and ignore the rest

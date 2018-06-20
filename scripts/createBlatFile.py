@@ -483,18 +483,9 @@ def write_to_blat_file(aBlatFileHandler, aGenomicChr, aGenomicCoordinate, aChrom
                 numAltsFound += 1
                 if (anIsDebug):
                     logging.debug("found an alt for %s:%s, base=%s, baseQual=%s", aChromList, aPosList, readBase, str(baseQualityConverted))
-                        
-                # position in read
-                readLength = len(readSequence)
-                if (readSequenceIndex/float(readLength) <= 0.33):
-                    position = "start"
-                elif (readSequenceIndex/float(readLength) <= 0.66):
-                    position = "middle"
-                else:
-                    position = "end"
             
                 # we want to use the genomic chr and stop coordinate in the output instead of the transcript coordinate
-                outputList = [aPrefix, aGenomicChr, str(aGenomicCoordinate), readName.replace("_", ""), readBase, str(baseQualityConverted), str(readMapQual), position, str(readFlag), str(readInsertSize), str(readLength)]
+                outputList = [aPrefix, aGenomicChr, str(aGenomicCoordinate), readName.replace("_", ""), readBase, str(baseQualityConverted), str(readMapQual), str(readFlag), str(readInsertSize)]
                 if (aBlatFileHandler != None):
                     aBlatFileHandler.write("> " + "_".join(outputList) + "\n")
                     aBlatFileHandler.write(readSequence + "\n")
