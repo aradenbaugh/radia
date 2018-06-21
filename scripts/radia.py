@@ -546,7 +546,7 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             currBaseIndex += 1
             currBaseQualIndex += 1
             currMapQualIndex += 1
-        elif base in "AGCTN":
+        elif base in "AGCT":
             #if (anIsDebug):
             #    logging.debug("base=%s, rawBaseQual=%s, ord(rawBaseQual)=%s, convertedBaseQual=%s, aMinBaseQual=%s", base, rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), str(aMinBaseQuality))
             
@@ -556,7 +556,7 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             currBaseIndex += 1
             currBaseQualIndex += 1
             currMapQualIndex += 1
-        elif base in "agctn":
+        elif base in "agct":
             #if (anIsDebug):
             #    logging.debug("base=%s, rawBaseQual=%s, ord(rawBaseQual)=%s, convertedBaseQual=%s, aMinBaseQual=%s", base, rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), str(aMinBaseQuality))
             
@@ -568,6 +568,7 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             currBaseQualIndex += 1
             currMapQualIndex += 1
         else:
+            # we are ignoring the base 'N' or 'n'
             currBaseIndex += 1
             currBaseQualIndex += 1
             currMapQualIndex += 1
