@@ -227,10 +227,10 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
     # create 2 dictionaries:  one for passing, one for non-passing
     #
     # if an RNA Rescue or RNA Editing call passes in the anRnaNonOverlapsFile below, 
-    # then we want to use the original RNA mpileup passing call to overwrite the DNA call
-    # the non-overlaps file is really the RNA mpileup passing calls that are first 
-    # filtered by DNA, then grep, then blat, then pbias. the filtered by DNA part 
-    # doesn't select one modType when no call passes, so the final passing call has 
+    # then we want to use the original RNA mpileup passing call to overwrite the DNA call 
+    # the non-overlaps file is really the RNA mpileup passing calls that are
+    # first filtered by DNA, then grep, then blat. the filtered by DNA part doesn't
+    # select one modType when no call passes, so the final passing call has
     # more than one modType which causes problems in the next filter
     #
     # mpileup_rna_origin:
@@ -241,7 +241,7 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
     #    0/0:10:9,1:0.9,0.1:0:0:0:0:29,13:0.67,1.0
     #    0/1:17:13,4:0.76,0.24:0:0:0:4:60,32:0.92,0.5
     # vs.
-    # mpileup_rna_origin->dnaFiltered->blat->pbias:
+    # mpileup_rna_origin->dnaFiltered->blat:
     # 9       17464495        .       G       A       0.0     PASS    
     #    AC=5;AF=0.1;AN=2;BQ=39;DP=49;FA=0.1;INS=0;DEL=0;;MC=G>A,G>A;MF=rnacall,dtmnab_dtmnbq;
     #    MFT=DNA_TUM_EDIT_G>A,DNA_SOM_G>A;MT=TUM_EDIT,SOM;NS=3;ORIGIN=RNA;SB=0.73;SS=5;START=0;STOP=5;VT=SNP     
@@ -250,7 +250,7 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
     #    0/0:10:9,1:0.9,0.1:0:0:0:0:29,13:0.67,1.0
     #    0/1:17:13,4:0.76,0.24:0:0:0:4:60,32:0.92,0.5
     #
-    # when merging a call that passes in the non-overlaps (pbias) file, 
+    # when merging a call that passes in the non-overlaps (dnaFiltered or blat) file,
     # replace the DNA call, with the original RNA mpileup passing call
     # 
     # the non-passing dictionary will be used below to help merge filtered calls 
