@@ -1852,7 +1852,7 @@ def main():
                 
             # if we don't have any more data, then break out of the loop
             # this can happen when testing or when we've reached the end of all the data in the .mpileups files
-            if (dnaNormalCoordinate == -1 and rnaNormalCoordinate == -1 and dnaTumorCoordinate == -1 and rnaTumorCoordinate == -1):
+            if (i_coordinatesFilename == None and dnaNormalCoordinate == -1 and rnaNormalCoordinate == -1 and dnaTumorCoordinate == -1 and rnaTumorCoordinate == -1):
                 break
                 
             # empty the set of DNA for each new coordinate
