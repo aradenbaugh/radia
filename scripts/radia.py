@@ -455,8 +455,8 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
     # loop over each base in the pileups
     for index in xrange(0, len(aStringOfRawReads)):
         
-        if (anIsDebug):
-            logging.debug("index=%s, currBaseIndex=%s, currBaseQualIndex=%s, currMapQualIndex=%s", str(index), str(currBaseIndex), str(currBaseQualIndex), str(currMapQualIndex))
+        #if (anIsDebug):
+        #    logging.debug("index=%s, currBaseIndex=%s, currBaseQualIndex=%s, currMapQualIndex=%s", str(index), str(currBaseIndex), str(currBaseQualIndex), str(currMapQualIndex))
         
         # if we skipped ahead in the string due to an indel, then catch up here
         if index < currBaseIndex:
@@ -478,14 +478,14 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             rawMapQual = aStringOfRawMapQuals[currMapQualIndex]
             convertedMapQual = ord(rawMapQual)-33
             
-            if (anIsDebug):
-                logging.debug("baseQual=%s, ord(baseQual)=%s, convertedBaseQual=%s, mapQual=%s, ord(mapQual)=%s, convertedMapQual=%s", rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), rawMapQual, ord(rawMapQual), str(convertedMapQual))
+            #if (anIsDebug):
+            #    logging.debug("baseQual=%s, ord(baseQual)=%s, convertedBaseQual=%s, mapQual=%s, ord(mapQual)=%s, convertedMapQual=%s", rawBaseQual, ord(rawBaseQual), str(convertedBaseQual), rawMapQual, ord(rawMapQual), str(convertedMapQual))
         else:
             convertedBaseQual = -1
             convertedMapQual = -1
         
-        if (anIsDebug):
-            logging.debug("index=%s, currBaseIndex=%s, currBase=%s, currBaseQual=%s, currMapQual=%s", str(index), str(currBaseIndex), base, str(convertedBaseQual), str(convertedMapQual))
+        #if (anIsDebug):
+        #    logging.debug("index=%s, currBaseIndex=%s, currBase=%s, currBaseQual=%s, currMapQual=%s", str(index), str(currBaseIndex), base, str(convertedBaseQual), str(convertedMapQual))
 
         if base in "+-":
             # if we found an indel, count them and skip ahead to the next base in the pileup
@@ -573,9 +573,9 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             currBaseQualIndex += 1
             currMapQualIndex += 1
             
-        if (anIsDebug):
-            logging.debug("finalBases=%s, finalBaseQuals=%s, finalMapQuals=%s", finalBases, finalBaseQuals, finalMapQuals)
-    
+    if (anIsDebug):
+        logging.debug("finalBases=%s, finalBaseQuals=%s, finalMapQuals=%s", finalBases, finalBaseQuals, finalMapQuals)
+
     # get the lengths
     lenFinalBases = len(finalBases)
     lenFinalBaseQuals = len(finalBaseQuals)
@@ -1850,8 +1850,9 @@ def main():
                 logging.debug("Initial TumorDNAData: %s %s %s %s %s %s %s", dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals)
                 logging.debug("Initial TumorRNAData: %s %s %s %s %s %s %s", rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals)
                 
-            # if we don't have any more data, then break out of the loop
-            # this can happen when testing or when we've reached the end of all the data in the .mpileups files
+            # if we are not looking up specific coordinates via the coordinates file,
+            # and we don't have any more data, then break out of the loop
+            # this can happen when testing, or when we've reached the end of all the data in the .mpileups files
             if (i_coordinatesFilename == None and dnaNormalCoordinate == -1 and rnaNormalCoordinate == -1 and dnaTumorCoordinate == -1 and rnaTumorCoordinate == -1):
                 break
                 
@@ -2057,12 +2058,16 @@ def main():
             # count the number of ref mismatches
             if (len(refList) > 1):
                 countRefMismatches += 1
-                
+            
+            # hasDNA:  at least one DNA sample has enough total bases
+            # hasRNA:  at least one RNA sample has enough total bases
+            # shouldOutput:  at lease one sample has enough ALT bases
+            
             # if we are outputting all data, or
             # if we should output, or
             # if we are debugging and we have data
             if (i_outputAllData or 
-                shouldOutput or 
+                shouldOutput or
                 (i_debug and hasDNA or hasRNA)):
                 
                 # the chrom, position, and Id columns have been filled
@@ -2080,20 +2085,20 @@ def main():
                 # if there is more than one reference, then set the filter
                 if (len(refList) > 1):   
                     filterList.append("diffref")  
-                # if there aren't enough total bases, then set the filter    
+                # if none of the samples have enough total bases, then set the filter
                 if (setMinTotalBasesFlag):
                     filterList.append("mbt")
-                # if there aren't enough ALT bases, then set the filter   
+                # if none of the samples have enough ALT bases, then set the filter
                 if (setMinAltBasesFlag):
                     filterList.append("mba")    
                 # if there are no filters thus far, then pass it    
                 if (len(filterList) == 0):
                     filterList.append("PASS")
                 
-                # if we should output all data and pass the basic filters, or
-                # if we should output and pass the basic filters, or
+                # if we should output all data and we have data, or
+                # if we should output and we pass the basic filters, or
                 # if we are debugging, and this call doesn't pass    
-                if ((i_outputAllData and "PASS" in filterList) or
+                if ((i_outputAllData and totalReadDepth > 0) or
                     (shouldOutput and "PASS" in filterList) or 
                     (i_debug and "PASS" not in filterList)):
                     vcfOutputList.append(";".join(filterList))
@@ -2133,7 +2138,7 @@ def main():
                     infoDict["DEL"].append(str(totalDelCount))
                     infoDict["START"].append(str(totalStarts))
                     infoDict["STOP"].append(str(totalStops))
-                    infoDict["MQ0"].append(str(totalMapQualZero))
+                    infoDict["MQ0"].append(str(totalSumMapQualZero))
                     infoDict["VT"].append("SNP")
                     if (totalReadDepth > 0):
                         infoDict["BQ"].append(str(int(round(totalSumBaseQual/float(totalReadDepth),0))))
