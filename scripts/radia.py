@@ -1216,6 +1216,7 @@ def main():
     i_cmdLineParser.add_option("", "--rnaIncludeSecondaryAlignments", action="store_true", default=False, dest="rnaIncludeSecondaryAlignments", help="if you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups")
     i_cmdLineParser.add_option("", "--noHeader", action="store_false", default=True, dest="outputHeader", help="include this argument if the header should not be output")
     i_cmdLineParser.add_option("", "--outputAllData", action="store_true", default=False, dest="outputAllData", help="include this argument if all data should be output regardless of the existence of a variant")
+    i_cmdLineParser.add_option("", "--loadCoordinatesRange", action="store_true", default=False, dest="loadCoordinatesRange", help="include this argument to improve performance by loading the entire range in the coordinates file")
     #e,j,k,v,w,y
     
     i_cmdLineParser.add_option("", "--genotypeMinDepth", type="int", default=int(2), dest="genotypeMinDepth", metavar="GT_MIN_DP", help="the minimum number of bases required for the genotype, %default by default")
@@ -1301,6 +1302,7 @@ def main():
     i_refUrl = i_cmdLineOptions.refUrl
     i_outputHeader = i_cmdLineOptions.outputHeader
     i_outputAllData = i_cmdLineOptions.outputAllData
+    i_loadCoordinatesRange = i_cmdLineOptions.loadCoordinatesRange
     
     i_genotypeMinDepth = i_cmdLineOptions.genotypeMinDepth
     i_genotypeMinPct = i_cmdLineOptions.genotypeMinPct
@@ -1523,6 +1525,7 @@ def main():
         logging.debug("rnaIncludeSecondaryAlignments=%s" % i_rnaIncludeSecondaryAlignments)
         logging.debug("outputHeader=%s" % i_outputHeader)
         logging.debug("outputAllData=%s" % i_outputAllData)
+        logging.debug("loadCoordinatesRange=%s" % i_loadCoordinatesRange)
         
         logging.debug("genotypeMinDepth=%s" % i_genotypeMinDepth)
         logging.debug("genotypeMinPct=%s" % i_genotypeMinPct)
@@ -1657,25 +1660,68 @@ def main():
                 sys.exit(1)
         
     # create lists of overall chroms, starts, and stops
+    i_lookupChroms = list()
+    i_lookupStarts = list()
+    i_lookupStops = list()
     i_chroms = list()
     i_starts = list()
     i_stops = list()
     # when a coordinates file is provided: 
-    #     - get all of the chroms, starts, and stops 
+    #    - if we should load the coordinate range:
+    #        - set the overall range to be loaded
+    #        - store the individual coordinate chroms, starts, and stops
+    #    - else:
+    #        - set all of the individual chroms, starts, and stops to be loaded
     if (i_coordinatesFilename != None):
-        coordinatesFileHandler = get_read_fileHandler(i_coordinatesFilename)  
-        for line in coordinatesFileHandler:
-            # if it is an empty line, then just continue
-            if (line.isspace() or line.startswith("#")):
-                continue;
-            # strip the carriage return and newline characters
-            line = line.rstrip("\r\n")        
-            # split the line on the tab
-            splitLine = line.split("\t")
-            # the coordinate is the second element
-            i_chroms.append(splitLine[0])
-            i_starts.append(int(splitLine[1]))
-            i_stops.append(int(splitLine[2]))
+        coordinatesFileHandler = get_read_fileHandler(i_coordinatesFilename)
+        if (i_loadCoordinatesRange):
+            rangeDict = dict()
+            for line in coordinatesFileHandler:
+                # if it is an empty line, then just continue
+                if (line.isspace() or line.startswith("#")):
+                    continue;
+                # strip the carriage return and newline characters
+                line = line.rstrip("\r\n")
+                # split the line on the tab
+                splitLine = line.split("\t")
+                chrom = splitLine[0]
+                start = int(splitLine[1])
+                stop = int(splitLine[2])
+                # store the individual chroms, starts, and stops
+                i_lookupChroms.append(chrom)
+                i_lookupStarts.append(start)
+                i_lookupStops.append(stop)
+                # find the first start and last stop per chrom
+                # ideally, the coordinates file would be sorted
+                # and only contain coordinates from one chrom
+                # but we can't be sure of that
+                if (chrom not in rangeDict):
+                    rangeDict[chrom] = dict()
+                    rangeDict[chrom]["start"] = start
+                    rangeDict[chrom]["stop"] = stop
+                else:
+                    if start < rangeDict[chrom]["start"]:
+                        rangeDict[chrom]["start"] = start
+                    if stop > rangeDict[chrom]["stop"]:
+                        rangeDict[chrom]["stop"] = stop
+            # set the overall ranges to be loaded
+            for chrom in rangeDict.iterkeys():
+                i_chroms.append(chrom)
+                i_starts.append(rangeDict[chrom]["start"])
+                i_stops.append(rangeDict[chrom]["stop"])
+        else:
+            for line in coordinatesFileHandler:
+                # if it is an empty line, then just continue
+                if (line.isspace() or line.startswith("#")):
+                    continue;
+                # strip the carriage return and newline characters
+                line = line.rstrip("\r\n")
+                # split the line on the tab
+                splitLine = line.split("\t")
+                # the coordinate is the second element
+                i_chroms.append(splitLine[0])
+                i_starts.append(int(splitLine[1]))
+                i_stops.append(int(splitLine[2]))
         coordinatesFileHandler.close()
     # otherwise, we have just one chrom, start, stop
     #    - the user either specified a start and stop with the -a and -z params
@@ -1684,7 +1730,7 @@ def main():
         i_chroms.append(i_chrom)
         i_starts.append(i_startCoordinate)
         i_stops.append(i_stopCoordinate)
-        
+    
     # EGFR chr7:55,248,979-55,259,567
     #i_startCoordinate = 55248979
     #i_stopCoordinate =  55249079
@@ -1828,6 +1874,25 @@ def main():
     
         # for each coordinate that we'd like to investigate
         for currentCoordinate in xrange(currentStart, currentStop+1):
+            
+            # if the entire coordinate range has been loaded,
+            # but we're only interested in the coordinates in the coordinates file,
+            # and this coordinate is not in the file, then get the next coordinate and continue
+            if (i_loadCoordinatesRange and i_coordinatesFilename != None and currentCoordinate not in i_lookupStarts):
+                
+                # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
+                if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
+                    (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals) = get_next_pileup(i_dnaNormalGenerator)
+                if (moreRnaNormalLines and rnaNormalCoordinate <= currentCoordinate):
+                    (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalBaseQuals, rnaNormalMapQuals) = get_next_pileup(i_rnaNormalGenerator)
+                if (moreDnaTumorLines and dnaTumorCoordinate <= currentCoordinate):
+                    (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals) = get_next_pileup(i_dnaTumorGenerator)
+                if (moreRnaTumorLines and rnaTumorCoordinate <= currentCoordinate):
+                    (moreRnaTumorLines, rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals) = get_next_pileup(i_rnaTumorGenerator)
+                
+                # skipping a lookup that we don't care about
+                continue;
+            
             # for each coordinate
                 # if we have normal dna
                     # compare to reference -> germline mutations
