@@ -92,37 +92,43 @@ class Sample:
 
 
 def init_from_match(anId, anIndividual, aDescription, aFile, aPlatform, aSource, anAccession=None):
-    initdict = {}
-    initdict["ID"] = anId
-    initdict["Individual"] = anIndividual
-    initdict["Description"] = aDescription
-    initdict["File"] = aFile
-    initdict["Platform"] = aPlatform
-    initdict["Source"] = aSource
+    initDict = {}
+    initDict["ID"] = anId
+    initDict["Individual"] = anIndividual
+    initDict["Description"] = aDescription
+    initDict["File"] = aFile
+    initDict["Platform"] = aPlatform
+    initDict["Source"] = aSource
     if anAccession:
-        initdict["Accession"] = anAccession
-    return Sample(initdict)
+        initDict["Accession"] = anAccession
+    return Sample(initDict)
 
 
 def parse_info(anInfoField):
-    info_dict = OrderedDict()
+    infoDict = OrderedDict()
     for item in anInfoField.split(";"):
         if "=" in item:
-            (tag, value) = item.split("=")
-            info_dict[tag] = value
+            try:
+                (tag, value) = item.split("=")
+            except:
+                # some protein change annotations have an '=' in them (e.g. ProtCh=p.T394=;VC=Silent)
+                pcList = item.split("=")
+                tag = pcList[0]
+                value = pcList[1] + "="
+            infoDict[tag] = value
         else:
-            info_dict[item] = True
-    return info_dict
+            infoDict[item] = True
+    return infoDict
 
 
 def format_info(anInfoDict):
-    line_list = []
+    lineList = []
     for key, value in anInfoDict.items():
         if value is True:
-            line_list.append(key)
+            lineList.append(key)
         else:
-            line_list.append("%s=%s" % (key, value))
-    return ";".join(line_list)
+            lineList.append("%s=%s" % (key, value))
+    return ";".join(lineList)
     
 
 class Data:
@@ -159,7 +165,7 @@ class VCF:
         else:
             raise VCFFormatError("Improperly formatted INFO metadata: " + aValue)
             
-
+    
     def make_sample(self, aValue):
         match = re.match(r"""<ID=(.*),Individual="(.*)",Description="(.*)",File="(.*)",Platform="(.*)",Source="(.*)">""", aValue)
         if match:
@@ -169,11 +175,11 @@ class VCF:
             if match:
                 return Sample(*match.groups())
             else:
-                sampledict = {}
+                sampleDict = {}
                 for pair in aValue.strip("<>").split(","):
                     key, val = pair.split("=")
-                    sampledict[key] = val
-                return Sample(sampledict)
+                    sampleDict[key] = val
+                return Sample(sampleDict)
                 
         raise VCFFormatError("Improperly formatted SAMPLE metadata: " + aValue)
         
@@ -188,7 +194,7 @@ class VCF:
             self.filters.append(Filter(*match.groups()))
         else:
             raise VCFFormatError("Improperly formatted FILTER metadata: " + aValue)
-
+    
 
     def set_headers(self, aHeaderList):
         self.headers = aHeaderList
