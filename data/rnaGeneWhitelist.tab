@@ -1,0 +1,6 @@
+# all ZNFs are blacklisted, so whitelist the few that are in the cancer gene census (build 76)
+ZNF198
+ZNF278
+ZNF331
+ZNF384
+ZNF521
