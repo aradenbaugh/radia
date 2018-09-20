@@ -124,13 +124,15 @@ def set_sst_field(anInfoField):
             anInfoField = anInfoField.replace("START", "SST=RADIASomDNA;START")
         elif "ORIGIN=RNA" in anInfoField:
             anInfoField = anInfoField.replace("START", "SST=RADIASomRNARescue;START")
-    elif "EDIT" in anInfoField:
-        somaticType = "RADIA"
-        if "NOR_EDIT" in anInfoField:
-            somaticType += "NorEdit"
-        if "TUM_EDIT" in anInfoField:
-            somaticType += "TumEdit"
-        anInfoField = anInfoField.replace("START", "SST=" + somaticType + ";START")
+    elif "TUM_EDIT" in anInfoField:
+        anInfoField = anInfoField.replace("START", "SST=RADIATumEdit;START")
+    elif "RNA_TUM_VAR" in anInfoField:
+        anInfoField = anInfoField.replace("START", "SST=RADIATumRNAVar;START")
+    elif "NOR_EDIT" in anInfoField:
+        anInfoField = anInfoField.replace("START", "SST=RADIANorEdit;START")
+    elif "RNA_NOR_VAR" in anInfoField:
+        anInfoField = anInfoField.replace("START", "SST=RADIANorRNAVar;START")
+    
     return anInfoField
 
 
@@ -161,8 +163,8 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
-        #if (anIsDebug):
-        #    print >> sys.stderr, "VCF Line: ", line    
+        if (anIsDebug and not line.startswith("#")):
+            logging.debug("DNA mpileup Line: %s", line)
             
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -193,8 +195,8 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
-        #if (anIsDebug):
-        #    print >> sys.stderr, "VCF Line: ", line    
+        if (anIsDebug and not line.startswith("#")):
+            logging.debug("Overlaps file Line: %s", line)
             
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -229,9 +231,10 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
     # if an RNA Rescue or RNA Editing call passes in the anRnaNonOverlapsFile below, 
     # then we want to use the original RNA mpileup passing call to overwrite the DNA call 
     # the non-overlaps file is really the RNA mpileup passing calls that are
-    # first filtered by DNA, then grep, then blat. the filtered by DNA part doesn't
+    # first filtered by DNA, then grep, and then blat. the filtered by DNA part doesn't
     # select one modType when no call passes, so the final passing call has
-    # more than one modType which causes problems in the next filter
+    # more than one modType which causes problems in the next filter, therefore
+    # use the RNA mpileup passing call.
     #
     # mpileup_rna_origin:
     # 9       17464495        .       G       A       0.0     PASS    
@@ -263,8 +266,8 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
         # strip the carriage return and newline characters
         rnaLine = rnaLine.rstrip("\r\n")
         
-        #if (anIsDebug):
-        #    print >> sys.stderr, "VCF Line: ", rnaLine    
+        if (anIsDebug and not rnaLine.startswith("#")):
+            logging.debug("RNA mpileup Line: %s", rnaLine)
             
         # if it is an empty line, then just continue
         if (rnaLine.isspace()):
@@ -295,8 +298,8 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
             # strip the carriage return and newline characters
             line = line.rstrip("\r\n")
         
-            #if (anIsDebug):
-            #    print >> sys.stderr, "VCF Line: ", line    
+            if (anIsDebug and not line.startswith("#")):
+                logging.debug("Non-overlaps Line: %s", line)
             
             # if it is an empty line, then just continue
             if (line.isspace()):
@@ -399,8 +402,8 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
     # these are needed for merging the RNA mpileup filters
     for (rnaStopCoordinate, rnaLine) in rnaMpileupNonpassingDict.iteritems():
           
-        #if (anIsDebug):
-        #    print >> sys.stderr, "VCF Line: ", rnaLine    
+        if (anIsDebug and not rnaLine.startswith("#")):
+            logging.debug("RNA mpileup non-passing Line: %s", rnaLine)
             
         # split the line on the tab
         rnaLineSplit = rnaLine.split("\t")
@@ -427,7 +430,7 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
                 
             coordinateDict[rnaStopCoordinate] = finalLine + "\n"
             if (anIsDebug):
-                logging.debug("Merged filters \nFinalLine: %s \n", finalLine)
+                logging.debug("Merged filters \nFinalLine: %s", finalLine)
     
     dnaFileHandler.close()
     rnaFileHandler.close()
@@ -532,7 +535,7 @@ def main():
         # set the SST field in the INFO
         splitLine[7] = set_sst_field(splitLine[7])
         outputFileHandler.write("\t".join(splitLine) + "\n")
-            
+    
     stopTime = time.time() 
     logging.info("Total time for Id %s: Total time=%s hrs, %s mins, %s secs", i_id, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))    
     # close the files 

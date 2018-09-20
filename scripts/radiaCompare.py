@@ -116,13 +116,13 @@ def get_vcf_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIsDebug):
                     
             # the thing that is being compared to has to have the smaller/limited amount
             # i.e. only the passing som events, otherwise everything will be found
-            if (aPrefix == "rad" and "PASS" in line and "SNP" in line and ("SOM" in line or "EDIT" in line)):
+            if (aPrefix == "rad" and "PASS" in line and "SNP" in line and ("SOM" in line or "EDIT" in line or "RNA_TUM_VAR" in line or "RNA_NOR_VAR" in line)):
             #if (aPrefix == "rad" and "SNP" in line):
             #if (aPrefix == "rad"):
                 # add the coordinate to the output
                 outputDict[chrom + "_" + stopCoordinate] = line
             #elif (aPrefix == "cmp" and "PASS" in line):
-            elif (aPrefix == "cmp" and "PASS" in line and "SNP" in line and ("SOM" in line or "EDIT" in line)):
+            elif (aPrefix == "cmp" and "PASS" in line and "SNP" in line and ("SOM" in line or "EDIT" in line or "RNA_TUM_VAR" in line or "RNA_NOR_VAR" in line)):
             #elif (aPrefix == "cmp" and "SNP" in line):
                 outputDict[chrom + "_" + stopCoordinate] = line 
             
@@ -507,13 +507,14 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
         # this one is for comparing blacklist results
         #if ("SNP" in cmpLine and ("bldp" in cmpLine or "blq" in cmpLine) and cmpCoordinate not in i_radDict):
         # this one is for comparing BB, Radia, or Maf results
-        if ("PASS" in cmpLine and ("SOM" in cmpLine or "EDIT" in cmpLine) and cmpCoordinate not in i_radDict):
+        if ("PASS" in cmpLine and ("SOM" in cmpLine or "EDIT" in cmpLine or "RNA_TUM_VAR" in cmpLine or "RNA_NOR_VAR" in cmpLine) and cmpCoordinate not in i_radDict):
         #if ("SNP" in cmpLine and "Somatic" in cmpLine and cmpCoordinate not in i_radDict):
         # this one is for validation data
         #if (cmpCoordinate not in i_radDict):
         #if ("PASS" in cmpLine and "SNP" in cmpLine and "SOM" in cmpLine and cmpCoordinate not in i_radDict):
-        #if ("Somatic" in cmpLine and "SNP" in cmpLine and cmpCoordinate not in i_radDict):    
-            logging.debug("no radia call %s", cmpLine)
+        #if ("Somatic" in cmpLine and "SNP" in cmpLine and cmpCoordinate not in i_radDict):
+            if (anIsDebug):
+                logging.debug("no radia call %s", cmpLine)
             
             #if (aNonOverlapFilename != None):
             #    nonOverlapFileHandler.write(cmpLine + "\n")
@@ -530,12 +531,13 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
         #if (radCoordinate not in i_cmpDict):
         #if ("PASS" in radLine and "SOM" in radLine):
         #if ("SOM" in radLine and radCoordinate not in i_cmpDict):
-        if ("PASS" in radLine and ("SOM" in radLine or "EDIT" in radLine) and "SNP" in radLine and radCoordinate not in i_cmpDict):
+        if ("PASS" in radLine and ("SOM" in radLine or "EDIT" in radLine or "RNA_TUM_VAR" in radLine or "RNA_NOR_VAR" in radLine) and "SNP" in radLine and radCoordinate not in i_cmpDict):
         #if ("PASS" in radLine and "SNP" in radLine and "Somatic" in radLine and radCoordinate not in i_cmpDict):
         #if ("SNP" in radLine and "Somatic" in radLine and radCoordinate not in i_cmpDict):
         #if ("PASS" in radLine and "SOM" in radLine and radCoordinate not in i_cmpDict):
         #if ("SOM" in radLine and radCoordinate not in i_cmpDict):
-            logging.debug("new radia call %s", radLine)
+            if (anIsDebug):
+                logging.debug("new radia call %s", radLine)
             
             if (aNonOverlapFilename != None):
                 nonOverlapFileHandler.write(radLine + "\n")
@@ -569,7 +571,8 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
             # this one is for Radia to Radia comparisons
             #if ("PASS" in radLine and "PASS" in compareLine):
             # this one is for Radia and validation
-            if ("PASS" in radLine and ("SOM" in radLine or "EDIT" in radLine) and "PASS" in compareLine and ("SOM" in compareLine or "EDIT" in radLine)):
+            if ("PASS" in radLine and ("SOM" in radLine or "EDIT" in radLine or "RNA_TUM_VAR" in radLine or "RNA_NOR_VAR" in radLine) and 
+                ("PASS" in compareLine and ("SOM" in compareLine or "EDIT" in compareLine or "RNA_TUM_VAR" in compareLine or "RNA_NOR_VAR" in compareLine))):
             #if ("PASS" in radLine and "SOM" in radLine and "SNP" in compareLine and "Somatic" in compareLine):
             #if ("Somatic" in radLine and "SNP" in radLine and "Somatic" in compareLine):
             #if ("SOM" in radLine and "Somatic" in compareLine and "SNP" in compareLine): 
@@ -623,7 +626,8 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
                         #if ("SNP" in radLine):
                         #if (True):
                             i_statsDict["overlap_pass_" + radKey] += 1
-                            logging.debug("found call %s", compareLine)
+                            if (anIsDebug):
+                                logging.debug("found call %s", compareLine)
                             if (anOverlapFilename != None):
                                 
                                 # add to maf
@@ -655,7 +659,8 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
                                 break;
                                 #overlapFileHandler.write(compareLine + "\n")
                         else:
-                            logging.debug("found but no radia pass %s %s", radLine, compareLine)
+                            if (anIsDebug):
+                                logging.debug("found but no radia pass %s %s", radLine, compareLine)
                             #overlapFileHandler.write(compareLine + "\n")
                             splitLine = radLine.split("\t")
                             
@@ -668,13 +673,13 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
                                 #nonOverlapFileHandler.write(compareLine + "\n")
                                 nonOverlapFileHandler.write(radLine + "\n")
                         
-                elif (foundInRad):
+                elif (anIsDebug and foundInRad):
                     logging.debug("overlap but not found in compare file %s %s %s", radKey, radLine, compareLine)
                     #overlapFileHandler.write(compareLine + "\n")
-                elif (foundInCmp):
+                elif (anIsDebug and foundInCmp):
                     logging.debug("overlap but not found in RADIA %s %s %s", cmpKey, radLine, compareLine)
                     #overlapFileHandler.write(compareLine + "\n")
-                else:
+                elif (anIsDebug):
                     logging.debug("overlap but not same type %s %s %s %s", radKeyList, cmpKeyList, radLine, compareLine)
                     #overlapFileHandler.write(compareLine + "\n")
 

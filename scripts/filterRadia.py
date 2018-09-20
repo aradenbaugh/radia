@@ -434,7 +434,9 @@ def radia_compare(aPythonExecutable, anId, aChromId, anRnaFilename, aDnaFilename
         nonOverlapFilename = os.path.join(anOutputDir, aPrefix + "_nonoverlap_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "radiaCompare.py")
-    command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anRnaFilename + " " + aDnaFilename + " -c \"SOM=SOM,NOR_EDIT=NOR_EDIT,TUM_EDIT=TUM_EDIT\" -o " + overlapFilename + " -n " + nonOverlapFilename 
+    #command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anRnaFilename + " " + aDnaFilename + " -c \"SOM=SOM,TUM_EDIT=TUM_EDIT,NOR_EDIT=NOR_EDIT\" -o " + overlapFilename + " -n " + nonOverlapFilename
+    #command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anRnaFilename + " " + aDnaFilename + " -c \"SOM=SOM,TUM_EDIT=TUM_EDIT,NOR_EDIT=NOR_EDIT,RNA_TUM_VAR=RNA_TUM_VAR,RNA_NOR_VAR=RNA_NOR_VAR\" -o " + overlapFilename + " -n " + nonOverlapFilename
+    command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + anRnaFilename + " " + aDnaFilename + " -c \"SOM=SOM\" -o " + overlapFilename + " -n " + nonOverlapFilename
     
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -466,14 +468,19 @@ def radia_compare(aPythonExecutable, anId, aChromId, anRnaFilename, aDnaFilename
 
 def filter_rnaOnly(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobListFileHandler, aGzipFlag, anIsDebug):
 
+    # if we pipe the grep output to gzip, the return code and error messages from grep
+    # get overwritten by gzip, and we no longer detect when there's a problem with grep
+    
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, aPrefix + "_dnaFiltered_chr" + aChromId + ".vcf.gz")
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_dnaFiltered_chr" + aChromId + ".vcf")
         #command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB;\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | gzip > " + outputFilename
-        command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | awk '{if ($1 ~ /^#/) {print} else {print $1\"\\t\"$2\"\\t\"$3\"\\t\"$4\"\\t\"$5\"\\t\"$6\"\\tPASS\\t\"$8\"\\t\"$9\"\\t\"$10\"\\t\"$11\"\\t\"$12}}' | gzip > " + outputFilename
+        #command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep -v \"GERM\" | awk '{if ($1 ~ /^#/) {print} else {print $1\"\\t\"$2\"\\t\"$3\"\\t\"$4\"\\t\"$5\"\\t\"$6\"\\tPASS\\t\"$8\"\\t\"$9\"\\t\"$10\"\\t\"$11\"\\t\"$12}}' > " + outputFilename
+        command = "zcat " + anInputFilename + " | grep -v \"dnm\" " + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep -v \"GERM\" | awk '{OFS=\"\\t\"} {if ($1 ~ /^#/) {print} else {$7=\"PASS\"; print}}' > " + outputFilename
     else:
         outputFilename = os.path.join(anOutputDir, aPrefix + "_dnaFiltered_chr" + aChromId + ".vcf")
         #command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB;\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" > " + outputFilename
-        command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep \"[SOM,EDIT]\" | awk '{if ($1 ~ /^#/) {print} else {print $1\"\\t\"$2\"\\t\"$3\"\\t\"$4\"\\t\"$5\"\\t\"$6\"\\tPASS\\t\"$8\"\\t\"$9\"\\t\"$10\"\\t\"$11\"\\t\"$12}}' > " + outputFilename
+        #command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep -v \"GERM\" | awk '{if ($1 ~ /^#/) {print} else {print $1\"\\t\"$2\"\\t\"$3\"\\t\"$4\"\\t\"$5\"\\t\"$6\"\\tPASS\\t\"$8\"\\t\"$9\"\\t\"$10\"\\t\"$11\"\\t\"$12}}' > " + outputFilename
+        command = "grep -v \"dnm\" " + anInputFilename + " | grep -v \"DB\" | grep -v \"EGPS\" | grep -v \"RTPS\" | grep -v \"GERM\" | awk '{OFS=\"\\t\"} {if ($1 ~ /^#/) {print} else {$7=\"PASS\"; print}}' > " + outputFilename
   
     if (anIsDebug):
         logging.debug("Input: %s", anInputFilename)
@@ -492,11 +499,13 @@ def filter_rnaOnly(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobLi
         (stdOut, stdErr) = subprocessCall.communicate()
         
         # grep returns 0 if selected lines are found and 1 otherwise. But the exit status is 2 if an error occurred, 
-        # unless the -q or --quiet or --silent option is used and a selected line is found. 
+        # unless the -q or --quiet or --silent option is used and a selected line is found.
+        # but awk is the last command here, so we can use the usual returncode != 0
         
-        #if (subprocessCall.returncode != 0):
-        #    logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-        #    logging.error("Error from %s:\n%s", command, stdErr)
+        if (subprocessCall.returncode != 0):
+            logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
+            logging.error("Error from %s:\n%s", command, stdErr)
+            sys.exit(1)
                     
     return outputFilename
 
@@ -504,8 +513,8 @@ def filter_rnaOnly(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobLi
 def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     if (aGzipFlag):
-        outputFilename = os.path.join(anOutputDir, aPrefix + "_passing_chr" + aChromId + ".vcf.gz")
-        command = "zcat " + anInputFilename + " | grep \"PASS\" " + " | gzip > " + outputFilename
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_passing_chr" + aChromId + ".vcf")
+        command = "zcat " + anInputFilename + " | grep \"PASS\" " + " > " + outputFilename
     else:
         outputFilename = os.path.join(anOutputDir, aPrefix + "_passing_chr" + aChromId + ".vcf")
         command = "grep \"PASS\" " + anInputFilename + " > " + outputFilename
@@ -529,10 +538,10 @@ def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobL
         # grep returns 0 if selected lines are found and 1 otherwise. But the exit status is 2 if an error occurred, 
         # unless the -q or --quiet or --silent option is used and a selected line is found. 
         
-        #if (subprocessCall.returncode != 0):
-        #    logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
-        #    logging.error("Error from %s:\n%s", command, stdErr)
-                    
+        if (subprocessCall.returncode == 2):
+            logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
+            logging.error("Error from %s:\n%s", command, stdErr)
+            sys.exit(1)
     return outputFilename
 
 
@@ -852,10 +861,8 @@ def filter_readSupport(aPythonExecutable, anId, aChromId, anInputFilename, aTran
     else:
         if (aGzipFlag):
             outputFilename = os.path.join(anOutputDir, aPrefix + "_chr" + aChromId + ".vcf.gz")
-            #command = aPythonExecutable + " " + script + " " + anInputFilename + " | gzip > " + outputFilename
         else:
             outputFilename = os.path.join(anOutputDir, aPrefix + "_chr" + aChromId + ".vcf")
-            #command = aPythonExecutable + " " + script + " " + anInputFilename + " > " + outputFilename
         
     if (aTranscriptNameTag != None and aTranscriptCoordinateTag != None):
         command = aPythonExecutable + " " + script + " " + anInputFilename + " -o " + outputFilename + " --transcriptNameTag " + aTranscriptNameTag + " --transcriptCoordinateTag " + aTranscriptCoordinateTag + " --transcriptStrandTag " + aTranscriptStrandTag + " --minMapQual " + str(aMinMapQual) + " --log=INFO"
@@ -1344,7 +1351,7 @@ def main():
     #startTime = time.time()
     previousFilename = filter_readSupport(i_pythonExecutable, i_id, i_chr, previousFilename, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, i_rnaIncludeSecondaryAlignments, i_readSupportMinMapQual, i_outputDir, i_prefix, i_outputFilename, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
     #stopTime = time.time()
-    #logging.info("filter_readSupport: prefix=%s: Total time=%s hrs, %s mins, %s secs", i_prefix, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
+    #logging.warning("filter_readSupport: prefix=%s: Total time=%s hrs, %s mins, %s secs", i_prefix, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
     
     # if we aren't debugging, then remove all the tmp files
     if (not i_debug):
