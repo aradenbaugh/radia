@@ -330,8 +330,9 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHe
                                 logging.debug("Overwriting non-passing DNA call with passing RNA Rescue calls \nDNALine: %sRNALineNonOverlaps: %s\nRNALineMpileup: %s\n", dnaLine, line, rnaLine)
                             coordinateDict[stopCoordinate] = rnaLine + "\n"
                         else:
-                            # this call passed in both
-                            logging.warning("Unusual call in non-overlaps file passed in both the RNA and DNA but they probably don't have the same modType! \nDNALine: %sRNALineNonOverlaps: %s\nRNALineMpileup: %s\n", dnaLine, line, rnaLine)
+                            if (anIsDebug):
+                                # this call passed in both
+                                logging.debug("Unusual call in non-overlaps file passed in both the RNA and DNA but they probably don't have the same modType! \nDNALine: %sRNALineNonOverlaps: %s\nRNALineMpileup: %s\n", dnaLine, line, rnaLine)
                             # at this point, there are multiple events that pass all the filters
                             # in this case, pick the passing event in the following order:  GERM, NOR_EDIT, SOM, TUM_EDIT, RNA_TUM_VAR, LOH
                             if ("GERM" in dnaLine or "SOM" in dnaLine):
