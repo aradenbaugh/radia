@@ -185,7 +185,7 @@ def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aParamsDict):
     return genotypes
 
 
-def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANormalDepths, anRNANormalDepths, aDNATumorDepths, anRNATumorDepths, aParamsDict):
+def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANormalDepths, anRNANormalDepths, aDNATumorDepths, anRNATumorDepths, aParamsDict, anIsDebug):
     
     aModTypeList = anInfoDict["MT"]
     aModChangeList = anInfoDict["MC"]
@@ -201,14 +201,56 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
     
     try:
         # for each modification type and change
-        modTypeIndex = 0
-
         for (modType, modChange) in izip(aModTypeList, aModChangeList):
             # get the source and target alleles
             (source, target) = modChange.split(">")              
             
-            # for every germline or somatic call
-            if (modType == "GERM" or modType == "SOM"):
+            #if (anIsDebug):
+            #    logging.debug("modType=%s, modChange=%s", modType, modChange)
+            
+            # for every germline
+            if (modType == "GERM"):
+                # get the indices
+                sourceIndex = aRefPlusAltList.index(source)
+                targetIndex = aRefPlusAltList.index(target)
+                
+                # get the DNA normal total depth
+                totalNormalDepth = sum(aDNANormalDepths)
+
+                # if this is labeled as Germline, but the dna normal variant depth is not sufficient, maybe it is a somatic one
+                normalTargetDepth = aDNANormalDepths[targetIndex]
+                if (totalNormalDepth > 0):
+                    normalTargetPct = round(normalTargetDepth/float(totalNormalDepth), 2)
+                else:
+                    normalTargetPct = 0.0
+                
+                if (normalTargetDepth < modMinDepth or normalTargetPct < modMinPct):
+                    modTypesList.remove(modType)
+                    modChangesList.remove(modChange)
+                    
+                    # add the filters
+                    if (normalTargetDepth < modMinDepth):
+                        anAllFiltersSet.add("dnmnad")
+                    if (normalTargetPct < modMinPct):
+                        anAllFiltersSet.add("dnmnaf")
+            
+                    # get the tumor depth
+                    totalTumorDepth = sum(aDNATumorDepths)
+                    
+                    # this is a hack for ones that were mis-classified as germline by radia, but should've been classified as somatic
+                    if (totalTumorDepth > 0):
+                        targetDepth = aDNATumorDepths[targetIndex]
+                        targetPct = round(targetDepth/float(totalTumorDepth), 2)
+                        
+                        # if the tumor depth is above the minimum, then add it (these were mis-classified by original radia script)
+                        if (targetDepth >= modMinDepth or targetPct >= modMinPct):
+                            #if (anIsDebug):
+                            #    logging.debug("GERM call with not enough normal DNA (altDepth=%s < minDepth=%s or altPct=%s < minPct=%s) is being tested as SOM", normalTargetDepth, modMinDepth, normalTargetPct, modMinPct)
+                            modTypesList.append("SOM")
+                            modChangesList.append(modChange)
+            
+            # for every somatic call
+            elif (modType == "SOM"):
                 # get the indices
                 sourceIndex = aRefPlusAltList.index(source)
                 targetIndex = aRefPlusAltList.index(target)
@@ -218,52 +260,29 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
 
                 # if we don't have any normal DNA, then remove the call and add a filter
                 if (totalNormalDepth == 0):
+                    #if (anIsDebug):
+                    #    logging.debug("SOM call with 0 total normal DNA reads is being removed")
                     modTypesList.remove(modType)
                     modChangesList.remove(modChange)
-                   
-                    if (modType == "SOM"):
-                        # add the filters
-                        anAllFiltersSet.add("dnmntb")
+                    anAllFiltersSet.add("dnmndp")
                     
                 else:
                     # get the normal source depth
                     sourceDepth = aDNANormalDepths[sourceIndex]
                     sourcePct = round(sourceDepth/float(totalNormalDepth), 2)
                     
-                    # if the depth doesn't reach minimum, then remove it and add filters
+                    # if the normal ref depth doesn't reach the minimum, then remove the somatic call and add filters
                     if (sourceDepth < modMinDepth or sourcePct < modMinPct):
                         modTypesList.remove(modType)
                         modChangesList.remove(modChange)
-                       
-                        if (modType == "SOM"):
-                            # add the filters
-                            if (sourceDepth < modMinDepth):
-                                anAllFiltersSet.add("dnmnrb")
-                            if (sourcePct < modMinPct):
-                                anAllFiltersSet.add("dnmnrp")
-                            continue;
-                
-                    # if this is labeled as Germline, but the dna normal variant depth is not sufficient, maybe it is a somatic one
-                    normalTargetDepth = aDNANormalDepths[targetIndex]
-                    if (totalNormalDepth > 0):
-                        normalTargetPct = round(normalTargetDepth/float(totalNormalDepth), 2)
-                    else:
-                        normalTargetPct = 0.0
-                    
-                    if (modType == "GERM" and (normalTargetDepth < modMinDepth or normalTargetPct < modMinPct)):
-                
-                        # get the tumor depth
-                        totalTumorDepth = sum(aDNATumorDepths)
-                        
-                        # this is a hack for ones that were mis-classified as germline by radia, but should've been classified as somatic
-                        if (totalTumorDepth > 0):
-                            targetDepth = aDNATumorDepths[targetIndex]
-                            targetPct = round(targetDepth/float(totalTumorDepth), 2)
-                             
-                            # if the tumor depth is above the minimum, then add it (these were mis-classified by original radia script)
-                            if (targetDepth >= modMinDepth or targetPct >= modMinPct):
-                                modTypesList.append("SOM")
-                                modChangesList.append(modChange)
+                        #if (anIsDebug):
+                        #    logging.debug("SOM call with not enough normal DNA (refDepth=%s < minDepth=%s or refPct=%s < minPct=%s) is being removed", sourceDepth, modMinDepth, sourcePct, modMinPct)
+                        #    logging.debug("normalDepths=%s, tumorDepths=%s, rnaDepths=%s", aDNANormalDepths, aDNATumorDepths, anRNATumorDepths)
+                        # add the filters
+                        if (sourceDepth < modMinDepth):
+                            anAllFiltersSet.add("dnmnrefad")
+                        if (sourcePct < modMinPct):
+                            anAllFiltersSet.add("dnmnrefaf")
                         
             elif (modType == "NOR_EDIT" or modType == "RNA_NOR_VAR"):
                 # get the indices
@@ -281,10 +300,14 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                      
                     # if the normal depth is above the minimum, then add it (these were mis-classified by original radia script)
                     if (targetDNANormalDepth >= modMinDepth or targetDNANormalPct >= modMinPct):
+                        #if (anIsDebug):
+                        #    logging.debug("NOR_EDIT or RNA_NOR_VAR call with variant reads in the normal DNA (altDepth=%s < minDepth=%s or altPct=%s < minPct=%s) is being tested as GERM", targetDNANormalDepth, modMinDepth, targetDNANormalPct, modMinPct)
                         modTypesList.append("GERM")
                         modChangesList.append(modChange)
                     # these are calls with normal DNA reads, but not enough variant reads to be considered as germline, maybe they're edits
                     elif (modType == "RNA_NOR_VAR"):
+                        #if (anIsDebug):
+                        #    logging.debug("RNA_NOR_VAR call without variant reads in the normal DNA (altDepth=%s < minDepth=%s or altPct=%s < minPct=%s) is being tested as NOR_EDIT", targetDNANormalDepth, modMinDepth, targetDNANormalPct, modMinPct)
                         modTypesList.append("NOR_EDIT")
                         modChangesList.append(modChange)
                 
@@ -302,6 +325,8 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                          
                         # if the tumor depth is above the minimum, then add it (these were mis-classified by original radia script)
                         if (targetRNATumorDepth >= modMinDepth or targetRNATumorPct >= modMinPct):
+                            #if (anIsDebug):
+                            #    logging.debug("NOR_EDIT or RNA_NOR_VAR call with not enough variant reads in the normal RNA (altDepth=%s < minDepth=%s or altPct=%s < minPct=%s) is being tested as TUM_EDIT", targetRNATumorDepth, modMinDepth, targetRNATumorPct, modMinPct)
                             modTypesList.append("TUM_EDIT")
                             modChangesList.append(modChange)
                         
@@ -321,10 +346,15 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                      
                     # if the tumor depth is above the minimum, then add it (these were mis-classified by original radia script)
                     if (targetDNATumorDepth >= modMinDepth or targetDNATumorPct >= modMinPct):
+                        #if (anIsDebug):
+                        #    logging.debug("TUM_EDIT or RNA_TUM_VAR call with variant reads in the tumor DNA (altDepth=%s < minDepth=%s or altPct=%s < minPct=%s) is being tested as SOM", targetDNATumorDepth, modMinDepth, targetDNATumorPct, modMinPct)
                         modTypesList.append("SOM")
                         modChangesList.append(modChange)
                     # these are calls with DNA, but not enough DNA (by default 1 read) to be considered as somatic, maybe they're edits
                     elif (modType == "RNA_TUM_VAR" and targetDNATumorDepth == 0):
+                        #if (anIsDebug):
+                        #    logging.debug("RNA_TUM_VAR call without variant reads in the tumor DNA (altDepth=%s < minDepth=%s or altPct=%s < minPct=%s) is being tested as TUM_EDIT", targetDNATumorDepth, modMinDepth, targetDNATumorPct, modMinPct)
+                        #    logging.debug("normalDepths=%s, tumorDepths=%s, rnaDepths=%s", aDNANormalDepths, aDNATumorDepths, anRNATumorDepths)
                         modTypesList.append("TUM_EDIT")
                         modChangesList.append(modChange)
                         
@@ -356,13 +386,13 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                     #else:
                     elif (modType == "SOM"):
                         if (sourceNormalDepth < modMinDepth):
-                            anAllFiltersSet.add("dnmnrb")
+                            anAllFiltersSet.add("dnmnrefad")
                         if (sourceTumorDepth < lohMaxDepth):
-                            anAllFiltersSet.add("dtmnrb")
+                            anAllFiltersSet.add("dtmnrefad")
                         if (sourceNormalPct < modMinPct):
-                            anAllFiltersSet.add("dnmnrp")
+                            anAllFiltersSet.add("dnmnrefaf")
                         if (sourceTumorPct < lohMaxPct):
-                            anAllFiltersSet.add("dtmnrp")
+                            anAllFiltersSet.add("dtmnrefaf")
                   
                 # if there is a valid source, then change the modType      
                 if (len(validSources) > 0): 
@@ -380,7 +410,9 @@ def pre_filter_mod_types(aRefPlusAltList, anAllFiltersSet, anInfoDict, aDNANorma
                     # remove them
                     modTypesList.remove(modType)
                     modChangesList.remove(modChange)
-            modTypeIndex += 1
+            
+            #if (anIsDebug):
+            #    logging.debug("final modTypes=%s, modChanges=%s", modTypesList, modChangesList)
         
     except:
         logging.error("Filtering Error in pre_filter_mod_types(): aModTypeList=%s, aModChangeList=%s, aRefPlusAltList=%s, aDNANormalDepths=%s, anRNANormalDepths=%s, aDNATumorDepths=%s, anRNATumorDepths=%s", str(aModTypeList), str(aModChangeList), str(aRefPlusAltList), str(aDNANormalDepths), str(anRNANormalDepths), str(aDNATumorDepths), str(anRNATumorDepths))
@@ -532,8 +564,8 @@ def filterByMaxError(aRefPlusAltList, aParamsDict, aSampleDict, aSourceIndex, aT
         ((floor(errorCount/float(totalDepth)*100)/100) > float(aParamsDict["MaxErrPct"]))):
         isMaxError = True
     
-    if (anIsDebug):
-        logging.debug("MaxErrPct: isMaxError=%s, errorCount=%s, totalDepth=%s, errorPct=%s, errorPctParam=%s", str(isMaxError), str(errorCount), str(totalDepth), str(floor(errorCount/float(totalDepth)*100)/100), str(float(aParamsDict["MaxErrPct"])))
+    #if (anIsDebug):
+    #    logging.debug("MaxErrPct: isMaxError=%s, errorCount=%s, totalDepth=%s, errorPct=%s, errorPctParam=%s", str(isMaxError), str(errorCount), str(totalDepth), str(floor(errorCount/float(totalDepth)*100)/100), str(float(aParamsDict["MaxErrPct"])))
         
     return isMaxError
 
@@ -547,8 +579,8 @@ def get_sample_columns(aFilename, aHeaderDict, anIsDebug):
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
-        if (anIsDebug):
-            logging.debug("Line: %s", line)
+        #if (anIsDebug):
+        #    logging.debug("Line: %s", line)
             
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -632,25 +664,25 @@ def get_mpileup_header(anAddOriginFlag):
     headerDict["filter"]["rnacall"] = "##FILTER=<ID=rnacall,Description=\"This is a dummy filter for a call that originated in the RNA being filtered by the DNA\">\n"
     headerDict["filter"]["dnacall"] = "##FILTER=<ID=dnacall,Description=\"This is a dummy filter for a call that originated in the DNA being filtered by the RNA\">\n"
     
-    headerDict["filter"]["dnmntb"] = "##FILTER=<ID=dnmntb,Description=\"DNA Normal total bases is less than the minimum\">\n"
-    headerDict["filter"]["dtmntb"] = "##FILTER=<ID=dtmntb,Description=\"DNA Tumor total bases is less than the minimum\">\n"
-    headerDict["filter"]["rnmntb"] = "##FILTER=<ID=rnmntb,Description=\"RNA Normal total bases is less than the minimum\">\n"
-    headerDict["filter"]["rtmntb"] = "##FILTER=<ID=rtmntb,Description=\"RNA Tumor total bases is less than the minimum\">\n"
+    headerDict["filter"]["dnmndp"] = "##FILTER=<ID=dnmndp,Description=\"DNA Normal total depth is less than the minimum\">\n"
+    headerDict["filter"]["dtmndp"] = "##FILTER=<ID=dtmndp,Description=\"DNA Tumor total depth is less than the minimum\">\n"
+    headerDict["filter"]["rnmndp"] = "##FILTER=<ID=rnmndp,Description=\"RNA Normal total depth is less than the minimum\">\n"
+    headerDict["filter"]["rtmndp"] = "##FILTER=<ID=rtmndp,Description=\"RNA Tumor total depth is less than the minimum\">\n"
     
-    headerDict["filter"]["dnmxtb"] = "##FILTER=<ID=dnmxtb,Description=\"DNA Normal total bases is greater than the maximum\">\n"
-    headerDict["filter"]["dtmxtb"] = "##FILTER=<ID=dtmxtb,Description=\"DNA Tumor total bases is greater than the maximum\">\n"
-    headerDict["filter"]["rnmxtb"] = "##FILTER=<ID=rnmxtb,Description=\"RNA Normal total bases is greater than the maximum\">\n"
-    headerDict["filter"]["rtmxtb"] = "##FILTER=<ID=rtmxtb,Description=\"RNA Tumor total bases is greater than the maximum\">\n"
+    headerDict["filter"]["dnmxdp"] = "##FILTER=<ID=dnmxdp,Description=\"DNA Normal total depth is greater than the maximum\">\n"
+    headerDict["filter"]["dtmxdp"] = "##FILTER=<ID=dtmxdp,Description=\"DNA Tumor total depth is greater than the maximum\">\n"
+    headerDict["filter"]["rnmxdp"] = "##FILTER=<ID=rnmxdp,Description=\"RNA Normal total depth is greater than the maximum\">\n"
+    headerDict["filter"]["rtmxdp"] = "##FILTER=<ID=rtmxdp,Description=\"RNA Tumor total depth is greater than the maximum\">\n"
     
-    headerDict["filter"]["dnmnab"] = "##FILTER=<ID=dnmnab,Description=\"DNA Normal ALT bases is less than the minimum\">\n"
-    headerDict["filter"]["dtmnab"] = "##FILTER=<ID=dtmnab,Description=\"DNA Tumor ALT bases is less than the minimum\">\n"
-    headerDict["filter"]["rnmnab"] = "##FILTER=<ID=rnmnab,Description=\"RNA Normal ALT bases is less than the minimum\">\n"
-    headerDict["filter"]["rtmnab"] = "##FILTER=<ID=rtmnab,Description=\"RNA Tumor ALT bases is less than the minimum\">\n"
+    headerDict["filter"]["dnmnad"] = "##FILTER=<ID=dnmnad,Description=\"DNA Normal ALT depth is less than the minimum\">\n"
+    headerDict["filter"]["dtmnad"] = "##FILTER=<ID=dtmnad,Description=\"DNA Tumor ALT depth is less than the minimum\">\n"
+    headerDict["filter"]["rnmnad"] = "##FILTER=<ID=rnmnad,Description=\"RNA Normal ALT depth is less than the minimum\">\n"
+    headerDict["filter"]["rtmnad"] = "##FILTER=<ID=rtmnad,Description=\"RNA Tumor ALT depth is less than the minimum\">\n"
     
-    headerDict["filter"]["dnmnap"] = "##FILTER=<ID=dnmnap,Description=\"DNA Normal ALT percentage is less than the minimum\">\n"
-    headerDict["filter"]["dtmnap"] = "##FILTER=<ID=dtmnap,Description=\"DNA Tumor ALT percentage is less than the minimum\">\n"
-    headerDict["filter"]["rnmnap"] = "##FILTER=<ID=rnmnap,Description=\"RNA Normal ALT percentage is less than the minimum\">\n"
-    headerDict["filter"]["rtmnap"] = "##FILTER=<ID=rtmnap,Description=\"RNA Tumor ALT percentage is less than the minimum\">\n"
+    headerDict["filter"]["dnmnaf"] = "##FILTER=<ID=dnmnaf,Description=\"DNA Normal ALT frequency is less than the minimum\">\n"
+    headerDict["filter"]["dtmnaf"] = "##FILTER=<ID=dtmnaf,Description=\"DNA Tumor ALT frequency is less than the minimum\">\n"
+    headerDict["filter"]["rnmnaf"] = "##FILTER=<ID=rnmnaf,Description=\"RNA Normal ALT frequency is less than the minimum\">\n"
+    headerDict["filter"]["rtmnaf"] = "##FILTER=<ID=rtmnaf,Description=\"RNA Tumor ALT frequency is less than the minimum\">\n"
     
     headerDict["filter"]["dnmnbq"] = "##FILTER=<ID=dnmnbq,Description=\"DNA Normal average ALT base quality is less than the minimum\">\n"
     headerDict["filter"]["dtmnbq"] = "##FILTER=<ID=dtmnbq,Description=\"DNA Tumor average ALT base quality is less than the minimum\">\n"
@@ -667,15 +699,15 @@ def get_mpileup_header(anAddOriginFlag):
     headerDict["filter"]["rnmnmq"] = "##FILTER=<ID=rnmnmq,Description=\"RNA Normal has no ALT reads with the minimum mapping quality\">\n"
     headerDict["filter"]["rtmnmq"] = "##FILTER=<ID=rtmnmq,Description=\"RNA Tumor has no ALT reads with the minimum mapping quality\">\n"
     
-    headerDict["filter"]["dnmxmq0"] = "##FILTER=<ID=dnmxmq0,Description=\"DNA Normal percentage of mapping quality zero reads for the ALT is above the maximum\">\n"
-    headerDict["filter"]["dtmxmq0"] = "##FILTER=<ID=dtmxmq0,Description=\"DNA Tumor percentage of mapping quality zero reads for the ALT is above the maximum\">\n"
-    headerDict["filter"]["rnmxmq0"] = "##FILTER=<ID=rnmxmq0,Description=\"RNA Normal percentage of mapping quality zero reads for the ALT is above the maximum\">\n"
-    headerDict["filter"]["rtmxmq0"] = "##FILTER=<ID=rtmxmq0,Description=\"RNA Tumor percentage of mapping quality zero reads for the ALT is above the maximum\">\n"
+    headerDict["filter"]["dnmxmq0"] = "##FILTER=<ID=dnmxmq0,Description=\"DNA Normal percentage of mapping quality zero reads for the ALT is greater than the maximum\">\n"
+    headerDict["filter"]["dtmxmq0"] = "##FILTER=<ID=dtmxmq0,Description=\"DNA Tumor percentage of mapping quality zero reads for the ALT is greater than the maximum\">\n"
+    headerDict["filter"]["rnmxmq0"] = "##FILTER=<ID=rnmxmq0,Description=\"RNA Normal percentage of mapping quality zero reads for the ALT is greater than the maximum\">\n"
+    headerDict["filter"]["rtmxmq0"] = "##FILTER=<ID=rtmxmq0,Description=\"RNA Tumor percentage of mapping quality zero reads for the ALT is greater than the maximum\">\n"
     
-    headerDict["filter"]["dnmnrb"] = "##FILTER=<ID=dnmnrb,Description=\"DNA Normal REF bases is less than the minimum\">\n"
-    headerDict["filter"]["dnmnrp"] = "##FILTER=<ID=dnmnrp,Description=\"DNA Normal REF percentage is less than the minimum\">\n"
-    headerDict["filter"]["dtmnrb"] = "##FILTER=<ID=dtmnrb,Description=\"DNA Tumor REF bases is less than the minimum\">\n"
-    headerDict["filter"]["dtmnrp"] = "##FILTER=<ID=dtmnrp,Description=\"DNA Tumor REF percentage is less than the minimum\">\n"
+    headerDict["filter"]["dnmnrefad"] = "##FILTER=<ID=dnmnrefad,Description=\"DNA Normal REF depth is less than the minimum\">\n"
+    headerDict["filter"]["dnmnrefaf"] = "##FILTER=<ID=dnmnrefaf,Description=\"DNA Normal REF frequency is less than the minimum\">\n"
+    headerDict["filter"]["dtmnrefad"] = "##FILTER=<ID=dtmnrefad,Description=\"DNA Tumor REF depth is less than the minimum\">\n"
+    headerDict["filter"]["dtmnrefaf"] = "##FILTER=<ID=dtmnrefaf,Description=\"DNA Tumor REF percentage is less than the minimum\">\n"
     
     headerDict["filter"]["dnmxerr"] = "##FILTER=<ID=dnmxerr,Description=\"DNA Normal total ALT percentage attributed to error (sequencing, contamination, etc.) is greater than the maximum\">\n"
     headerDict["filter"]["dtmxerr"] = "##FILTER=<ID=dtmxerr,Description=\"DNA Tumor total ALT percentage attributed to error (sequencing, contamination, etc.) is greater than the maximum\">\n"
@@ -687,10 +719,10 @@ def get_mpileup_header(anAddOriginFlag):
     headerDict["filter"]["rnsbias"] = "##FILTER=<ID=rnsbias,Description=\"RNA Normal strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
     headerDict["filter"]["rtsbias"] = "##FILTER=<ID=rtsbias,Description=\"RNA Tumor strand bias, majority of reads supporting ALT are on forward OR reverse strand\">\n"
 
-    headerDict["filter"]["dnmxindel"] = "##FILTER=<ID=dnmxindel,Description=\"DNA Normal INDEL count is above the maximum\">\n"
-    headerDict["filter"]["dtmxindel"] = "##FILTER=<ID=dtmxindel,Description=\"DNA Tumor INDEL count is above the maximum\">\n"
-    headerDict["filter"]["rnmxindel"] = "##FILTER=<ID=rnmxindel,Description=\"RNA Normal INDEL count is above the maximum\">\n"
-    headerDict["filter"]["rtmxindel"] = "##FILTER=<ID=rtmxindel,Description=\"RNA Tumor INDEL count is above the maximum\">\n"
+    headerDict["filter"]["dnmxindel"] = "##FILTER=<ID=dnmxindel,Description=\"DNA Normal INDEL count is greater than the maximum\">\n"
+    headerDict["filter"]["dtmxindel"] = "##FILTER=<ID=dtmxindel,Description=\"DNA Tumor INDEL count is greater than the maximum\">\n"
+    headerDict["filter"]["rnmxindel"] = "##FILTER=<ID=rnmxindel,Description=\"RNA Normal INDEL count is greater than the maximum\">\n"
+    headerDict["filter"]["rtmxindel"] = "##FILTER=<ID=rtmxindel,Description=\"RNA Tumor INDEL count is greater than the maximum\">\n"
 
     return headerDict
 
@@ -705,10 +737,8 @@ def get_vcf_header(aHeaderDict, aFilename, aCmdLineParams, aColumnsList, anIsDeb
         # strip the carriage return and newline characters
         #line = line.rstrip("\r\n")
 
-        '''
-        if (anIsDebug):
-            logging.debug("read vcfLine: %s", line)
-        '''
+        #if (anIsDebug):
+        #    logging.debug("read vcfLine: %s", line)
         
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -737,9 +767,7 @@ def get_vcf_header(aHeaderDict, aFilename, aCmdLineParams, aColumnsList, anIsDeb
             line = line.rstrip("\r\n")
             
             generatorLine = line[0:(len(line)-1)]
-            logging.debug("generatorLine: %s", generatorLine)
             generatorLine = generatorLine[16:len(generatorLine)]
-            logging.debug("generatorLine: %s", generatorLine)
             generatorParamsList = generatorLine.split(",")
             generatorParamsDict = {}
             
@@ -865,8 +893,8 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
-        if (anIsDebug):
-            logging.debug("VCF Line: %s", line)
+        #if (anIsDebug):
+        #    logging.debug("VCF Line: %s", line)
             
         # if it is an empty line, then just continue
         if (line.isspace()):
@@ -1032,9 +1060,11 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         allFiltersSet = set()
         
         # get rid of bad mod types that don't meet the minimum requirements
-        (event_infoDict, allFiltersSet) = pre_filter_mod_types(refPlusAltList, allFiltersSet, event_infoDict, map(int, event_dnaNormalDict["AD"]), map(int, event_rnaNormalDict["AD"]), map(int, event_dnaTumorDict["AD"]), map(int, event_rnaTumorDict["AD"]), aParamsDict)
-        if (anIsDebug):
-            logging.debug("after pre_filter_mod_types(): modTypes=%s, modChanges=%s", list(event_infoDict["MT"]), list(event_infoDict["MC"]))
+        #if (anIsDebug):
+        #    logging.debug("before pre_filter_mod_types(): modTypes=%s, modChanges=%s", list(event_infoDict["MT"]), list(event_infoDict["MC"]))
+        (event_infoDict, allFiltersSet) = pre_filter_mod_types(refPlusAltList, allFiltersSet, event_infoDict, map(int, event_dnaNormalDict["AD"]), map(int, event_rnaNormalDict["AD"]), map(int, event_dnaTumorDict["AD"]), map(int, event_rnaTumorDict["AD"]), aParamsDict, anIsDebug)
+        #if (anIsDebug):
+        #    logging.debug("after pre_filter_mod_types(): modTypes=%s, modChanges=%s", list(event_infoDict["MT"]), list(event_infoDict["MC"]))
             
         # make copies of the lists to manipulate
         modTypesList = list(event_infoDict["MT"])
@@ -1059,21 +1089,21 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                 # check to make sure the normal DNA sample is between the min and the max of total bases
                 if (int(event_dnaNormalDict["DP"][0]) < aDnaNormParamsDict["MinTotalNumBases"]):
                     isValidMod = False
-                    filterSet.add("dnmntb")
+                    filterSet.add("dnmndp")
                         
                 elif (int(event_dnaNormalDict["DP"][0]) >= aDnaNormParamsDict["MaxTotalNumBases"]):
                     isValidMod = False
-                    filterSet.add("dnmxtb")
+                    filterSet.add("dnmxdp")
                     
                 # check to make sure the normal DNA sample number of ALT bases is above the min
                 if (int(event_dnaNormalDict["AD"][targetIndex]) < aDnaNormParamsDict["MinAltNumBases"]):
                     isValidMod = False
-                    filterSet.add("dnmnab")
+                    filterSet.add("dnmnad")
                     
                 # check to make sure the normal DNA sample percentage of ALT bases is above the min
                 if (float(event_dnaNormalDict["AF"][targetIndex]) < aDnaNormParamsDict["MinAltPct"]):
                     isValidMod = False
-                    filterSet.add("dnmnap")
+                    filterSet.add("dnmnaf")
                     
                 # check to make sure the normal DNA sample average base quality for ALT bases is above the min
                 if (int(event_dnaNormalDict["BQ"][targetIndex]) < aDnaNormParamsDict["MinAltAvgBaseQual"]):
@@ -1118,20 +1148,20 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     if (haveRnaNormData):
                         if (int(event_rnaNormalDict["DP"][0]) < anRnaNormParamsDict["MinTotalNumBases"]):
                             isValidMod = False
-                            filterSet.add("rnmntb")
+                            filterSet.add("rnmndp")
                         elif (int(event_rnaNormalDict["DP"][0]) >= anRnaNormParamsDict["MaxTotalNumBases"]):
                             isValidMod = False
-                            filterSet.add("rnmxtb")
+                            filterSet.add("rnmxdp")
 
                         # check to make sure the normal RNA sample number of ALT bases is above the min
                         if (int(event_rnaNormalDict["AD"][targetIndex]) < anRnaNormParamsDict["MinAltNumBases"]):
                             isValidMod = False
-                            filterSet.add("rnmnab")
+                            filterSet.add("rnmnad")
                         
                         # check to make sure the normal RNA sample percentage of ALT bases is above the min
                         if (float(event_rnaNormalDict["AF"][targetIndex]) < anRnaNormParamsDict["MinAltPct"]):
                             isValidMod = False
-                            filterSet.add("rnmnap")
+                            filterSet.add("rnmnaf")
                             
                         # check to make sure the normal RNA sample average base quality for ALT bases is above the min
                         if (int(event_rnaNormalDict["BQ"][targetIndex]) < anRnaNormParamsDict["MinAltAvgBaseQual"]):
@@ -1187,10 +1217,10 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         if (haveDnaNormData):
                             if (int(event_dnaNormalDict["DP"][0]) < aDnaNormParamsDict["MinTotalNumBases"]):
                                 isValidMod = False
-                                filterSet.add("dnmntb")
+                                filterSet.add("dnmndp")
                             elif (int(event_dnaNormalDict["DP"][0]) >= aDnaNormParamsDict["MaxTotalNumBases"]):
                                 isValidMod = False
-                                filterSet.add("dnmxtb")
+                                filterSet.add("dnmxdp")
                             # we want to make sure the normal DNA sample error percentage is below the max
                             # we want to make sure that the percentage of other ALTs in this sample is below the max error
                             if (filterByMaxError(refPlusAltList, aDnaNormParamsDict, event_dnaNormalDict, sourceIndex, targetIndex, True, anIsDebug)):
@@ -1199,25 +1229,25 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         # else if a minimum amount of total bases were required, but none were found, then set the filter
                         elif (aDnaNormParamsDict["MinTotalNumBases"] > 0):
                             isValidMod = False
-                            filterSet.add("dnmntb")
+                            filterSet.add("dnmndp")
                     
                     # check to make sure the normal RNA sample is between the min and the max of total bases
                     if (int(event_rnaNormalDict["DP"][0]) < anRnaNormParamsDict["MinTotalNumBases"]):
                         isValidMod = False
-                        filterSet.add("rnmntb")
+                        filterSet.add("rnmndp")
                     elif (int(event_rnaNormalDict["DP"][0]) >= anRnaNormParamsDict["MaxTotalNumBases"]):
                         isValidMod = False
-                        filterSet.add("rnmxtb")
+                        filterSet.add("rnmxdp")
                     
                     # check to make sure the normal RNA sample number of ALT bases is above the min
                     if (int(event_rnaNormalDict["AD"][targetIndex]) < anRnaNormParamsDict["MinAltNumBases"]):
                         isValidMod = False
-                        filterSet.add("rnmnab")
+                        filterSet.add("rnmnad")
                     
                     # check to make sure the normal RNA sample percentage of ALT bases is above the min
                     if (float(event_rnaNormalDict["AF"][targetIndex]) < anRnaNormParamsDict["MinAltPct"]):
                         isValidMod = False
-                        filterSet.add("rnmnap")
+                        filterSet.add("rnmnaf")
                     
                     # check to make sure the normal RNA sample average base quality for ALT bases is above the min
                     if (int(event_rnaNormalDict["BQ"][targetIndex]) < anRnaNormParamsDict["MinAltAvgBaseQual"]):
@@ -1266,19 +1296,19 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                 # check to make sure the tumor DNA sample is between the min and the max of total bases
                 if (int(event_dnaTumorDict["DP"][0]) < aDnaTumParamsDict["MinTotalNumBases"]):
                     isValidMod = False
-                    filterSet.add("dtmntb")
+                    filterSet.add("dtmndp")
                 elif (int(event_dnaTumorDict["DP"][0]) >= aDnaTumParamsDict["MaxTotalNumBases"]):
                     isValidMod = False
-                    filterSet.add("dtmxtb")
+                    filterSet.add("dtmxdp")
 
                 # check to make sure the tumor DNA sample number of ALT bases is above the min
                 if (int(event_dnaTumorDict["AD"][targetIndex]) < aDnaTumParamsDict["MinAltNumBases"]):
                     isValidMod = False
-                    filterSet.add("dtmnab")
+                    filterSet.add("dtmnad")
                 # check to make sure the tumor DNA sample percentage of ALT bases is above the min
                 if (float(event_dnaTumorDict["AF"][targetIndex]) < aDnaTumParamsDict["MinAltPct"]):
                     isValidMod = False
-                    filterSet.add("dtmnap")
+                    filterSet.add("dtmnaf")
                     
                 # check to make sure the tumor DNA sample average base quality for ALT bases is above the min
                 if (int(event_dnaTumorDict["BQ"][targetIndex]) < aDnaTumParamsDict["MinAltAvgBaseQual"]):
@@ -1320,10 +1350,10 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                 if (haveDnaNormData):
                     if (int(event_dnaNormalDict["DP"][0]) < aDnaNormParamsDict["MinTotalNumBases"]):
                         isValidMod = False
-                        filterSet.add("dnmntb")
+                        filterSet.add("dnmndp")
                     elif (int(event_dnaNormalDict["DP"][0]) >= aDnaNormParamsDict["MaxTotalNumBases"]):
                         isValidMod = False
-                        filterSet.add("dnmxtb")
+                        filterSet.add("dnmxdp")
                     # we want to make sure the normal DNA sample error percentage is below the max
                     # we want to make sure that the percentage of other ALTs in this sample is below the max error
                     if (filterByMaxError(refPlusAltList, aDnaNormParamsDict, event_dnaNormalDict, sourceIndex, targetIndex, True, anIsDebug)):
@@ -1331,7 +1361,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         filterSet.add("dnmxerr")
                 elif (aDnaNormParamsDict["MinTotalNumBases"] > 0):
                     isValidMod = False
-                    filterSet.add("dnmntb")
+                    filterSet.add("dnmndp")
                 
                 # set some flags
                 if (haveRnaTumData):
@@ -1348,20 +1378,20 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     if (haveRnaTumData):
                         if (int(event_rnaTumorDict["DP"][0]) < anRnaTumParamsDict["MinTotalNumBases"]):
                             isValidMod = False
-                            filterSet.add("rtmntb")
+                            filterSet.add("rtmndp")
                         elif (int(event_rnaTumorDict["DP"][0]) >= anRnaTumParamsDict["MaxTotalNumBases"]):
                             isValidMod = False
-                            filterSet.add("rtmxtb")
+                            filterSet.add("rtmxdp")
                         
                         # check to make sure the tumor RNA sample number of ALT bases is above the min
                         if (int(event_rnaTumorDict["AD"][targetIndex]) < anRnaTumParamsDict["MinAltNumBases"]):
                             isValidMod = False
-                            filterSet.add("rtmnab")
+                            filterSet.add("rtmnad")
                         
                         # check to make sure the tumor RNA sample percentage of ALT bases is above the min
                         if (float(event_rnaTumorDict["AF"][targetIndex]) < anRnaTumParamsDict["MinAltPct"]):
                             isValidMod = False
-                            filterSet.add("rtmnap")
+                            filterSet.add("rtmnaf")
                             
                         # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
                         if (int(event_rnaTumorDict["BQ"][targetIndex]) < anRnaTumParamsDict["MinAltAvgBaseQual"]):
@@ -1402,7 +1432,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     # else if a minimum amount of total bases were required, but none were found, then set the filter
                     elif (anRnaTumParamsDict["MinTotalNumBases"] > 0):
                         isValidMod = False
-                        filterSet.add("rtmntb")
+                        filterSet.add("rtmndp")
             
             elif (modType.find("TUM_EDIT") != -1 or modType.find("RNA_TUM_VAR") != -1):
                 
@@ -1418,10 +1448,10 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         if (haveDnaNormData):
                             if (int(event_dnaNormalDict["DP"][0]) < aDnaNormParamsDict["MinTotalNumBases"]):
                                 isValidMod = False
-                                filterSet.add("dnmntb")
+                                filterSet.add("dnmndp")
                             elif (int(event_dnaNormalDict["DP"][0]) >= aDnaNormParamsDict["MaxTotalNumBases"]):
                                 isValidMod = False
-                                filterSet.add("dnmxtb")
+                                filterSet.add("dnmxdp")
                             # we want to make sure the normal DNA sample error percentage is below the max
                             # we want to make sure that the percentage of other ALTs in this sample is below the max error
                             if (filterByMaxError(refPlusAltList, aDnaNormParamsDict, event_dnaNormalDict, sourceIndex, targetIndex, True, anIsDebug)):
@@ -1430,16 +1460,16 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         # else if a minimum amount of total bases were required, but none were found, then set the filter
                         elif (aDnaNormParamsDict["MinTotalNumBases"] > 0):
                             isValidMod = False
-                            filterSet.add("dnmntb")
+                            filterSet.add("dnmndp")
                         
                         # check to make sure the tumor DNA sample is between the min and the max of total bases
                         if (haveDnaTumData):
                             if (int(event_dnaTumorDict["DP"][0]) < aDnaTumParamsDict["MinTotalNumBases"]):
                                 isValidMod = False
-                                filterSet.add("dtmntb")
+                                filterSet.add("dtmndp")
                             elif (int(event_dnaTumorDict["DP"][0]) >= aDnaTumParamsDict["MaxTotalNumBases"]):
                                 isValidMod = False
-                                filterSet.add("dtmxtb")
+                                filterSet.add("dtmxdp")
                             # we want to make sure the tumor DNA sample error percentage is below the max
                             # we want to make sure that the percentage of other ALTs in this sample is below the max error
                             if (filterByMaxError(refPlusAltList, aDnaTumParamsDict, event_dnaTumorDict, sourceIndex, targetIndex, True, anIsDebug)):
@@ -1448,25 +1478,25 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         # else if a minimum amount of total bases were required, but none were found, then set the filter
                         elif (aDnaTumParamsDict["MinTotalNumBases"] > 0):
                             isValidMod = False
-                            filterSet.add("dtmntb")
+                            filterSet.add("dtmndp")
                         
                     # check to make sure the tumor RNA sample is between the min and the max of total bases
                     if (int(event_rnaTumorDict["DP"][0]) < anRnaTumParamsDict["MinTotalNumBases"]):
                         isValidMod = False
-                        filterSet.add("rtmntb")
+                        filterSet.add("rtmndp")
                     elif (int(event_rnaTumorDict["DP"][0]) >= anRnaTumParamsDict["MaxTotalNumBases"]):
                         isValidMod = False
-                        filterSet.add("rtmxtb")
+                        filterSet.add("rtmxdp")
                         
                     # check to make sure the tumor RNA sample number of ALT bases is above the min
                     if (int(event_rnaTumorDict["AD"][targetIndex]) < anRnaTumParamsDict["MinAltNumBases"]):
                         isValidMod = False
-                        filterSet.add("rtmnab")
+                        filterSet.add("rtmnad")
                     
                     # check to make sure the tumor RNA sample percentage of ALT bases is above the min
                     if (float(event_rnaTumorDict["AF"][targetIndex]) < anRnaTumParamsDict["MinAltPct"]):
                         isValidMod = False
-                        filterSet.add("rtmnap")
+                        filterSet.add("rtmnaf")
                     
                     # check to make sure the tumor RNA sample average base quality for ALT bases is above the min
                     if (int(event_rnaTumorDict["BQ"][targetIndex]) < anRnaTumParamsDict["MinAltAvgBaseQual"]):
@@ -1524,14 +1554,6 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
             if (not isValidMod):
                 allFiltersSet = allFiltersSet.union(filterSet)
                 
-                # find the origin
-                origin = "DNA"
-                if (aFilterUsingRNAFlag):
-                    origin = "RNA"
-
-                modFilterTypes.append("_".join([origin, modType, modChange]))
-                modFilters.append("_".join(filterSet))
-                
                 # remove it and try the next one
                 modIndices = range(0, len(modTypesList))
                 for (removeModType, removeModChange, modIndex) in izip(modTypesList, modChangesList, modIndices):
@@ -1539,7 +1561,16 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                         del modTypesList[modIndex]
                         del modChangesList[modIndex]
                         break;
-                 
+
+            # keep track of the mod filters for all calls whether they are valid or not
+            # this is needed to include filters upstream from this script in the final calls
+            origin = "DNA"
+            if (aFilterUsingRNAFlag):
+                origin = "RNA"
+
+            modFilterTypes.append("_".join([origin, modType, modChange]))
+            modFilters.append("_".join(event_filterSet.union(filterSet)))
+            
         # after looping through all of them:  if there are still some valid mod types, then set them in the infoDict and ignore the other filtered calls
         if (len(modTypesList) > 0):
             event_infoDict["MT"] = modTypesList
@@ -1547,12 +1578,18 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
             
             # if an event passed, get the final mod type
             event_infoDict = get_final_mod_type(event_infoDict, anIsDebug)
-        
+            
+            # if this call passes this script but did not pass previous scripts.
+            # then set the mod filters from previous scripts
+            if (len(event_filterSet) != 0):
+                event_infoDict["MFT"] = modFilterTypes
+                event_infoDict["MF"] = modFilters
         # otherwise add the appropriate filters
         else:
             event_infoDict["MFT"] = modFilterTypes
             event_infoDict["MF"] = modFilters
             event_filterSet = event_filterSet.union(allFiltersSet)
+        
         
         # create the output list
         vcfOutputList = [event_chr, str(event_stopCoordinate)]
@@ -1845,7 +1882,7 @@ def main():
         logging.debug("filterUsingDNA=%s" % i_filterUsingDNA)
         logging.debug("addOrigin=%s" % i_addOrigin)
         
-        logging.debug("genotypeMinDepth=%s" % i_paramsDict["MinGentypeDepth"])
+        logging.debug("genotypeMinDepth=%s" % i_paramsDict["MinGenotypeDepth"])
         logging.debug("genotypeMinPct=%s" % i_paramsDict["MinGenotypePct"])
         logging.debug("modMinDepth=%s" % i_paramsDict["MinModDepth"])
         logging.debug("modMinPct=%s" % i_paramsDict["MinModPct"])
