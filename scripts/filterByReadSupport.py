@@ -100,8 +100,8 @@ def get_passing_germline_alts(aCurrData):
     return alts
 
     
-def parse_vcf(filename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug):
-    vcf = get_read_fileHandler(filename)
+def parse_vcf(aVCFFilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug):
+    vcf = get_read_fileHandler(aVCFFilename)
     currVCF = myvcf.VCF()
 
     dnaNormalBam = None
@@ -165,9 +165,10 @@ def parse_vcf(filename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug)
         dataAsList = line.strip().split("\t")
         # if the number of VCF columns doesn't equal the number of VCF header columns
         if len(dataAsList) == len(currVCF.headers):
+            
             # parse each VCF line
             curr_data = currVCF.make_data(dataAsList)
-             
+            
             # keep track of the passing germline and loh calls
             #if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "Germline" or curr_data.info["SS"] == "LOH"):
             if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "1" or curr_data.info["SS"] == "3"):
@@ -211,10 +212,9 @@ def parse_vcf(filename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug)
                     filterDict[curr_data.chrom] = {}
                 filterDict[curr_data.chrom][str(curr_data.pos-1)] = curr_data
         else:
-            logging.error("The number of VCF columns (%s) doesn't equal the number of VCF header columns (%s).", len(dataAsList), len(currVCF.headers))
-            logging.error("Here are the VCF header columns: %s", currVCF.headers)
-            logging.error("Here is the VCF line: %s", line.strip())
-            sys.exit(1)
+            logging.warning("The number of VCF columns (%s) doesn't equal the number of VCF header columns (%s).", len(dataAsList), len(currVCF.headers))
+            logging.warning("Here are the VCF header columns: %s", currVCF.headers)
+            logging.warning("Here is the VCF line: %s", line.strip())
     
     #if (anIsDebug):
     #    logging.debug("germlineDict=%s", germlineDict)
@@ -401,51 +401,49 @@ def mismatch_counts(aCigarNum, aChrom, aRefIndex, aQueryIndex, aTranscriptStrand
 
 
 class Club():
-    def __init__(self, vcffilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug):
-        (self.normalbamfilename, 
-         self.rnanormalbamfilename, self.rnanormalfastafilename, self.rnanormalchrprefix, 
-         self.tumorbamfilename, self.tumorfastafilename, self.tumorchrprefix, 
-         self.rnatumorbamfilename, self.rnatumorfastafilename, self.rnatumorchrprefix, 
+    def __init__(self, aVCFFilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug):
+        (self.dnaNormalBamFilename,
+         self.rnaNormalBamFilename, self.rnaNormalFastaFilename, self.rnaNormalChrPrefix,
+         self.dnaTumorBamFilename, self.dnaTumorFastaFilename, self.dnaTumorChrPrefix,
+         self.rnaTumorBamFilename, self.rnaTumorFastaFilename, self.rnaTumorChrPrefix,
          self.germlineDict, self.transcriptGermlineDict, self.mutationsDict, self.filterDict) = parse_vcf(
-             vcffilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug)
+             aVCFFilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug)
         
-        if (self.tumorbamfilename != None):
-            if (not os.path.isfile(self.tumorbamfilename)):
-                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.tumorbamfilename
+        if (self.dnaTumorBamFilename != None):
+            if (not os.path.isfile(self.dnaTumorBamFilename)):
+                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.dnaTumorBamFilename
                 sys.exit(1)
                 
-            self.tumorbamfile = pysam.Samfile(self.tumorbamfilename, 'rb')
-    
-        if (self.tumorfastafilename != None):
-            if (not os.path.isfile(self.tumorfastafilename)):
-                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.tumorfastafilename
-                sys.exit(1)
-
-            self.fastafile = pysam.Fastafile(self.tumorfastafilename)
-        
-        if (self.rnanormalbamfilename != None):
-            if (not os.path.isfile(self.rnanormalbamfilename)):
-                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.rnanormalbamfilename
-                sys.exit(1)
-        
-            if (self.rnanormalfastafilename == None or not os.path.isfile(self.rnanormalfastafilename)):
-                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.rnanormalfastafilename
+            if (self.dnaTumorFastaFilename == None or not os.path.isfile(self.dnaTumorFastaFilename)):
+                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.dnaTumorFastaFilename
                 sys.exit(1)
             
-            self.rnanormalbamfile = pysam.Samfile(self.rnanormalbamfilename, 'rb')
-            self.rnanormalfastafile = pysam.Fastafile(self.rnanormalfastafilename)
+            self.dnaTumorBamFile = pysam.Samfile(self.dnaTumorBamFilename, 'rb')
+            self.dnaTumorFastaFile = pysam.Fastafile(self.dnaTumorFastaFilename)
         
-        if (self.rnatumorbamfilename != None):
-            if (not os.path.isfile(self.rnatumorbamfilename)):
-                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.rnatumorbamfilename
+        if (self.rnaNormalBamFilename != None):
+            if (not os.path.isfile(self.rnaNormalBamFilename)):
+                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.rnaNormalBamFilename
                 sys.exit(1)
         
-            if (self.rnatumorfastafilename == None or not os.path.isfile(self.rnatumorfastafilename)):
-                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.rnatumorfastafilename
+            if (self.rnaNormalFastaFilename == None or not os.path.isfile(self.rnaNormalFastaFilename)):
+                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.rnaNormalFastaFilename
                 sys.exit(1)
             
-            self.rnatumorbamfile = pysam.Samfile(self.rnatumorbamfilename, 'rb')
-            self.rnatumorfastafile = pysam.Fastafile(self.rnatumorfastafilename)
+            self.rnaNormalBamFile = pysam.Samfile(self.rnaNormalBamFilename, 'rb')
+            self.rnaNormalFastaFile = pysam.Fastafile(self.rnaNormalFastaFilename)
+        
+        if (self.rnaTumorBamFilename != None):
+            if (not os.path.isfile(self.rnaTumorBamFilename)):
+                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.rnaTumorBamFilename
+                sys.exit(1)
+        
+            if (self.rnaTumorFastaFilename == None or not os.path.isfile(self.rnaTumorFastaFilename)):
+                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.rnaTumorFastaFilename
+                sys.exit(1)
+            
+            self.rnaTumorBamFile = pysam.Samfile(self.rnaTumorBamFilename, 'rb')
+            self.rnaTumorFastaFile = pysam.Fastafile(self.rnaTumorFastaFilename)
         
         return
 
@@ -458,38 +456,38 @@ class Club():
             
             if (aMutSS == "Somatic" or aMutSS == "2"):
                 if (aBamOrigin == "RNA"):
-                    bamfile = self.rnatumorbamfile
-                    fastafile = self.rnatumorfastafile
-                    if (self.rnatumorchrprefix == "True"):
+                    bamFile = self.rnaTumorBamFile
+                    fastaFile = self.rnaTumorFastaFile
+                    if (self.rnaTumorChrPrefix == "True"):
                         chrom = "chr" + chrom
                 else:
-                    bamfile = self.tumorbamfile
-                    fastafile = self.fastafile
-                    if (self.tumorchrprefix == "True"):
+                    bamFile = self.dnaTumorBamFile
+                    fastaFile = self.dnaTumorFastaFile
+                    if (self.dnaTumorChrPrefix == "True"):
                         chrom = "chr" + chrom
             elif (aMutSS == "4"):
                 if (aMutType == "NOR_EDIT"):
-                    bamfile = self.rnanormalbamfile
-                    fastafile = self.rnanormalfastafile
-                    if (self.rnanormalchrprefix == "True"):
+                    bamFile = self.rnaNormalBamFile
+                    fastaFile = self.rnaNormalFastaFile
+                    if (self.rnaNormalChrPrefix == "True"):
                         chrom = "chr" + chrom
                 elif (aMutType == "TUM_EDIT"):
-                    bamfile = self.rnatumorbamfile
-                    fastafile = self.rnatumorfastafile
-                    if (self.rnatumorchrprefix == "True"):
+                    bamFile = self.rnaTumorBamFile
+                    fastaFile = self.rnaTumorFastaFile
+                    if (self.rnaTumorChrPrefix == "True"):
                         chrom = "chr" + chrom
             
             # vcfs are 1-based and pysam requires a 0-based coordinate
             pos = pos - 1
             
             # get the reference base from the fasta
-            refBase = fastafile.fetch(chrom, pos, pos+1).upper()
+            refBase = fastaFile.fetch(chrom, pos, pos+1).upper()
             
             if (anIsDebug):
                 logging.debug("getting pileups for chrom=%s, pos=%s", chrom, pos)
             
             # get the pileups
-            for pileupColumn in bamfile.pileup(chrom, pos, pos+1, stepper="nofilter"):
+            for pileupColumn in bamFile.pileup(chrom, pos, pos+1, stepper="nofilter"):
                 
                 # move through pileup until at the correct position
                 if pileupColumn.pos < pos:
@@ -521,7 +519,7 @@ class Club():
                     #    #    logging.debug("base is an indel at %s:%s", chrom, pos)
                         continue;
                     # skip over secondary mappings for RNA if the param is not set to include them
-                    if (aBamOrigin == "RNA" and not aParamsDict["rnaIncludeSecondaryAlignments"] and pileupRead.alignment.is_secondary):
+                    if (aBamOrigin == "RNA" and not aParamsDict["rnaIncludeSecondaryAlignments"] and alignedRead.is_secondary):
                         #if (anIsDebug):
                         #    logging.debug("read is secondary alignment but flag to include secondary alignments for RNA is not set %s:%s", chrom, pos)
                         continue;
@@ -532,7 +530,7 @@ class Club():
                     keptReads += 1
                     oneReadDict["alignedRead"] = alignedRead
                     oneReadDict["pileupRead"] = pileupRead
-                    #oneReadDict["qname"] = alignedRead.query_name                          # qname
+                    #oneReadDict["queryName"] = alignedRead.query_name                      # qname
                     #oneReadDict["flag"] = alignedRead.flag                                 # flag
                     #oneReadDict["rname"] = alignedRead.reference_name                      # rname
                     oneReadDict["start"] = alignedRead.reference_start                      # pos
@@ -840,7 +838,7 @@ class Club():
         return '{0:1.2e}'.format(pValue), int(round(phred))
 
 
-    def get_pvalue(self, a, b, c, d, aMaxSize, aFactLogList, anIsDebug):
+    def get_pvalue(self, a, b, c, d, aFactLogList, anIsDebug):
         try:
             n = a + b + c + d
             
@@ -866,7 +864,7 @@ class Club():
             return float("nan")
         
         # get the first p-value
-        p = self.get_pvalue(a, b, c, d, aMaxSize, aFactLogList, anIsDebug)
+        p = self.get_pvalue(a, b, c, d, aFactLogList, anIsDebug)
         
         if (anIsDebug):
             logging.debug("doing R-tail: p=%s, a=%s, b=%s, c=%s, d=%s", p, a, b, c, d)
@@ -885,7 +883,7 @@ class Club():
             b -= 1
             c -= 1
             d += 1
-            pTemp = self.get_pvalue(a, b, c, d, aMaxSize, aFactLogList, anIsDebug)
+            pTemp = self.get_pvalue(a, b, c, d, aFactLogList, anIsDebug)
             p += pTemp
             
             if (anIsDebug):
@@ -902,7 +900,7 @@ class Club():
             return float("nan")
         
         # get the first p-value
-        p = self.get_pvalue(a, b, c, d, aMaxSize, aFactLogList, anIsDebug)
+        p = self.get_pvalue(a, b, c, d, aFactLogList, anIsDebug)
         
         if (anIsDebug):
             logging.debug("doing L-tail: p=%s, a=%s, b=%s, c=%s, d=%s", p, a, b, c, d)
@@ -922,7 +920,7 @@ class Club():
             b += 1
             c += 1
             d -= 1
-            pTemp = self.get_pvalue(a, b, c, d, aMaxSize, aFactLogList, anIsDebug)
+            pTemp = self.get_pvalue(a, b, c, d, aFactLogList, anIsDebug)
             p += pTemp
             
             if (anIsDebug):
@@ -1024,7 +1022,7 @@ class Club():
             logging.debug("begin filter for %s and %s, mutSS=%s, mutType=%s, origin=%s", aChromList, aPosList, aMutSS, aMutType, aBamOrigin)
             logging.debug("parmsDict: %s", aParamsDict)
         
-        #expects a 0-based pos
+        # expects a 0-based pos
         refCount = 0
         mutCountReads = 0
         mutCountQualReads = 0
@@ -1044,20 +1042,22 @@ class Club():
         readsWithIns = 0
         readsWithNeighborBaseQuals = 0
         readsWithImproperPairs = 0
+        mutCountReadsWithMultiMap = 0
+        
         bases = ""
         baseQuals = ""
         
         if (aMutSS == "Somatic" or aMutSS == "2"):
             if (aBamOrigin == "RNA"):
-                fastafile = self.rnatumorfastafile
+                fastaFile = self.rnaTumorFastaFile
             else:
-                fastafile = self.fastafile
+                fastaFile = self.dnaTumorFastaFile
         elif (aMutSS == "4"):
-            if (aMutType == "NOR_EDIT"):
-                fastafile = self.rnanormalfastafile
-            elif (aMutType == "TUM_EDIT"):
-                fastafile = self.rnatumorfastafile
-                
+            if (aMutType == "TUM_EDIT"):
+                fastaFile = self.rnaTumorFastaFile
+            elif (aMutType == "NOR_EDIT"):
+                fastaFile = self.rnaNormalFastaFile
+        
         # group all of the reads by name
         readsDict = self.group_reads_by_name(aChromList, aPosList, aTranscriptStrandList, aBamOrigin, aParamsDict, aMutSS, aMutType, anIsDebug)
 
@@ -1073,18 +1073,23 @@ class Club():
             readBaseQual = readDict["baseQual"]
             #readSequence = readDict["sequence"]
             #readSequenceIndex = readDict["sequenceIndex"]
-            #readName = readDict["name"]
+            #readName = readDict["queryName"]
             #readMapQual = readDict["mapQual"]
             #readInsertSize = readDict["insertSize"]
             #readFlag = readDict["flag"]
             
             #if (anIsDebug):
-            #    logging.debug("found aligned read at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedread)
+            #    logging.debug("found aligned read at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedRead)
             
             # if this read supports the alternative allele
             if is_mutation(readDict, aRefList, anAltList, aBamOrigin, anIsDebug):
                 
+                #if (anIsDebug):
+                #    logging.debug("found aligned read supporting variant at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedRead)
+                
                 mutCountReads += 1
+                if alignedRead.is_secondary:
+                    mutCountReadsWithMultiMap += 1
                 
                 if (anIsDebug):
                     logging.debug("found read with mutation, number of reads with mutations=%s", mutCountReads)
@@ -1093,7 +1098,6 @@ class Club():
                 if (not low_base_or_map_quals(pileupRead, aParamsDict, anIsDebug)):
                     
                     mutCountQualReads +=1
-                    
                     bases += readBase
                     baseQuals += readBaseQual
                     
@@ -1113,7 +1117,7 @@ class Club():
                         logging.debug("pbias query_pos=%s, readLength=%s, starts=%s, middles=%s, ends=%s", pileupRead.query_position, readLength, starts, middles, ends)
                     
                     # see if this read is perfect
-                    isPerfectFlag, reasonNotPerfect = self.is_perfect(pileupRead, aBamOrigin, fastafile, aMutSS, readDict, aParamsDict, anIsDebug)
+                    isPerfectFlag, reasonNotPerfect = self.is_perfect(pileupRead, aBamOrigin, fastaFile, aMutSS, readDict, aParamsDict, anIsDebug)
                     
                     if (anIsDebug):
                         logging.debug("isPerfect?=%s, reason=%s", isPerfectFlag, reasonNotPerfect)
@@ -1173,16 +1177,27 @@ class Club():
         # keep track of all filters
         filters = []
         
+        mcMultiMappingPct = 0.0
+        # testing multiple mapping to the mutCountReads
+        if (mutCountReads > 0) and (mutCountReads >= aParamsDict["minMultiMapDepth"]):
+            mcMultiMappingPct = round(mutCountReadsWithMultiMap/float(mutCountReads),2)
+            if (mcMultiMappingPct >= aParamsDict["maxMultiMapPct"]):
+                filters.append("mxmmp")
+                if (anIsDebug):
+                    logging.debug("checkfilter multiMap applied for %s:%s, mutSS=%s, mutType=%s, perfectReadsWithMultiMap=%s (%s)", aChromList, aPosList, aMutSS, aMutType, mutCountReadsWithMultiMap, mcMultiMappingPct)
+        elif (anIsDebug):
+            logging.debug("checkfilter multiMap no minDepth for %s:%s, mutSS=%s, mutType=%s, perfectReadsWithMultiMap=%s", aChromList, aPosList, aMutSS, aMutType, mutCountReadsWithMultiMap)
+        
         # only apply strand bias to the perfect reads with mutations if we have enough reads
         if (numPerfect > 0) and (numPerfect >= aParamsDict["minStrandBiasDepth"]):
             sbias = round(perfectForStrand/float(numPerfect),2)
             #if sbias < 0.1 or sbias > 0.9:
             if (sbias > (aParamsDict["maxStrandBias"]) or sbias < (1.0 - aParamsDict["maxStrandBias"])):
-                filters.append("perfectsbias")
+                filters.append("perfsbias")
             if (anIsDebug):
                 logging.debug("checkfilter sbias for %s:%s, numPerfect=%s, filters=%s, forstrand=%s, revstrand=%s, sbias=%s", aChromList, aPosList, numPerfect, filters, perfectForStrand, perfectRevStrand, sbias)
         elif (anIsDebug):
-                logging.debug("checkfilter sbias for %s:%s, numPerfect=%s", aChromList, aPosList, numPerfect)
+                logging.debug("checkfilter sbias no minDepth for %s:%s, numPerfect=%s", aChromList, aPosList, numPerfect)
         
         # only apply positional bias to the reads with mutations if we have enough reads
         if ((mutCountQualReads > 0) and (mutCountQualReads >= aParamsDict["minPositionBiasDepth"])):
@@ -1199,7 +1214,7 @@ class Club():
             if (anIsDebug):
                 logging.debug("checkfilter pbias for %s:%s, mutCountQualReads=%s, filters=%s, starts=%s (%s), middles=%s (%s), ends=%s (%s)", aChromList, aPosList, mutCountQualReads, filters, starts, starts/float(mutCountQualReads), middles, middles/float(mutCountQualReads), ends, ends/float(mutCountQualReads))
         elif (anIsDebug):
-            logging.debug("checkfilter pbias for %s:%s, mutCountQualReads=%s", aChromList, aPosList, mutCountQualReads)
+            logging.debug("checkfilter pbias no minDepth for %s:%s, mutCountQualReads=%s", aChromList, aPosList, mutCountQualReads)
         
         # only apply positional bias to the perfect reads with mutations if we have enough reads
         if ((numPerfect > 0) and (numPerfect >= aParamsDict["minPositionBiasDepth"])):   
@@ -1208,24 +1223,24 @@ class Club():
             if (round(perfectStarts/float(numPerfect),2) >= aParamsDict["maxPositionBias"]):
                 #if (anIsDebug):
                 #    logging.debug("perfectpbias from starts perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s, numPerfect=%s", perfectStarts, perfectMiddles, perfectEnds, numPerfect)
-                filters.append("perfectpbias")
+                filters.append("perfpbias")
             elif (round(perfectEnds/float(numPerfect),2) >= aParamsDict["maxPositionBias"]):
                 #if (anIsDebug):
                 #    logging.debug("perfectpbias from ends perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s, numPerfect=%s", perfectStarts, perfectMiddles, perfectEnds, numPerfect)
-                filters.append("perfectpbias")
+                filters.append("perfpbias")
             if (anIsDebug):
                 logging.debug("checkfilter perfectpbias for %s:%s, numPerfect=%s, filters=%s, perfectStarts=%s (%s), perfectMiddles=%s (%s), perfectEnds=%s (%s)", aChromList, aPosList, numPerfect, filters, perfectStarts, perfectStarts/float(numPerfect), perfectMiddles, perfectMiddles/float(numPerfect), perfectEnds, perfectEnds/float(numPerfect))
         elif (anIsDebug):
-            logging.debug("checkfilter perfectpbias for %s:%s, numPerfect=%s", aChromList, aPosList, numPerfect)
+            logging.debug("checkfilter perfectpbias no minDepth for %s:%s, numPerfect=%s", aChromList, aPosList, numPerfect)
         
         # if we don't have enough perfect reads
         if numPerfect < aParamsDict["minPerfectReads"]:
-            filters.append("perfectcount")
+            filters.append("perfmnad")
         # check if the percent of perfect reads is high enough
         if (mutCountReads + refCount > 0):
             perfectPct = round(numPerfect/float(mutCountReads + refCount), 2)
             if perfectPct < aParamsDict["minPerfectReadsPct"]:
-                filters.append("perfectpct")
+                filters.append("perfmnaf")
             elif (anIsDebug):
                 logging.debug("perfectPct=%s >= minPerfectPct=%s",  perfectPct, aParamsDict["minPerfectReadsPct"])
         
@@ -1264,9 +1279,11 @@ if __name__ == '__main__':
     cmdLineParser.add_option("", "--minStrandBiasDepth", type="int", default=int(4), dest="minStrandBiasDepth", metavar="MIN_STRAND_BIAS_DP", help="the minimum total depth needed for the strand bias filter to be applied, %default by default")
     cmdLineParser.add_option("", "--maxPositionBias", type="float", default=float(0.95), dest="maxPositionBias", metavar="MAX_POSITION_BIAS", help="the maximum percentage of positional bias for reads that support the ALT, %default by default")
     cmdLineParser.add_option("", "--minPositionBiasDepth", type="int", default=int(4), dest="minPositionBiasDepth", metavar="MIN_POSITION_BIAS_DP", help="the minimum total depth needed for the positional bias filter to be applied, %default by default")
+    cmdLineParser.add_option("", "--maxMultiMapPct", type="float", default=float(0.90), dest="maxMultiMapPct", metavar="MAX_MULTI_MAP_PCT", help="the maximum percentage of secondary mapping reads that support the ALT, %default by default")
+    cmdLineParser.add_option("", "--minMultiMapDepth", type="int", default=int(4), dest="minMultiMapDepth", metavar="MIN_MULTI_MAP_DP", help="the minimum total depth needed for the multi map filter to be applied, %default by default")
     
     # range(inclusiveFrom, exclusiveTo, by)
-    i_possibleArgLengths = range(1,38,1)
+    i_possibleArgLengths = range(1, 46, 1)
     i_argLength = len(sys.argv)
     
     # check if this is one of the possible correct commands
@@ -1301,6 +1318,8 @@ if __name__ == '__main__':
     i_maxPositionBias = cmdLineOptions.maxPositionBias
     i_minPositionBiasDepth = cmdLineOptions.minPositionBiasDepth
     i_maxMutsPerRead = cmdLineOptions.maxMutsPerRead
+    i_maxMultiMapPct = cmdLineOptions.maxMultiMapPct
+    i_minMultiMapDepth = cmdLineOptions.minMultiMapDepth
     
     # get the optional parameters with out defaults
     i_outputFilename = None
@@ -1361,6 +1380,8 @@ if __name__ == '__main__':
         logging.debug("maxPositionBias=%s" % i_maxPositionBias)
         logging.debug("minPositionBiasDepth=%s" % i_minPositionBiasDepth)
         logging.debug("maxMutsPerRead=%s" % i_maxMutsPerRead)
+        logging.debug("maxMultiMapPct=%s" % i_maxMultiMapPct)
+        logging.debug("minMultiMapDepth=%s" % i_minMultiMapDepth)
         
     params = {}
     params["rnaIncludeSecondaryAlignments"] = i_rnaIncludeSecondaryAlignments
@@ -1376,6 +1397,8 @@ if __name__ == '__main__':
     params["minStrandBiasDepth"] = i_minStrandBiasDepth
     params["maxPositionBias"] = i_maxPositionBias
     params["minPositionBiasDepth"] = i_minPositionBiasDepth
+    params["maxMultiMapPct"] = i_maxMultiMapPct
+    params["minMultiMapDepth"] = i_minMultiMapDepth
         
     # check for any errors
     if (not radiaUtil.check_for_argv_errors(i_dirList, i_readFilenameList, i_writeFilenameList)):
@@ -1392,10 +1415,11 @@ if __name__ == '__main__':
         i_outputFileHandler = i_outputFilename
     
     hasAddedFilterHeader = False
-    headerLines = "##FILTER=<ID=perfectpct,Description=\"The percentage of perfect variant supporting reads was not above the minimum\">\n"
-    headerLines += "##FILTER=<ID=perfectcount,Description=\"The number of perfect reads was not above the minimum\">\n"
-    headerLines += "##FILTER=<ID=perfectsbias,Description=\"A strand bias exists on the perfect reads\">\n"
-    headerLines += "##FILTER=<ID=perfectpbias,Description=\"A positional bias exists on the perfect reads\">\n"
+    headerLines = "##FILTER=<ID=perfmnad,Description=\"The number of perfect ALT reads is less than the minimum\">\n"
+    headerLines += "##FILTER=<ID=perfmnaf,Description=\"The percentage of perfect ALT reads is less than the minimum\">\n"
+    headerLines += "##FILTER=<ID=perfsbias,Description=\"A strand bias exists on the perfect ALT reads\">\n"
+    headerLines += "##FILTER=<ID=perfpbias,Description=\"A positional bias exists on the perfect ALT reads\">\n"
+    headerLines += "##FILTER=<ID=mxmmp,Description=\"The percentage of ALT multi-mapping reads is greater than the maximum\">\n"
     headerLines += "##FILTER=<ID=pbias,Description=\"A positional bias exists\">\n"
     
     # initialize the factorial list
@@ -1428,7 +1452,7 @@ if __name__ == '__main__':
             curr_data = currVCF.make_data(dataAsList)
             
             # if this is a somatic mutation or an RNA editing event
-            if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "Somatic" or curr_data.info["SS"] == "2" or curr_data.info["SS"] == "4"):
+            if (curr_data.info["VT"] == "SNP" and (curr_data.info["SS"] == "2" or curr_data.info["SS"] == "4")):
     
                 # When merging multiple callers, non-RADIA calls won't have the ORIGIN flag
                 if (curr_data.info["ORIGIN"] == None):
@@ -1449,7 +1473,7 @@ if __name__ == '__main__':
                                 for modType in modTypes:
                                     dnaFilter += club.filter_by_read_support([curr_data.chrom], [curr_data.pos], [None], curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "DNA", params, i_debug)
                         # if we already passed using the DNA, then don't bother checking the RNA
-                        if ("PASS" not in dnaFilter):
+                        elif ("PASS" not in dnaFilter):
                             if ((i_passedVCFCallsOnlyFlag and "PASS" in curr_data.filter) or (not i_passedVCFCallsOnlyFlag)):
                                 # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
                                 modTypes = curr_data.info["MT"].split(",")
@@ -1658,8 +1682,7 @@ if __name__ == '__main__':
             # output the final line
             i_outputFileHandler.write(str(curr_data) + "\n")
         else:
-            logging.error("The number of VCF columns (%s) doesn't equal the number of VCF header columns (%s).", len(dataAsList), len(currVCF.headers))
-            logging.error("Here are the VCF header columns: %s", currVCF.headers)
-            logging.error("Here is the VCF line: %s", line.strip())
-            sys.exit(1)
+            logging.warning("The number of VCF columns (%s) doesn't equal the number of VCF header columns (%s).", len(dataAsList), len(currVCF.headers))
+            logging.warning("Here are the VCF header columns: %s", currVCF.headers)
+            logging.warning("Here is the VCF line: %s", line.strip())
     
