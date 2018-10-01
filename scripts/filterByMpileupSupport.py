@@ -886,10 +886,6 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         
     # for each event in the vcf file 
     for line in i_vcfFileHandler:
-        # here are some examples of .vcf lines:
-        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INS=0;DEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP
-        # GT:DP:AD:AF:INS:DEL:START:STOP:BQ:SB      0/0:2:2,0:1.0,0.0:0:0:0:0::36,0:0.0,0.0      0/0:1:1,0:1.0,0.0:0:0:0:0:39,0:1.0,0.0      0/1:50:48,2:0.96,0.04:0:0:2:0:32,18:0.75,0.5
-        
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
         
@@ -913,10 +909,6 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         # split the line on the tab
         splitLine = line.split("\t")
 
-        # sample VCF line
-        # 20      199696  .       G       T       0       PASS    AC=2;AF=0.04;AN=2;BQ=31;DP=53;FA=0.04;INS=0;DEL=0;MC=G>T;MT=TUM_EDIT;NS=3;SB=0.72;SS=5;START=2;STOP=0;VT=SNP
-        # GT:DP:AD:AF:INS:DEL:START:STOP:BQ:SB      0/0:2:2,0:1.0,0.0:0:0:0:0::36,0:0.0,0.0      0/0:1:1,0:1.0,0.0:0:0:0:0:39,0:1.0,0.0      0/1:50:48,2:0.96,0.04:0:0:2:0:32,18:0.75,0.5
-        
         # the coordinate is the second element
         event_chr = splitLine[0]
         event_stopCoordinate = int(splitLine[1])
