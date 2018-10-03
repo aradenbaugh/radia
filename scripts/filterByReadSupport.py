@@ -91,9 +91,7 @@ def get_write_fileHandler(aFilename):
 def get_passing_germline_alts(aCurrData):
     alts = []
     # for passing germline calls, there should only be one, but double-check anyway
-    modChanges = aCurrData.info["MC"].split(",")
-    # keep track of germline alts
-    for modChange in modChanges:
+    for modChange in aCurrData.infoDict["MC"]:
         (ref, alt) = modChange.split(">")
         alts.append(alt)
         
@@ -121,7 +119,6 @@ def parse_vcf(aVCFFilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDe
     filterDict = {}
     
     # loop through and categorize all calls
-    # first process the header lines
     for line in vcf:
         
         # if we find the vcfGenerator line, then parse out the file info
@@ -167,50 +164,38 @@ def parse_vcf(aVCFFilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDe
         if len(dataAsList) == len(currVCF.headers):
             
             # parse each VCF line
-            curr_data = currVCF.make_data(dataAsList)
+            currData = currVCF.make_data(dataAsList)
             
             # keep track of the passing germline and loh calls
-            #if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "Germline" or curr_data.info["SS"] == "LOH"):
-            if curr_data.info["VT"] == "SNP" and curr_data.filter == ["PASS"] and (curr_data.info["SS"] == "1" or curr_data.info["SS"] == "3"):
+            if "SNP" in currData.infoDict["VT"] and "PASS" in currData.filterList and ("1" in currData.infoDict["SS"] or "3" in currData.infoDict["SS"]):
                 # initialize the dict
-                if (curr_data.chrom not in germlineDict):
-                    germlineDict[curr_data.chrom] = {}
+                if (currData.chrom not in germlineDict):
+                    germlineDict[currData.chrom] = {}
             
                 # add the germline calls with the genomic coordinates to the germlineDict
-                # RADIA calls will have the MC (Modification Change) in the info
-                if ("MC" in curr_data.info):
-                    germlineDict[curr_data.chrom][str(curr_data.pos-1)] = get_passing_germline_alts(curr_data)
-                else:
-                    # if the call doesn't have the MC in the info, then just use the alt field
-                    germlineDict[curr_data.chrom][str(curr_data.pos-1)] = curr_data.alt
+                germlineDict[currData.chrom][str(currData.pos-1)] = get_passing_germline_alts(currData)
                 
                 # if we have transcript names and coordinates for these calls
                 if (aTranscriptNameTag != None and aTranscriptCoordinateTag != None):
                     # for each transcript name and coordinate 
-                    for (transcriptName, transcriptCoordinate) in izip(curr_data.info[aTranscriptNameTag].split(","), curr_data.info[aTranscriptCoordinateTag].split(",")):
+                    for (transcriptName, transcriptCoordinate) in izip(currData.infoDict[aTranscriptNameTag], currData.infoDict[aTranscriptCoordinateTag]):
                         # initialize the dict
                         if transcriptName not in transcriptGermlineDict:
                             transcriptGermlineDict[transcriptName] = {}
                     
-                        # RADIA calls will have the MC (Modification Change) in the info
-                        if ("MC" in curr_data.info):
-                            transcriptGermlineDict[transcriptName][str(int(transcriptCoordinate)-1)] = get_passing_germline_alts(curr_data)
-                        else:
-                            # if the call doesn't have the MC in the info, then just use the alt field
-                            transcriptGermlineDict[transcriptName][str(int(transcriptCoordinate)-1)] = curr_data.alt
+                        # add the germline calls with the transcript coordinates to the germlineDict
+                        transcriptGermlineDict[transcriptName][str(int(transcriptCoordinate)-1)] = get_passing_germline_alts(currData)
                         
             # keep track of the passing somatic calls
-            #elif curr_data.info["VT"] == "SNP" and curr_data.info["SS"] == "Somatic" and curr_data.filter == ["PASS"]:
-            elif curr_data.info["VT"] == "SNP" and curr_data.info["SS"] == "2" and curr_data.filter == ["PASS"]:
-                if (curr_data.chrom not in mutationsDict):
-                    mutationsDict[curr_data.chrom] = {}
-                mutationsDict[curr_data.chrom][str(curr_data.pos-1)] = curr_data
+            elif "SNP" in currData.infoDict["VT"] and "2" in currData.infoDict["SS"] and "PASS" in currData.filterList:
+                if (currData.chrom not in mutationsDict):
+                    mutationsDict[currData.chrom] = {}
+                mutationsDict[currData.chrom][str(currData.pos-1)] = currData
             # keep track of the filtered calls
-            #elif curr_data.info["VT"] == "SNP" and curr_data.info["SS"] == "Somatic" and curr_data.filter != ["PASS"]:
-            elif curr_data.info["VT"] == "SNP" and curr_data.info["SS"] == "2" and curr_data.filter != ["PASS"]:                
-                if (curr_data.chrom not in filterDict):
-                    filterDict[curr_data.chrom] = {}
-                filterDict[curr_data.chrom][str(curr_data.pos-1)] = curr_data
+            elif "SNP" in currData.infoDict["VT"] and "2" in currData.infoDict["SS"] and "PASS" not in currData.filterList:
+                if (currData.chrom not in filterDict):
+                    filterDict[currData.chrom] = {}
+                filterDict[currData.chrom][str(currData.pos-1)] = currData
         else:
             logging.warning("The number of VCF columns (%s) doesn't equal the number of VCF header columns (%s).", len(dataAsList), len(currVCF.headers))
             logging.warning("Here are the VCF header columns: %s", currVCF.headers)
@@ -321,12 +306,13 @@ def reverse_complement_nucleotide(aNucleotide):
     return None
 
 
-def is_mutation(aReadDict, aRefList, anAltList, aBamOrigin, anIsDebug):
+def is_mutation(aReadDict, aRef, anAltList, aBamOrigin, anMMPDict, anIsDebug):
     
     orgReadBase = aReadDict["base"]
     readBase = aReadDict["base"]
     orgRefBase = aReadDict["refBase"]
     refBase = aReadDict["refBase"]
+    alignedRead = aReadDict["alignedRead"]
     
     # the RSEM fasta for transcripts has reads in 5' to 3' direction
     # the RNA bam files have reads aligned to the RSEM fasta in 5' to 3' direction
@@ -339,17 +325,26 @@ def is_mutation(aReadDict, aRefList, anAltList, aBamOrigin, anIsDebug):
         readBase = reverse_complement_nucleotide(readBase) 
         refBase = reverse_complement_nucleotide(refBase)
                 
+    if readBase not in anMMPDict:
+        anMMPDict[readBase] = collections.defaultdict(int)
+    
+    if alignedRead.is_secondary:
+        anMMPDict[readBase]["secondary"] += 1
+        anMMPDict[readBase]["total"] += 1
+    else:
+        anMMPDict[readBase]["total"] += 1
+    
     if (readBase == refBase):
         if (anIsDebug):
-            logging.debug("is_mutation() base matches reference, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRefList, anAltList)
+            logging.debug("is_mutation() base matches reference, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRef, anAltList)
         return False
     elif readBase in anAltList:
         if (anIsDebug):
-            logging.debug("is_mutation() base matches alt, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRefList, anAltList)
+            logging.debug("is_mutation() base matches alt, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRef, anAltList)
         return True
     
     if (anIsDebug):
-        logging.debug("is_mutation() found nothing, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRefList, anAltList)
+        logging.debug("is_mutation() found nothing, queryPos=%s, chrom=%s, pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"], aReadDict["chrom"], aReadDict["pos"], readBase, refBase, orgReadBase, orgRefBase, aRef, anAltList)
     return False
 
 
@@ -411,11 +406,11 @@ class Club():
         
         if (self.dnaTumorBamFilename != None):
             if (not os.path.isfile(self.dnaTumorBamFilename)):
-                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.dnaTumorBamFilename
+                logging.error("The BAM file specified in the header does not exist: %s", self.dnaTumorBamFilename)
                 sys.exit(1)
                 
             if (self.dnaTumorFastaFilename == None or not os.path.isfile(self.dnaTumorFastaFilename)):
-                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.dnaTumorFastaFilename
+                logging.error("The FASTA file specified in the header does not exist: %s", self.dnaTumorFastaFilename)
                 sys.exit(1)
             
             self.dnaTumorBamFile = pysam.Samfile(self.dnaTumorBamFilename, 'rb')
@@ -423,11 +418,11 @@ class Club():
         
         if (self.rnaNormalBamFilename != None):
             if (not os.path.isfile(self.rnaNormalBamFilename)):
-                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.rnaNormalBamFilename
+                logging.error("The BAM file specified in the header does not exist: %s", self.rnaNormalBamFilename)
                 sys.exit(1)
         
             if (self.rnaNormalFastaFilename == None or not os.path.isfile(self.rnaNormalFastaFilename)):
-                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.rnaNormalFastaFilename
+                logging.error("The FASTA file specified in the header does not exist: %s", self.rnaNormalFastaFilename)
                 sys.exit(1)
             
             self.rnaNormalBamFile = pysam.Samfile(self.rnaNormalBamFilename, 'rb')
@@ -435,15 +430,20 @@ class Club():
         
         if (self.rnaTumorBamFilename != None):
             if (not os.path.isfile(self.rnaTumorBamFilename)):
-                print >> sys.stderr, "The BAM file specified in the header does not exist: ", self.rnaTumorBamFilename
+                logging.error("The BAM file specified in the header does not exist: %s", self.rnaTumorBamFilename)
                 sys.exit(1)
         
             if (self.rnaTumorFastaFilename == None or not os.path.isfile(self.rnaTumorFastaFilename)):
-                print >> sys.stderr, "The FASTA file specified in the header does not exist: ", self.rnaTumorFastaFilename
+                logging.error("The FASTA file specified in the header does not exist: %s", self.rnaTumorFastaFilename)
                 sys.exit(1)
             
             self.rnaTumorBamFile = pysam.Samfile(self.rnaTumorBamFilename, 'rb')
             self.rnaTumorFastaFile = pysam.Fastafile(self.rnaTumorFastaFilename)
+        
+        # initialize the factorial list
+        self.factLogList = collections.defaultdict(float)
+        self.maxSize = 0
+        self.init_factorial(1000, i_debug)
         
         return
 
@@ -791,6 +791,152 @@ class Club():
         return True, "perfect"
 
 
+    def set_score(self, aCurrData, aScorePassingOnlyFlag, anIsDebug):
+        
+        # calculating the score is computationally expensive, so only do it for all passing calls by default
+        pvalue = 0.98
+        phred = 0
+        if ((aScorePassingOnlyFlag and "PASS" in aCurrData.filterList) or (not aScorePassingOnlyFlag)):
+            
+            if ("GERM" in aCurrData.infoDict["MT"]):
+                for (modType, modChange) in izip(aCurrData.infoDict["MT"], aCurrData.infoDict["MC"]):
+                    if (anIsDebug):
+                        logging.debug("modType=%s, modChange=%s", modType, modChange)
+                    
+                    if (modType == "GERM"):
+                        ref, alt = modChange.split(">")
+                        refIndex = aCurrData.allelesList.index(ref)
+                        altIndex = aCurrData.allelesList.index(alt)
+                        
+                        totalRefReads = 0
+                        totalAltReads = 0
+                        if (aCurrData.dnaNormalDict != None):
+                            totalRefReads += int(aCurrData.dnaNormalDict["AD"][refIndex])
+                            totalAltReads += int(aCurrData.dnaNormalDict["AD"][altIndex])
+                        if (aCurrData.rnaNormalDict != None):
+                            totalRefReads += int(aCurrData.rnaNormalDict["AD"][refIndex])
+                            totalAltReads += int(aCurrData.rnaNormalDict["AD"][altIndex])
+                        if (aCurrData.dnaTumorDict != None):
+                            totalRefReads += int(aCurrData.dnaTumorDict["AD"][refIndex])
+                            totalAltReads += int(aCurrData.dnaTumorDict["AD"][altIndex])
+                        if (aCurrData.rnaTumorDict != None):
+                            totalRefReads += int(aCurrData.rnaTumorDict["AD"][refIndex])
+                            totalAltReads += int(aCurrData.rnaTumorDict["AD"][altIndex])
+                        
+                        totalCoverage = totalRefReads + totalAltReads
+                        
+                        newMaxSize = totalCoverage * 2
+                        if (newMaxSize > self.maxSize):
+                            self.init_factorial(newMaxSize, i_debug)
+                        
+                        pvalue, phred = self.get_score(totalCoverage, 0, totalRefReads, totalAltReads, self.maxSize, self.factLogList, i_debug)
+                        if (anIsDebug):
+                            logging.debug("pval=%s, phred=%s", pvalue, phred)
+                        
+                        aCurrData.qual = str(phred)
+                        aCurrData.infoDict["SSC"] = ["0"]
+                        aCurrData.infoDict["PVAL"] = [str(pvalue)]
+            
+            elif ("SOM" in aCurrData.infoDict["MT"]):
+                for (modType, modChange) in izip(aCurrData.infoDict["MT"], aCurrData.infoDict["MC"]):
+                    logging.debug("modType=%s, modChange=%s", modType, modChange)
+                    if (modType == "SOM"):
+                        ref, alt = modChange.split(">")
+                        refIndex = aCurrData.allelesList.index(ref)
+                        altIndex = aCurrData.allelesList.index(alt)
+                        
+                        normalRefReads = 0
+                        normalAltReads = 0
+                        tumorRefReads = 0
+                        tumorAltReads = 0
+                        
+                        if (aCurrData.dnaNormalDict != None):
+                            normalRefReads += int(aCurrData.dnaNormalDict["AD"][refIndex])
+                            normalAltReads += int(aCurrData.dnaNormalDict["AD"][altIndex])
+                        if (aCurrData.rnaNormalDict != None):
+                            normalRefReads += int(aCurrData.rnaNormalDict["AD"][refIndex])
+                            normalAltReads += int(aCurrData.rnaNormalDict["AD"][altIndex])
+                        if (aCurrData.dnaTumorDict != None):
+                            tumorRefReads += int(aCurrData.dnaTumorDict["AD"][refIndex])
+                            tumorAltReads += int(aCurrData.dnaTumorDict["AD"][altIndex])
+                        if (aCurrData.rnaTumorDict != None):
+                            tumorRefReads += int(aCurrData.rnaTumorDict["AD"][refIndex])
+                            tumorAltReads += int(aCurrData.rnaTumorDict["AD"][altIndex])
+                        
+                        totalCoverage = normalRefReads + normalAltReads + tumorRefReads + tumorAltReads
+                        
+                        newMaxSize = totalCoverage
+                        if (newMaxSize > self.maxSize):
+                            self.init_factorial(newMaxSize, i_debug)
+                        
+                        pvalue, phred = self.get_score(normalRefReads, normalAltReads, tumorRefReads, tumorAltReads, self.maxSize, self.factLogList, i_debug)
+                        if (anIsDebug):
+                            logging.debug("pval=%s, phred=%s", pvalue, phred)
+                        
+                        aCurrData.qual = str(phred)
+                        aCurrData.infoDict["SSC"] = [str(phred)]
+                        aCurrData.infoDict["PVAL"] = [str(pvalue)]
+                        
+            elif ("TUM_EDIT" in aCurrData.infoDict["MT"]):
+                for (modType, modChange) in izip(aCurrData.infoDict["MT"], aCurrData.infoDict["MC"]):
+                    logging.debug("modType=%s, modChange=%s", modType, modChange)
+                    if (modType == "TUM_EDIT"):
+                        ref, alt = modChange.split(">")
+                        refIndex = aCurrData.allelesList.index(ref)
+                        altIndex = aCurrData.allelesList.index(alt)
+                        
+                        totalRefReads = 0
+                        totalAltReads = 0
+                        editingRefReads = 0
+                        editingAltReads = 0
+                        if (aCurrData.dnaNormalDict != None):
+                            totalRefReads += int(aCurrData.dnaNormalDict["AD"][refIndex])
+                            totalAltReads += int(aCurrData.dnaNormalDict["AD"][altIndex])
+                        if (aCurrData.rnaNormalDict != None):
+                            totalRefReads += int(aCurrData.rnaNormalDict["AD"][refIndex])
+                            totalAltReads += int(aCurrData.rnaNormalDict["AD"][altIndex])
+                            editingRefReads += int(aCurrData.rnaNormalDict["AD"][refIndex])
+                            editingAltReads += int(aCurrData.rnaNormalDict["AD"][altIndex])
+                        if (aCurrData.dnaTumorDict != None):
+                            totalRefReads += int(aCurrData.dnaTumorDict["AD"][refIndex])
+                            totalAltReads += int(aCurrData.dnaTumorDict["AD"][altIndex])
+                        if (aCurrData.rnaTumorDict != None):
+                            totalRefReads += int(aCurrData.rnaTumorDict["AD"][refIndex])
+                            totalAltReads += int(aCurrData.rnaTumorDict["AD"][altIndex])
+                            editingRefReads += int(aCurrData.rnaTumorDict["AD"][refIndex])
+                            editingAltReads += int(aCurrData.rnaTumorDict["AD"][altIndex])
+                        
+                        totalCoverage = totalRefReads + totalAltReads
+                        
+                        newMaxSize = totalCoverage + editingRefReads + editingAltReads
+                        if (newMaxSize > self.maxSize):
+                            self.init_factorial(newMaxSize, i_debug)
+                        
+                        pvalue, phred = self.get_score(totalCoverage, 0, editingRefReads, editingAltReads, self.maxSize, self.factLogList, i_debug)
+                        if (anIsDebug):
+                            logging.debug("pval=%s, phred=%s", pvalue, phred)
+                        
+                        aCurrData.qual = str(phred)
+                        aCurrData.infoDict["SSC"] = ["0"]
+                        aCurrData.infoDict["PVAL"] = [str(pvalue)]
+            else:
+                # these are RNA_TUM_VAR lines that have little or no DNA
+                aCurrData.qual = str(phred)
+                aCurrData.infoDict["SSC"] = [str(phred)]
+                aCurrData.infoDict["PVAL"] = [str(pvalue)]
+        else:
+            # calculating the score is computationally expensive, so only do it for all passing calls by default
+            # these are non-passing lines
+            aCurrData.qual = str(phred)
+            aCurrData.infoDict["SSC"] = [str(phred)]
+            currData.infoDict["PVAL"] = [str(pvalue)]
+        
+        if (anIsDebug):
+            logging.debug("pos=%s, qual=%s, pval=%s, phred=%s", currData.pos, currData.qual, pvalue, phred)
+        
+        return
+
+
     def get_score(self, anExpRefCount, anExpMutCount, anObsRefCount, anObsMutCount, aMaxSize, aFactLogList, anIsDebug):
         
         if (anIsDebug):
@@ -931,16 +1077,18 @@ class Club():
         return p
     
     
-    def init_factorial(self, aFactLogList, aPreviousMaxSize, aNewMaxSize, anIsDebug):
+    def init_factorial(self, aNewMaxSize, anIsDebug):
         
-        if (aPreviousMaxSize == 0):
-            aFactLogList[0] = 0.0
-            aPreviousMaxSize = 1
+        if (self.maxSize == 0):
+            self.factLogList[0] = 0.0
+            self.maxSize = 1
         
-        for index in xrange(aPreviousMaxSize, aNewMaxSize+1):
-            aFactLogList[index] = aFactLogList[index - 1] + math.log(index)
+        for index in xrange(self.maxSize, aNewMaxSize+1):
+            self.factLogList[index] = self.factLogList[index - 1] + math.log(index)
+
+        self.maxSize = aNewMaxSize
         
-        return aFactLogList
+        return
 
 
     def parse_info_field(self, anInfoField, anIsDebug):
@@ -960,67 +1108,7 @@ class Club():
         return infoDict
 
 
-    def parse_sample_data(self, aFormatField, aDataField, anAlleleList, anIsDebug):
-        
-        # GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB
-        # 0/1:7:2,5:0.29,0.71:0:0:0:0:1,3:1,1:1,0:82,71:1.0,1.0
-        
-        ##FORMAT=<ID=GT,Number=1,Type=String,Description="Genotype">
-        ##FORMAT=<ID=DP,Number=1,Type=Integer,Description="Read depth at this position in the sample">
-        ##FORMAT=<ID=AD,Number=.,Type=Integer,Description="Depth of reads supporting allele (in order specified by GT)">
-        ##FORMAT=<ID=AF,Number=.,Type=Float,Description="Fraction of reads supporting allele (in order specified by GT)">
-        ##FORMAT=<ID=INS,Number=1,Type=Integer,Description="Number of small insertions at this location">
-        ##FORMAT=<ID=DEL,Number=1,Type=Integer,Description="Number of small deletions at this location">
-        ##FORMAT=<ID=START,Number=1,Type=Integer,Description="Number of reads starting at this position">
-        ##FORMAT=<ID=STOP,Number=1,Type=Integer,Description="Number of reads stopping at this position">
-        ##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description="Number of mapping quality zero reads harboring allele (in order specified by GT)">
-        ##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description="Maximum mapping quality of read harboring allele (in order specified by GT)">
-        ##FORMAT=<ID=MQA,Number=.,Type=Integer,Description="Avg mapping quality for reads supporting allele (in order specified by GT)">
-        ##FORMAT=<ID=BQ,Number=.,Type=Integer,Description="Avg base quality for reads supporting allele (in order specified by GT)">
-        ##FORMAT=<ID=SB,Number=.,Type=Float,Description="Strand Bias for reads supporting allele (in order specified by GT)">
-        
-        alleleSpecificFormats = ["AD", "AF", "BQ", "SB", "MQ0", "MMQ", "MQA"]
-        dataDict = dict()
-        formatFieldList = aFormatField.split(":")
-        dataFieldList = aDataField.split(":")
-        
-        for (formatItem, dataItem) in izip(formatFieldList, dataFieldList):
-            if (formatItem == "GT"):
-                sep = "/"
-            else:
-                sep = ","
-            
-            # if this is an allele specific item
-            if formatItem in alleleSpecificFormats:
-                
-                if (dataItem != "."):
-                    tmpList = dataItem.split(sep)
-                else:
-                    tmpList = [0] * len(anAlleleList)
-                
-                alleleDict = dict()
-                alleleIndex = 0
-                for allele in anAlleleList:
-                    alleleDict[allele] = tmpList[alleleIndex]
-                    alleleIndex += 1
-                
-                dataDict[formatItem] = alleleDict
-                
-            # split on the separator
-            else:
-                if (dataItem != "."):
-                    dataDict[formatItem] = dataItem.split(sep)
-                else:
-                    dataDict[formatItem] = "0"
-        
-        return dataDict
-
-
-    def filter_by_read_support(self, aChromList, aPosList, aTranscriptStrandList, aRefList, anAltList, aMutSS, aMutType, aBamOrigin, aParamsDict, anIsDebug):
-        
-        if (anIsDebug):
-            logging.debug("begin filter for %s and %s, mutSS=%s, mutType=%s, origin=%s", aChromList, aPosList, aMutSS, aMutType, aBamOrigin)
-            logging.debug("parmsDict: %s", aParamsDict)
+    def filter_by_read_support(self, aCurrData, aTranscriptNameTag, aTranscriptCoordinateTag, aTranscriptStrandTag, aMutType, aModChange, aBamOrigin, aParamsDict, anIsDebug):
         
         # expects a 0-based pos
         refCount = 0
@@ -1042,24 +1130,46 @@ class Club():
         readsWithIns = 0
         readsWithNeighborBaseQuals = 0
         readsWithImproperPairs = 0
-        mutCountReadsWithMultiMap = 0
+        mmpDict = dict()
         
         bases = ""
         baseQuals = ""
         
-        if (aMutSS == "Somatic" or aMutSS == "2"):
+        # if we should use the transcript information
+        if (aBamOrigin == "RNA" and aTranscriptNameTag != None and aTranscriptCoordinateTag != None and aTranscriptStrandTag != None and 
+            aCurrData.infoDict[aTranscriptNameTag] != None and currData.infoDict[aTranscriptCoordinateTag] != None and currData.infoDict[aTranscriptStrandTag] != None):
+            chromList = currData.infoDict[aTranscriptNameTag]
+            posList = currData.infoDict[aTranscriptCoordinateTag]
+            strandList = currData.infoDict[aTranscriptStrandTag]
+        # if we should use the genomic information
+        else:
+            chromList = [aCurrData.chrom]
+            posList = [aCurrData.pos]
+            strandList = [None]
+        
+        mutSS = currData.infoDict["SS"][0]
+        
+        if (anIsDebug):
+            logging.debug("begin filter for %s and %s, mutSS=%s, mutType=%s, origin=%s", chromList, posList, mutSS, aMutType, aBamOrigin)
+            logging.debug("parmsDict: %s", aParamsDict)
+        
+        if (mutSS == "Somatic" or mutSS == "2"):
             if (aBamOrigin == "RNA"):
                 fastaFile = self.rnaTumorFastaFile
+                mmpList = currData.rnaTumorDict["MMP"]
             else:
                 fastaFile = self.dnaTumorFastaFile
-        elif (aMutSS == "4"):
+                mmpList = currData.dnaTumorDict["MMP"]
+        elif (mutSS == "4"):
             if (aMutType == "TUM_EDIT"):
                 fastaFile = self.rnaTumorFastaFile
+                mmpList = currData.rnaTumorDict["MMP"]
             elif (aMutType == "NOR_EDIT"):
                 fastaFile = self.rnaNormalFastaFile
-        
+                mmpList = currData.rnaNormalDict["MMP"]
+            
         # group all of the reads by name
-        readsDict = self.group_reads_by_name(aChromList, aPosList, aTranscriptStrandList, aBamOrigin, aParamsDict, aMutSS, aMutType, anIsDebug)
+        readsDict = self.group_reads_by_name(chromList, posList, strandList, aBamOrigin, aParamsDict, mutSS, aMutType, anIsDebug)
 
         # get all of the non-overlapping reads
         nonOverlappingReadsList = self.find_non_overlapping_reads(readsDict, aParamsDict["minBaseQual"], anIsDebug)
@@ -1082,14 +1192,12 @@ class Club():
             #    logging.debug("found aligned read at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedRead)
             
             # if this read supports the alternative allele
-            if is_mutation(readDict, aRefList, anAltList, aBamOrigin, anIsDebug):
+            if is_mutation(readDict, aCurrData.ref, aCurrData.altList, aBamOrigin, mmpDict, anIsDebug):
                 
                 #if (anIsDebug):
                 #    logging.debug("found aligned read supporting variant at: %s:%s = %s", readDict["chrom"], readDict["pos"], alignedRead)
                 
                 mutCountReads += 1
-                if alignedRead.is_secondary:
-                    mutCountReadsWithMultiMap += 1
                 
                 if (anIsDebug):
                     logging.debug("found read with mutation, number of reads with mutations=%s", mutCountReads)
@@ -1098,6 +1206,7 @@ class Club():
                 if (not low_base_or_map_quals(pileupRead, aParamsDict, anIsDebug)):
                     
                     mutCountQualReads +=1
+                    
                     bases += readBase
                     baseQuals += readBaseQual
                     
@@ -1117,7 +1226,7 @@ class Club():
                         logging.debug("pbias query_pos=%s, readLength=%s, starts=%s, middles=%s, ends=%s", pileupRead.query_position, readLength, starts, middles, ends)
                     
                     # see if this read is perfect
-                    isPerfectFlag, reasonNotPerfect = self.is_perfect(pileupRead, aBamOrigin, fastaFile, aMutSS, readDict, aParamsDict, anIsDebug)
+                    isPerfectFlag, reasonNotPerfect = self.is_perfect(pileupRead, aBamOrigin, fastaFile, mutSS, readDict, aParamsDict, anIsDebug)
                     
                     if (anIsDebug):
                         logging.debug("isPerfect?=%s, reason=%s", isPerfectFlag, reasonNotPerfect)
@@ -1160,7 +1269,7 @@ class Club():
                             logging.debug("perfectpbias: query_pos=%s, readLength=%s, perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s", pileupRead.query_position, readLength, perfectStarts, perfectMiddles, perfectEnds)
                     
                     if (anIsDebug):
-                        logging.debug("perfect read counts for %s:%s, mutSS=%s, mutType=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], aMutSS, aMutType, numPerfect)
+                        logging.debug("perfect read counts for %s:%s, mutSS=%s, mutType=%s, numPerfect=%s", readDict["chrom"], readDict["pos"], mutSS, aMutType, numPerfect)
                 else:
                     lowQualCount += 1
             else:
@@ -1171,23 +1280,26 @@ class Club():
         if (anIsDebug):
             logging.debug("pysam bases=%s", bases)
             logging.debug("pysam quals=%s", baseQuals)
-            logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, refCount=%s, mutCountReads=%s, mutCountQualReads=%s", aChromList, aPosList, aMutSS, aMutType, refCount, mutCountReads, mutCountQualReads)
-            logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, lowQualCount=%s, improperPairs=%s, ins=%s, dels=%s, neighborBQ=%s, maxMuts=%s, maxSoftClips=%s, numPerfect=%s", aChromList, aPosList, aMutSS, aMutType, lowQualCount, readsWithImproperPairs, readsWithIns, readsWithDels, readsWithNeighborBaseQuals, readsWithMaxMuts, readsWithMaxSoftClips, numPerfect)
+            logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, refCount=%s, mutCountReads=%s, mutCountQualReads=%s", chromList, posList, mutSS, aMutType, refCount, mutCountReads, mutCountQualReads)
+            logging.debug("final at pos %s:%s, mutSS=%s, mutType=%s, lowQualCount=%s, improperPairs=%s, ins=%s, dels=%s, neighborBQ=%s, maxMuts=%s, maxSoftClips=%s, numPerfect=%s", chromList, posList, mutSS, aMutType, lowQualCount, readsWithImproperPairs, readsWithIns, readsWithDels, readsWithNeighborBaseQuals, readsWithMaxMuts, readsWithMaxSoftClips, numPerfect)
         
         # keep track of all filters
         filters = []
         
-        mcMultiMappingPct = 0.0
-        # testing multiple mapping to the mutCountReads
-        if (mutCountReads > 0) and (mutCountReads >= aParamsDict["minMultiMapDepth"]):
-            mcMultiMappingPct = round(mutCountReadsWithMultiMap/float(mutCountReads),2)
-            if (mcMultiMappingPct >= aParamsDict["maxMultiMapPct"]):
+        multiMappingPct = 0.0
+        # multiple mapping of the mutCountReads
+        (source, target) = aModChange.split(">")
+        if (target in mmpDict and (mmpDict[target]["total"] > 0) and (mmpDict[target]["total"] >= aParamsDict["minMultiMapDepth"])):
+            multiMappingPct = round(mmpDict[target]["secondary"]/float(mmpDict[target]["total"]),2)
+            if (multiMappingPct >= aParamsDict["maxMultiMapPct"]):
                 filters.append("mxmmp")
                 if (anIsDebug):
-                    logging.debug("checkfilter multiMap applied for %s:%s, mutSS=%s, mutType=%s, perfectReadsWithMultiMap=%s (%s)", aChromList, aPosList, aMutSS, aMutType, mutCountReadsWithMultiMap, mcMultiMappingPct)
+                    logging.debug("checkfilter multiMap applied for %s:%s, mutSS=%s, mutType=%s, secondaryTargetReads=%s, totalTargetReads=%s, mmp=%s", chromList, posList, mutSS, aMutType, mmpDict[target]["secondary"], mmpDict[target]["total"], multiMappingPct)
+        elif (anIsDebug and target in mmpDict):
+            logging.debug("checkfilter multiMap no minDepth for %s:%s, mutSS=%s, mutType=%s, secondaryTargetReads=%s, totalTargetReads=%s", chromList, posList, mutSS, aMutType, mmpDict[target]["secondary"], mmpDict[target]["total"])
         elif (anIsDebug):
-            logging.debug("checkfilter multiMap no minDepth for %s:%s, mutSS=%s, mutType=%s, perfectReadsWithMultiMap=%s", aChromList, aPosList, aMutSS, aMutType, mutCountReadsWithMultiMap)
-        
+            logging.debug("checkfilter multiMap no minDepth for %s:%s, mutSS=%s, mutType=%s", chromList, posList, mutSS, aMutType)
+            
         # only apply strand bias to the perfect reads with mutations if we have enough reads
         if (numPerfect > 0) and (numPerfect >= aParamsDict["minStrandBiasDepth"]):
             sbias = round(perfectForStrand/float(numPerfect),2)
@@ -1195,9 +1307,9 @@ class Club():
             if (sbias > (aParamsDict["maxStrandBias"]) or sbias < (1.0 - aParamsDict["maxStrandBias"])):
                 filters.append("perfsbias")
             if (anIsDebug):
-                logging.debug("checkfilter sbias for %s:%s, numPerfect=%s, filters=%s, forstrand=%s, revstrand=%s, sbias=%s", aChromList, aPosList, numPerfect, filters, perfectForStrand, perfectRevStrand, sbias)
+                logging.debug("checkfilter sbias for %s:%s, numPerfect=%s, filters=%s, forstrand=%s, revstrand=%s, sbias=%s", chromList, posList, numPerfect, filters, perfectForStrand, perfectRevStrand, sbias)
         elif (anIsDebug):
-                logging.debug("checkfilter sbias no minDepth for %s:%s, numPerfect=%s", aChromList, aPosList, numPerfect)
+                logging.debug("checkfilter sbias no minDepth for %s:%s, numPerfect=%s", chromList, posList, numPerfect)
         
         # only apply positional bias to the reads with mutations if we have enough reads
         if ((mutCountQualReads > 0) and (mutCountQualReads >= aParamsDict["minPositionBiasDepth"])):
@@ -1212,9 +1324,9 @@ class Club():
                 #    logging.debug("pbias from ends starts=%s, middles=%s, ends=%s, mutCountQualReads=%s", starts, middles, ends, mutCountQualReads)
                 filters.append("pbias")
             if (anIsDebug):
-                logging.debug("checkfilter pbias for %s:%s, mutCountQualReads=%s, filters=%s, starts=%s (%s), middles=%s (%s), ends=%s (%s)", aChromList, aPosList, mutCountQualReads, filters, starts, starts/float(mutCountQualReads), middles, middles/float(mutCountQualReads), ends, ends/float(mutCountQualReads))
+                logging.debug("checkfilter pbias for %s:%s, mutCountQualReads=%s, filters=%s, starts=%s (%s), middles=%s (%s), ends=%s (%s)", chromList, posList, mutCountQualReads, filters, starts, starts/float(mutCountQualReads), middles, middles/float(mutCountQualReads), ends, ends/float(mutCountQualReads))
         elif (anIsDebug):
-            logging.debug("checkfilter pbias no minDepth for %s:%s, mutCountQualReads=%s", aChromList, aPosList, mutCountQualReads)
+            logging.debug("checkfilter pbias no minDepth for %s:%s, mutCountQualReads=%s", chromList, posList, mutCountQualReads)
         
         # only apply positional bias to the perfect reads with mutations if we have enough reads
         if ((numPerfect > 0) and (numPerfect >= aParamsDict["minPositionBiasDepth"])):   
@@ -1229,9 +1341,9 @@ class Club():
                 #    logging.debug("perfectpbias from ends perfectStarts=%s, perfectMiddles=%s, perfectEnds=%s, numPerfect=%s", perfectStarts, perfectMiddles, perfectEnds, numPerfect)
                 filters.append("perfpbias")
             if (anIsDebug):
-                logging.debug("checkfilter perfectpbias for %s:%s, numPerfect=%s, filters=%s, perfectStarts=%s (%s), perfectMiddles=%s (%s), perfectEnds=%s (%s)", aChromList, aPosList, numPerfect, filters, perfectStarts, perfectStarts/float(numPerfect), perfectMiddles, perfectMiddles/float(numPerfect), perfectEnds, perfectEnds/float(numPerfect))
+                logging.debug("checkfilter perfectpbias for %s:%s, numPerfect=%s, filters=%s, perfectStarts=%s (%s), perfectMiddles=%s (%s), perfectEnds=%s (%s)", chromList, posList, numPerfect, filters, perfectStarts, perfectStarts/float(numPerfect), perfectMiddles, perfectMiddles/float(numPerfect), perfectEnds, perfectEnds/float(numPerfect))
         elif (anIsDebug):
-            logging.debug("checkfilter perfectpbias no minDepth for %s:%s, numPerfect=%s", aChromList, aPosList, numPerfect)
+            logging.debug("checkfilter perfectpbias no minDepth for %s:%s, numPerfect=%s", chromList, posList, numPerfect)
         
         # if we don't have enough perfect reads
         if numPerfect < aParamsDict["minPerfectReads"]:
@@ -1244,6 +1356,13 @@ class Club():
             elif (anIsDebug):
                 logging.debug("perfectPct=%s >= minPerfectPct=%s",  perfectPct, aParamsDict["minPerfectReadsPct"])
         
+        del mmpList[:]
+        for base in ([aCurrData.ref] + aCurrData.altList):
+            if ((base in mmpDict) and (mmpDict[base]["total"] > 0)):
+                mmpList.append(str(round(mmpDict[base]["secondary"]/float(mmpDict[base]["total"]),2)))
+            else:
+                mmpList.append("0.0")
+                
         # return the superset of filters applied
         if (len(filters) > 0):
             return filters
@@ -1422,11 +1541,6 @@ if __name__ == '__main__':
     headerLines += "##FILTER=<ID=mxmmp,Description=\"The percentage of ALT multi-mapping reads is greater than the maximum\">\n"
     headerLines += "##FILTER=<ID=pbias,Description=\"A positional bias exists\">\n"
     
-    # initialize the factorial list
-    factLogList = collections.defaultdict(float)
-    maxSize = 1000
-    factLogList = club.init_factorial(factLogList, 0, maxSize, i_debug)
-    
     #loop through and categorize all calls
     for line in vcf:
         
@@ -1449,238 +1563,51 @@ if __name__ == '__main__':
         # now we are to a data line
         dataAsList = line.strip().split("\t")
         if len(dataAsList) == len(currVCF.headers):
-            curr_data = currVCF.make_data(dataAsList)
+            # get the current line
+            currData = currVCF.make_data(dataAsList)
             
-            # if this is a somatic mutation or an RNA editing event
-            if (curr_data.info["VT"] == "SNP" and (curr_data.info["SS"] == "2" or curr_data.info["SS"] == "4")):
-    
-                # When merging multiple callers, non-RADIA calls won't have the ORIGIN flag
-                if (curr_data.info["ORIGIN"] == None):
-                    curr_data.filter = club.filter_by_read_support([curr_data.chrom], [curr_data.pos], [None], curr_data.ref, curr_data.alt, curr_data.info["SS"], curr_data.info["MT"], "DNA", params, i_debug)
-                # These are RADIA calls
-                else:
+            # if we should only process passing calls and this call passes or we should process all calls
+            if ((i_passedVCFCallsOnlyFlag and "PASS" in currData.filterList) or (not i_passedVCFCallsOnlyFlag)):
+                
+                # if this is a somatic mutation or an RNA editing event
+                if ("SNP" in currData.infoDict["VT"] and ("2" in currData.infoDict["SS"] or "4" in currData.infoDict["SS"])):
+                    
                     dnaFilter = list()
                     rnaFilter = list()
                     
-                    originFlags = curr_data.info["ORIGIN"].split(",")
-                    
-                    # A call can be made by the DNA or RNA
-                    for origin in originFlags:
+                    # A somatic call can be made by the DNA or RNA
+                    # An RNA editing call can be made in the normal or tumor RNA
+                    for origin in currData.infoDict["ORIGIN"]:
                         if (origin == "DNA"):
-                            if ((i_passedVCFCallsOnlyFlag and "PASS" in curr_data.filter) or (not i_passedVCFCallsOnlyFlag)):
-                                # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
-                                modTypes = curr_data.info["MT"].split(",")
-                                for modType in modTypes:
-                                    dnaFilter += club.filter_by_read_support([curr_data.chrom], [curr_data.pos], [None], curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "DNA", params, i_debug)
+                            # a somatic call made by the DNA
+                            modType = currData.infoDict["MT"][0]
+                            modChange = currData.infoDict["MC"][0]
+                            dnaFilter += club.filter_by_read_support(currData, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, modType, modChange, "DNA", params, i_debug)
+                        
                         # if we already passed using the DNA, then don't bother checking the RNA
                         elif ("PASS" not in dnaFilter):
-                            if ((i_passedVCFCallsOnlyFlag and "PASS" in curr_data.filter) or (not i_passedVCFCallsOnlyFlag)):
-                                # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
-                                modTypes = curr_data.info["MT"].split(",")
-                                for modType in modTypes:
-                                    try:
-                                        # if the transcript name, coordinate, and strand should be used instead of the genomic chrom and coordinate
-                                        if ((i_transcriptNameTag != None and i_transcriptCoordinateTag != None and i_transcriptStrandTag != None) and 
-                                            (curr_data.info[i_transcriptNameTag] != None and curr_data.info[i_transcriptCoordinateTag] != None and curr_data.info[i_transcriptStrandTag] != None)):
-                                            rnaFilter += club.filter_by_read_support(curr_data.info[i_transcriptNameTag].split(","), curr_data.info[i_transcriptCoordinateTag].split(","), curr_data.info[i_transcriptStrandTag].split(","), curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "RNA", params, i_debug)
-                                        else:
-                                            rnaFilter += club.filter_by_read_support([curr_data.chrom], [curr_data.pos], [None], curr_data.ref, curr_data.alt, curr_data.info["SS"], modType, "RNA", params, i_debug)
-                                    except:
-                                        logging.error("Problem with the following line: %s", line)
-                                        raise
+                            # for RNA editing events, a call can have both normal and tumor editing, so loop through them both
+                            for (modType, modChange) in izip(currData.infoDict["MT"], currData.infoDict["MC"]):
+                                rnaFilter += club.filter_by_read_support(currData, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, modType, modChange, "RNA", params, i_debug)
                     
                     # if it passed by DNA or RNA, then it passed          
                     if ("PASS" in dnaFilter or "PASS" in rnaFilter):
-                        curr_data.filter = ["PASS"]
+                        currData.filterList = ["PASS"]
                     # if this call was passing until now, then just add the new filters from here
-                    elif ("PASS" in curr_data.filter):
-                        curr_data.filter = dnaFilter + rnaFilter
+                    elif ("PASS" in currData.filterList):
+                        currData.filterList = dnaFilter + rnaFilter
                     # if this call was not passing until now, then add the filters to the previous filters
                     else:
-                        curr_data.filter += dnaFilter + rnaFilter
+                        currData.filterList += dnaFilter + rnaFilter
                     
                     if (i_debug):
-                        logging.debug("dnaFilter=%s, rnaFilter=%s, curr_data.filter=%s", dnaFilter, rnaFilter, curr_data.filter)
+                        logging.debug("dnaFilter=%s, rnaFilter=%s, currData.filter=%s", dnaFilter, rnaFilter, currData.filterList)
             
-            # calculating the score is computationally expensive, so only do it for all passing calls by default
-            pvalue = 0.98
-            phred = 0
-            if ((i_scorePassingVCFCallsOnly and "PASS" in curr_data.filter) or (not i_scorePassingVCFCallsOnly)):
-                # a dict with either
-                #    - the format item as key (e.g. DP) and single items as values or
-                #    - the format item as key (e.g. AD) and a new dict with the alleles as keys and then values
-                # e.g. rnaTumorDict["DP"] = 100
-                # e.g. rnaTumorDict["AD"]["A"] = 50
-                # e.g. rnaTumorDict["AD"]["T"] = 50
-                dnaNormalDict = None
-                rnaNormalDict = None
-                dnaTumorDict = None
-                rnaTumorDict = None
-                try:
-                    # if we have a 9th column, figure out which dataset it is
-                    if (len(currVCF.headers) > 9):
-                        if (currVCF.headers[9] == "DNA_NORMAL"):
-                            dnaNormalDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[1], [curr_data.ref] + curr_data.alt, i_debug)
-                        elif (currVCF.headers[9] == "RNA_NORMAL"):
-                            rnaNormalDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[1], [curr_data.ref] + curr_data.alt, i_debug)
-                        elif (currVCF.headers[9] == "DNA_TUMOR"):
-                            dnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[1], [curr_data.ref] + curr_data.alt, i_debug)
-                        elif (currVCF.headers[9] == "RNA_TUMOR"):
-                            rnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[1], [curr_data.ref] + curr_data.alt, i_debug)
-                    # if we have a 10th column, figure out which dataset it is
-                    if (len(currVCF.headers) > 10):
-                        if (currVCF.headers[10] == "RNA_NORMAL"):
-                            rnaNormalDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[2], [curr_data.ref] + curr_data.alt, i_debug)
-                        elif (currVCF.headers[10] == "DNA_TUMOR"):
-                            dnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[2], [curr_data.ref] + curr_data.alt, i_debug)
-                        elif (currVCF.headers[10] == "RNA_TUMOR"):
-                            rnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[2], [curr_data.ref] + curr_data.alt, i_debug)
-                    # if we have a 11th column, figure out which dataset it is
-                    if (len(currVCF.headers) > 11):
-                        if (currVCF.headers[11] == "DNA_TUMOR"):
-                            dnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[3], [curr_data.ref] + curr_data.alt, i_debug)
-                        elif (currVCF.headers[11] == "RNA_TUMOR"):
-                            rnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[3], [curr_data.ref] + curr_data.alt, i_debug)
-                    # if we have a 12th column, figure out which dataset it is
-                    if (len(currVCF.headers) > 12):
-                        if (currVCF.headers[12] == "RNA_TUMOR"):
-                            rnaTumorDict = club.parse_sample_data(curr_data.genotype[0], curr_data.genotype[4], [curr_data.ref] + curr_data.alt, i_debug)
-                    
-                    # parse the info dict
-                    infoDict = club.parse_info_field(dataAsList[7], i_debug)
-                except:
-                    logging.error("Problem with this line: %s", line)
-                    raise
-                
-                if ("GERM" in infoDict["MT"]):
-                    for (modType, modChange) in izip(infoDict["MT"], infoDict["MC"]):
-                        if (i_debug):
-                            logging.debug("modType=%s, modChange=%s", modType, modChange)
-                        
-                        if (modType == "GERM"):
-                            ref, alt = modChange.split(">")
-                            totalRefReads = 0
-                            totalAltReads = 0
-                            if (dnaNormalDict != None):
-                                totalRefReads += int(dnaNormalDict["AD"][ref])
-                                totalAltReads += int(dnaNormalDict["AD"][alt])
-                            if (rnaNormalDict != None):
-                                totalRefReads += int(rnaNormalDict["AD"][ref])
-                                totalAltReads += int(rnaNormalDict["AD"][alt])
-                            if (dnaTumorDict != None):
-                                totalRefReads += int(dnaTumorDict["AD"][ref])
-                                totalAltReads += int(dnaTumorDict["AD"][alt])
-                            if (rnaTumorDict != None):
-                                totalRefReads += int(rnaTumorDict["AD"][ref])
-                                totalAltReads += int(rnaTumorDict["AD"][alt])
-                            
-                            totalCoverage = totalRefReads + totalAltReads
-                            
-                            newMaxSize = totalCoverage * 2
-                            if (newMaxSize > maxSize):
-                                factLogList = club.init_factorial(factLogList, maxSize, newMaxSize, i_debug)
-                                maxSize = newMaxSize
-                            pvalue, phred = club.get_score(totalCoverage, 0, totalRefReads, totalAltReads, maxSize, factLogList, i_debug)
-                            if (i_debug):
-                                logging.debug("pval=%s, phred=%s", pvalue, phred)
-                            
-                            curr_data.qual = str(phred)
-                            curr_data.info["SSC"] = "0"
-                            curr_data.info["PVAL"] = str(pvalue)
-                
-                elif ("SOM" in infoDict["MT"]):
-                    for (modType, modChange) in izip(infoDict["MT"], infoDict["MC"]):
-                        logging.debug("modType=%s, modChange=%s", modType, modChange)
-                        if (modType == "SOM"):
-                            ref, alt = modChange.split(">")
-                            normalRefReads = 0
-                            normalAltReads = 0
-                            tumorRefReads = 0
-                            tumorAltReads = 0
-                            
-                            if (dnaNormalDict != None):
-                                normalRefReads += int(dnaNormalDict["AD"][ref])
-                                normalAltReads += int(dnaNormalDict["AD"][alt])
-                            if (rnaNormalDict != None):
-                                normalRefReads += int(rnaNormalDict["AD"][ref])
-                                normalAltReads += int(rnaNormalDict["AD"][alt])
-                            if (dnaTumorDict != None):
-                                tumorRefReads += int(dnaTumorDict["AD"][ref])
-                                tumorAltReads += int(dnaTumorDict["AD"][alt])
-                            if (rnaTumorDict != None):
-                                tumorRefReads += int(rnaTumorDict["AD"][ref])
-                                tumorAltReads += int(rnaTumorDict["AD"][alt])
-                            
-                            totalCoverage = normalRefReads + normalAltReads + tumorRefReads + tumorAltReads
-                            
-                            newMaxSize = totalCoverage
-                            if (newMaxSize > maxSize):
-                                factLogList = club.init_factorial(factLogList, maxSize, newMaxSize, i_debug)
-                                maxSize = newMaxSize
-                            pvalue, phred = club.get_score(normalRefReads, normalAltReads, tumorRefReads, tumorAltReads, maxSize, factLogList, i_debug)
-                            if (i_debug):
-                                logging.debug("pval=%s, phred=%s", pvalue, phred)
-                            
-                            curr_data.qual = str(phred)
-                            curr_data.info["SSC"] = str(phred)
-                            curr_data.info["PVAL"] = str(pvalue)
-                            
-                elif ("TUM_EDIT" in infoDict["MT"]):
-                    for (modType, modChange) in izip(infoDict["MT"], infoDict["MC"]):
-                        logging.debug("modType=%s, modChange=%s", modType, modChange)
-                        if (modType == "TUM_EDIT"):
-                            ref, alt = modChange.split(">")
-                            totalRefReads = 0
-                            totalAltReads = 0
-                            editingRefReads = 0
-                            editingAltReads = 0
-                            if (dnaNormalDict != None):
-                                totalRefReads += int(dnaNormalDict["AD"][ref])
-                                totalAltReads += int(dnaNormalDict["AD"][alt])
-                            if (rnaNormalDict != None):
-                                totalRefReads += int(rnaNormalDict["AD"][ref])
-                                totalAltReads += int(rnaNormalDict["AD"][alt])
-                                editingRefReads += int(rnaNormalDict["AD"][ref])
-                                editingAltReads += int(rnaNormalDict["AD"][alt])
-                            if (dnaTumorDict != None):
-                                totalRefReads += int(dnaTumorDict["AD"][ref])
-                                totalAltReads += int(dnaTumorDict["AD"][alt])
-                            if (rnaTumorDict != None):
-                                totalRefReads += int(rnaTumorDict["AD"][ref])
-                                totalAltReads += int(rnaTumorDict["AD"][alt])
-                                editingRefReads += int(rnaTumorDict["AD"][ref])
-                                editingAltReads += int(rnaTumorDict["AD"][alt])
-                            
-                            totalCoverage = totalRefReads + totalAltReads
-                            
-                            newMaxSize = totalCoverage + editingRefReads + editingAltReads
-                            if (newMaxSize > maxSize):
-                                factLogList = club.init_factorial(factLogList, maxSize, newMaxSize, i_debug)
-                                maxSize = newMaxSize
-                            pvalue, phred = club.get_score(totalCoverage, 0, editingRefReads, editingAltReads, maxSize, factLogList, i_debug)
-                            if (i_debug):
-                                logging.debug("pval=%s, phred=%s", pvalue, phred)
-                            
-                            curr_data.qual = str(phred)
-                            curr_data.info["SSC"] = "0"
-                            curr_data.info["PVAL"] = str(pvalue)
-                else:
-                    # these are RNA_TUM_VAR lines that have little or no DNA
-                    curr_data.qual = str(phred)
-                    curr_data.info["SSC"] = str(phred)
-                    curr_data.info["PVAL"] = str(pvalue)
-            else:
-                # calculating the score is computationally expensive, so only do it for all passing calls by default
-                # these are non-passing lines
-                curr_data.qual = str(phred)
-                curr_data.info["SSC"] = str(phred)
-                curr_data.info["PVAL"] = str(pvalue)
-            
-            if (i_debug):
-                logging.debug("pos=%s, qual=%s, pval=%s, phred=%s", curr_data.pos, curr_data.qual, pvalue, phred)
+            # set the score
+            club.set_score(currData, i_scorePassingVCFCallsOnly, i_debug)
             
             # output the final line
-            i_outputFileHandler.write(str(curr_data) + "\n")
+            i_outputFileHandler.write(str(currData) + "\n")
         else:
             logging.warning("The number of VCF columns (%s) doesn't equal the number of VCF header columns (%s).", len(dataAsList), len(currVCF.headers))
             logging.warning("Here are the VCF header columns: %s", currVCF.headers)

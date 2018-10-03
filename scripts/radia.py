@@ -595,7 +595,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
     ' This function converts information from a .bam mpileup coordinate into a format that can be output to a VCF formatted file.
     ' This function calculates the average overall base quality score, strand bias, and fraction of reads supporting the alternative.
     ' It also calculates the allele specific depth, average base quality score, strand bias, and fraction of reads supporting the alternative.
-    ' The format for the output in VCF is:  GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQ:BQ:SB.
+    ' The format for the output in VCF is:  GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQ:BQ:SB:MMP.
     '
     ' aDnaSet:                  A set of dna found at this position
     ' anAltList:                A list of alternative alleles found thus far
@@ -619,7 +619,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
     # if we have reads at this position
     if (aNumBases > 0):
         
-        #format = "GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB"
+        #format = "GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP"
         
         #vcfHeader += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
         #vcfHeader += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read depth\">\n"
@@ -634,6 +634,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
         #vcfHeader += "##FORMAT=<ID=MQA,Number=.,Type=Integer,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
         #vcfHeader += "##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
         #vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
+        #vcfHeader += "##FORMAT=<ID=MMP,Number=.,Type=Float,Description=\"Multi-mapping percent of reads harboring allele (in order specified by GT)\">\n"
             
         # initialize some lists
         depths = list()
@@ -643,6 +644,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
         mapQualZeroes = list()
         mapQualMaxes = list()
         strandBias = list()
+        mmps = list()
         altCountsDict = {}
         
         # for each base in the ref list and alt list
@@ -679,6 +681,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
             mapQualMaxes.append(aMapQualMaxesDict[base])
             mapQualZeroes.append(aMapQualZeroesDict[base])
             strandBias.append(avgPlusStrandBias)
+            mmps.append(".")
 
             
         # get the genotype:
@@ -800,7 +803,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
             genotypes = sorted([max1DepthIndex, max2DepthIndex])
         
         # create a list of each of the elements, then join them by colon
-        outputList = ("/".join(map(str, genotypes)), str(aNumBases), ",".join(map(str, depths)), ",".join(map(str, freqs)), str(anInsCount), str(aDelCount), str(aStartsCount), str(aStopsCount), ",".join(map(str, mapQualZeroes)), ",".join(map(str, mapQualMaxes)), ",".join(map(str, mapQuals)), ",".join(map(str, baseQuals)), ",".join(map(str, strandBias)))
+        outputList = ("/".join(map(str, genotypes)), str(aNumBases), ",".join(map(str, depths)), ",".join(map(str, freqs)), str(anInsCount), str(aDelCount), str(aStartsCount), str(aStopsCount), ",".join(map(str, mapQualZeroes)), ",".join(map(str, mapQualMaxes)), ",".join(map(str, mapQuals)), ",".join(map(str, baseQuals)), ",".join(map(str, strandBias)), ",".join(mmps))
         aBamOutputString = ":".join(outputList)
         
     # return the string representation and overall calculations       
@@ -1122,6 +1125,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##FORMAT=<ID=MQA,Number=.,Type=Integer,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=MMP,Number=.,Type=Float,Description=\"Multi-mapping percent for reads supporting allele (in order specified by GT)\">\n"
     #vcfHeader += "##FORMAT=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal, 0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
     #vcfHeader += "##FORMAT=<ID=SSC,Number=1,Type=Integer,Description=\"Somatic score between 0 and 255\">\n"
     # across the whole read, what is the avg base quality of all mismatches
@@ -1158,8 +1162,8 @@ def pad_output(anOutput, anEmptyOutput, anAlleleLength):
         return anOutput
     
     # get the data for this sample
-    # GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB
-    (genotypes, depths, alleleDepths, alleleFractions, insCount, delCount, starts, stops, mapQualZeroes, mapQualMaxes, mapQuals, baseQuals, strandBiases) = anOutput.split(":")
+    # GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP
+    (genotypes, depths, alleleDepths, alleleFractions, insCount, delCount, starts, stops, mapQualZeroes, mapQualMaxes, mapQuals, baseQuals, strandBiases, mmps) = anOutput.split(":")
     
     # if we need some padding
     alleleDepthList = alleleDepths.split(",") 
@@ -1171,9 +1175,10 @@ def pad_output(anOutput, anEmptyOutput, anAlleleLength):
         mapQualsList = pad(mapQuals.split(","), "0", anAlleleLength)
         baseQualityList = pad(baseQuals.split(","), "0", anAlleleLength)
         strandBiasList = pad(strandBiases.split(","), "0.0", anAlleleLength)
+        mmpList = pad(mmps.split(","), ".", anAlleleLength)
         
-        # GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB
-        outputList = (genotypes, depths, ",".join(alleleDepthList), ",".join(alleleFractionList), insCount, delCount, starts, stops, ",".join(mapQualZeroesList), ",".join(mapQualMaxesList), ",".join(mapQualsList), ",".join(baseQualityList), ",".join(strandBiasList))
+        # GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP
+        outputList = (genotypes, depths, ",".join(alleleDepthList), ",".join(alleleFractionList), insCount, delCount, starts, stops, ",".join(mapQualZeroesList), ",".join(mapQualMaxesList), ",".join(mapQualsList), ",".join(baseQualityList), ",".join(strandBiasList), ",".join(mmpList))
             
         return ":".join(outputList)
     else:
@@ -1763,7 +1768,7 @@ def main():
     startTime = time.time()
     
     # initialize some variables
-    formatString = "GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB"
+    formatString = "GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP"
     countRnaDnaCoordinateOverlap = 0
     totalGerms = 0
     totalSoms = 0
