@@ -2145,7 +2145,13 @@ def main():
                 
                 # add the ref, alt, and score
                 vcfOutputList.append(",".join(refList))
-                vcfOutputList.append(",".join(altList))
+                # if we are outputting all data, 
+                # there might not be an ALT to 
+                # output, so default to '.'
+                if (len(altList) == 0):
+                    vcfOutputList.append(".")
+                else:
+                    vcfOutputList.append(",".join(altList))
                 vcfOutputList.append("0")
                 
                 # add filters
