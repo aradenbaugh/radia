@@ -5,7 +5,7 @@ import pysam
 import sys
 import os
 from optparse import OptionParser
-import myvcf
+import myVCF
 import gzip
 import radiaUtil
 import logging
@@ -100,7 +100,7 @@ def get_passing_germline_alts(aCurrData):
     
 def parse_vcf(aVCFFilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug):
     vcf = get_read_fileHandler(aVCFFilename)
-    currVCF = myvcf.VCF()
+    currVCF = myVCF.VCF()
 
     dnaNormalBam = None
     dnaTumorBam = None
@@ -1524,7 +1524,7 @@ if __name__ == '__main__':
         sys.exit(1)
     
     vcf = get_read_fileHandler(vcfFilename)
-    currVCF = myvcf.VCF()
+    currVCF = myVCF.VCF()
     
     club = Club(vcfFilename, i_transcriptNameTag, i_transcriptCoordinateTag, i_debug)
     
