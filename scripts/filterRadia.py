@@ -269,7 +269,7 @@ def flag_cosmic(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir,
     return outputFilename
 
 
-def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aTargetDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aTargetDir, aScriptsDir, aJobListFileHandler, aGzipFlag, aTargetsInfoFlag, anIsDebug):
 
     filterFilename = os.path.join(aTargetDir, "chr" + aChromId + ".bed.gz")
     if (not os.path.isfile(filterFilename)):
@@ -281,7 +281,11 @@ def filter_targets(aPythonExecutable, anId, aChromId, anInputFilename, anOutputD
         outputFilename = os.path.join(anOutputDir, aPrefix + "_targets_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "filterByPybed.py")
-    command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " ntr --includeFilterName -f \"##FILTER=<ID=ntr,Description=\\\"Position does not overlap with a TCGA target region\\\">\" -o " + outputFilename
+    # if the target should be added to the INFO instead of the FILTER
+    if (aTargetsInfoFlag):
+        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " NTR --includeFilterName -d INFO -f \"##INFO=<ID=NTR,Number=0,Type=Flag,Description=\\\"Position does not overlap with a GENCODE gene region\\\">\" -o " + outputFilename
+    else:
+        command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " ntr --includeFilterName -f \"##FILTER=<ID=ntr,Description=\\\"Position does not overlap with a GENCODE gene region\\\">\" -o " + outputFilename
     
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -961,6 +965,7 @@ def main():
     i_cmdLineParser.add_option("", "--noBlat", action="store_false", default=True, dest="blat", help="include this argument if the blat filter should not be applied")
     i_cmdLineParser.add_option("", "--noRnaBlacklist", action="store_false", default=True, dest="rnaBlacklist", help="include this argument if the RNA blacklist filter should not be applied")
     i_cmdLineParser.add_option("", "--noSnpEff", action="store_false", default=True, dest="snpEff", help="include this argument if the snpEff annotation should not be applied (without the snpEff annotation, filtering of RNA blacklisted genes will also not be applied")
+    i_cmdLineParser.add_option("", "--targetsInfo", action="store_true", default=False, dest="targetsInfo", help="include this argument if the targets should be added to the INFO instead of the FILTER")
     i_cmdLineParser.add_option("", "--dnaOnly", action="store_true", default=False, dest="dnaOnly", help="include this argument if you only have DNA or filtering should only be done on the DNA")
     i_cmdLineParser.add_option("", "--rnaOnly", action="store_true", default=False, dest="rnaOnly", help="include this argument if the filtering should only be done on the RNA")
     i_cmdLineParser.add_option("", "--gzip", action="store_true", default=False, dest="gzip", help="include this argument if the final VCF should be compressed with gzip")
@@ -1008,6 +1013,7 @@ def main():
     i_cosmicFlag = i_cmdLineOptions.cosmic
     i_blatFlag = i_cmdLineOptions.blat
     i_snpEffFlag = i_cmdLineOptions.snpEff
+    i_targetsInfo = i_cmdLineOptions.targetsInfo
     i_dnaOnlyFlag = i_cmdLineOptions.dnaOnly
     i_rnaOnlyFlag = i_cmdLineOptions.rnaOnly
     i_logLevel = i_cmdLineOptions.logLevel
@@ -1125,6 +1131,7 @@ def main():
         logging.debug("blacklistFlag? %s", i_blacklistFlag)
         logging.debug("rnaBlacklistFlag? %s", i_rnaBlacklistFlag)
         logging.debug("targetsFlag? %s", i_targetsFlag)
+        logging.debug("targetsInfo? %s", i_targetsInfo)
         logging.debug("dbSnpFlag? %s", i_dbSnpFlag)
         logging.debug("snpEffFlag? %s", i_snpEffFlag)
         logging.debug("retroGenesFlag? %s", i_retroGenesFlag)
@@ -1238,7 +1245,7 @@ def main():
         
         # filter targets
         if (i_targetsFlag):
-            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_targetsInfo, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # filter mpileup
@@ -1273,7 +1280,7 @@ def main():
         
         # filter targets
         if (i_targetsFlag):
-            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_targetsInfo, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # filter RNA mpileup
