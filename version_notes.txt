@@ -1,3 +1,529 @@
+10/17/2018:
+
+Add target regions to INFO instead of FILTER (filterRadia.py)
+
+    Instead of filtering calls that are not in the
+    GENCODE gene regions, just add a tag to the INFO.
+
+
+Renamed script to follow coding conventions (filterByReadSupport.py, myvcf.py)
+
+    Renamed myvcf.py to myVCF.py to adhere to
+    coding conventions.
+
+
+When no ALT exists, use the default '.' (radia.py)
+
+    If the --outputAllData flag is used to output all data
+    even when no variant exists, then there might not be
+    an ALT allele.  Per the VCF specifications, the column
+    should contain the default '.' value.
+
+
+Added 'MMP' to the sample data (filterByReadSupport.py, radia.py, myvcf.py)
+
+    - Moved parsing of the FORMAT field and sample fields to
+      myvcf.py  Parsing is needed in order to add the 'MMP' 
+      field to the samples, and if a call passes, parsing is 
+      needed for calculating the p-value and somatic score.
+
+    - Redid how the filtering method is called:  pass in the
+      entire currData object to eliminate the number of method
+      parameters.
+
+    - Only calculate the multi-mapping percent for the specific
+      allele in the call instead of all alternative alleles.
+
+    - Moved scoring into the Club class
+
+    - Changed the way the INFO was parsed to be consistent
+      with rest of code
+
+    - Changed variable names to be consistent with rest of code
+
+    - Made the reference a single base instead of a list
+
+
+Added multi-mapping filter (filterByReadSupport.py)
+    - If secondary RNA alignments are allowed, there will be
+      many false positive calls where nearly 100% of the reads
+      supporting the alternative allele are from secondary RNA
+      alignments (not primary alignments).  Added a filter now
+      for calls where 90% or more of the reads supporting the 
+      alternative allele come from secondary mappings.  In other
+      words, at least 10% of the reads need to be the primary
+      mapping.  This filter is mostly relevant for RNA variants.
+
+    - Renamed variable names to be consistent with rest of code
+    
+    - Renamed filter names to be consistent
+    
+    - The get_pvalue() method does not need the aMaxSize param
+    
+    - If the number of VCF columns for a particular line in a 
+      VCF does not equal the number of VCF header columns, 
+      then output a warning and skip the line.
+
+
+Downgrade warning message about multiple passing mod types (mergeRnaAndDnaFiles.py)
+
+    Very rarely, there are calls that have evidence of
+    a germline mutation (e.g. A>T) and then an RNA editing
+    event for a different alternative allele (e.g. A>G).
+    These calls will be output as germline mutations and
+    are likely false positives to be removed by other
+    filters.
+
+
+Allow RNA_TUM_VARs to PASS (radiaCompare.py, mergeRnaAndDnaFiles.py, filterRadia.py)
+    - In general, RADIA can be used on tumor RNA without 
+      any DNA to output RNA variants.  Obviously, further
+      analysis is needed to classify the RNA variants as 
+      germline, somatic, or editing.  RNA variants will now
+      pass.  If an RNA variant has enough total DNA (by 
+      default 10 reads), then they will be classified as
+      germline, somatic, or editing based on the DNA.  If
+      an RNA variant has little or no DNA, it may pass
+      as an RNA_TUM_VAR.
+
+    - The 'compareList' parameter for radiaCompare.py only
+      needs to compare somatic calls.  Only the *passing* 
+      RNA calls are being compared to the *passing* DNA 
+      calls.  There will never be a passing RNA Editing
+      or RNA variant in the DNA.  Only somatic calls can
+      pass by both filtering methods.  The overlaps file
+      will contain the somatic calls that passed by both
+      filtering methods.  The non-overlaps file will contain
+      the RNA Rescue, RNA Editing, and RNA variant calls 
+      that do not pass the DNA filters.
+
+    - Fixed propagating grep and awk error messages up
+      to the user.  Also, if we pipe the grep output to 
+      gzip, the return code and error messages from grep
+      get overwritten by gzip, and we no longer detect when 
+      an error occurs.
+
+    - Fixed the command that selects the RNA variants for
+      further filtering.  Instead of selecting somatic and
+      editing, just remove any germline.  This will allow
+      the RNA_TUM_VARs to proceed.  Also, changed the awk
+      command to be more flexible to allow variable sample
+      columns.
+
+
+Reclassify germline mutations and update filter names (filterByMpileupSupport.py)
+
+    - Some germline variants that were homozygous for the ALT
+      base were being classified and filtered as somatic calls.
+      Now they are classified as germline and filtered as
+      germline.  This code change resulted in a roughly five
+      percent increase in passing germline calls.
+
+    - The modification filters ('MF' in the INFO) provide the
+      filters for each modification type tested.  Instead of 
+      only providing the filters from this script, we want to 
+      include filters (e.g. 'blck') from previous scripts 
+      as well.  In addition, even if a call passes this script,
+      previous filters should be added to the mod filters if 
+      they exist.
+
+    - Updated filter names to be consistent with tags in the
+      FORMAT field.  Updated some filter descriptions to
+      improve consistency.
+
+
+Parse items in the INFO field that contain a '=' (myvcf.py)
+
+    - Most INFO field items have a Tag=Value(s) format,
+      but some annotations such as a silent protein change
+      specified as 'ProtCh=p.T394=' can exist.  When
+      parsing the INFO field, catch these uncommon cases,
+      and parse them properly.
+
+    - Renamed some variables to be more consistent
+
+
+Performance improvement when loading coordinates from a file (radia.py)
+
+    - If a coordinates file is given, the user can choose to
+      either load and loop through each coordinate separately, 
+      or include the --loadCoordinatesRange flag to load all 
+      the coordinates in the range and then process them each
+      separately.  Including the flag can provide a great
+      performance improvement, depending on the number of
+      bases in the coordinate range.  If the range is large,
+      a nominal performance improvement can be seen.  If the 
+      range is small, a great performance improvement can be
+      seen.
+
+
+When --outputAllData is True, output all data that exists (radia.py)
+ 
+    - Previously when the --outputAllData flag was set,
+      the data was only output when it passed the basic
+      filters.  We actually want to output all data,
+      if any data exists.  The overall affect from this
+      change is not great.  Mostly the calls that were
+      previously not output did not have enough ALT bases
+      (or no tumor data at all) and the 'mba' filter was 
+      being set.
+
+    - The 'MQ0' tag in the INFO did not contain the sum
+      across all samples. It only had the count from the
+      last sample with data.
+
+    - Commented out very detailed debug messages
+
+
+Query all coordinates when a coordinates file is given (radia.py)
+
+    If a coordinates file is provided, then we do not
+    want to break out of the processing loop when no
+    data is present.
+
+
+Remove processing of 'N' bases (radia.py)
+
+    Very rarely, a read will contain the base 'N'.
+    There are usually no more than 2 and mostly just
+    1 read at a particular location containing an 'N'.
+    This happens mostly in the DNA reads and not very
+    often in the RNA reads.
+
+
+Added INDEL filter and set max read depth to 8,000 (filterByMpileupSupport.py)
+
+    - Added INDEL filtering across all samples as well as 
+      sample specific INDEL filtering.  This filter greatly 
+      improves performance, because it removes problematic
+      calls from further filtering scripts.
+
+    - Set the max total bases parameter for each sample
+      to 8,000.  The samtools mpileup and pysam pileup 
+      function have a parameter for the max read depth 
+      (8,000 by default), but sometimes more reads are
+      selected.  The read depth can be very high (in
+      the 100,000-200,000 range) in regions with many 
+      indels, especially if RNA secondary alignments 
+      are included.  To improve performance, filter
+      out calls with more than 8,000 reads.  We may
+      later add genes of interest to a white list to
+      avoid this filter being applied. 
+
+    - Changed the description for the strand bias filters
+
+    - Code enhancement:  group the general parameters for
+      a method together in a dictionary to reduce the
+      number of parameters in a method call.
+
+
+Removed unused BLAT input file (filterByBlat.py)
+
+    The filterByBlat.py script actually does
+    not need the BLAT input file.  It only uses
+    the results from the BLAT command stored
+    in the BLAT output file.
+
+
+Removed old filterByPositionalBias.py code (filterRadia.py and createBlatFile.py)
+
+    The code for filtering by positional bias
+    has been moved to the filterByReadSupport.py
+    script and is no longer necessary as a 
+    separate script.  Eliminating this code
+    helps improve performance and simplifies
+    the filtering by positional bias process.
+    
+
+Use pysam to query bam files instead of samtools view (createBlatFile.py)
+
+    The samtools view command does not have a max
+    read depth parameter like the samtools mpileup
+    and pysam pileup functions.  We can just select
+    the first 8,000 reads, but we are not guaranteed
+    that they are the same 8,000 reads selected by
+    the other commands.  It is also cumbersome to
+    support 3 different ways of querying the same
+    data.  In addition, the samtools view processing
+    takes much longer than the other functions.
+    Therefore, the samtools view command was replaced
+    with the pysam pileup function.  Now the code is
+    similar to the code in the filterByReadSupport.py
+    script and performance has improved.
+
+
+Removed obsolete code (createBlatFile.py)
+
+    Removed obsolete code that used the samtools view
+    command which has been replaced with the pysam
+    pileup function.
+
+
+Commented out detailed debug messages (filterByReadSupport.py)
+
+    - To improve performance, some detailed debug
+      messages were commented out
+
+    - Add the reference bases to the debugging
+
+    - Changed variable names for pileup objects
+      to match style from rest of code
+
+
+Propagate warning messages up and output them to logs (filterRadia.py)
+
+    - Propagate warning messages from subcommands up and
+      add them to the log files.
+
+    - Changed variable names for stdErr and stdOut
+
+
+Added p-val, somatic score, and qual score (filterByReadSupport.py)
+
+    - Added a p-value, somatic score, and 
+      qual score. Since computing scores is
+      computationally expensive, by default 
+      a score is only calculated for passing
+      calls, but the user can flip the flag 
+      to have all calls scored.
+
+    - Changed low_base_and_map_quals() to
+      low_base_or_map_quals() to make the
+      if statements clearer
+
+    - Changed variable names for pileup objects
+      to match style from rest of code
+
+
+Minor code updates (myvcf.py)
+
+    - Stopped using python reserved words as var names
+
+    - Removed extra_headers that were never used
+
+
+Process all reads from all transcript isoforms (filterByReadSupport.py)
+
+    - If calls are made on transcript aligned bams 
+      instead of genome aligned bams, then calls from
+      multiple isoforms are merged into one call.  When
+      filtering by read support, we need to query all
+      of the isoforms and then remove the duplicate
+      reads that mapped to more than one isoform.
+
+    - Simplified the ismut() and checkread() methods.
+
+    - Performance:  eliminated looping over the reads
+      twice:  once for the overlapping reads and then 
+      once for the perfect reads.
+
+
+Removed old soft-clipping filter (filterByReadSupport.py)
+
+    - A new soft-clipping filter was added a while
+      ago where a read is not 'perfect' if more than
+      10% of the read is soft-clipped.
+
+    - The old soft-clip filter kept track of the end 
+      coordinate of a soft-clip at the beginning of a
+      read and the start coordinate of a soft-clip at
+      the end of a read.  For all reads that were soft-
+      clipped at the beginning, the reads that had the
+      most common soft-clip end coordinate were no
+      longer considered 'perfect'.  For all reads that
+      were soft-clipped at the end, the reads that had 
+      the most common start coordinate were no longer
+      considered 'perfect'.  Basically, all reads that
+      soft-clipped at the same coordinate (either at 
+      the beginning or the end) were no longer 
+      considered 'perfect'.
+
+
+Added positional bias here (filterByReadSupport.py)
+
+    - We are looping through all of the reads here,
+      and it makes sense to calculate the positional
+      bias here.
+
+    - The positional bias filter was previously a
+      separate filtering script.  In order to save 
+      on performance and to simplify the filtering
+      process, it has now been added here.
+
+
+Moved grouping reads by name to separate method (filterByReadSupport.py)
+
+    Created a group_reads_by_name() method and
+    moved that part of the code out of the 
+    checkfilter() method for better readability. 
+    No functional changes were made.
+
+
+Moved checking neighborhood base quals to separate method (filterByReadSupport.py)
+
+    For performance reasons, the code to check the base quals
+    of the up- and down-stream neighbors of a mutation was
+    moved into a separate method.
+
+
+Major bug-fixes for selecting the right base from the reads (createBlatFile.py)
+
+    - According to the SAM documentation, the POS column
+      (1-based leftmost mapping POSition) corresponds to
+      the first CIGAR operation that "consumes" a ref
+      base. The CIGAR operations that can consume a ref
+      base are: M, D, N, =, and X.  The old code relied
+      on an 'M' for the first match. Now the code properly 
+      accounts for all CIGAR operations that can consume 
+      a ref base.
+
+    - The following CIGAR operations do not consume the
+      ref nor the query:
+        - 'H' (hard-clipping sequences not in the query)
+        - 'P' (silent deletion from padded ref)
+
+    - The following CIGAR operations consume both the
+      ref and the query sequence:
+        - 'M' (alignment match, sequence match or mismatch)
+        - '=' (sequence match)
+        - 'X' (sequence mismatch)
+
+    - The following CIGAR operations consume the ref
+      but not the query:
+        - 'D' (deletion)
+        - 'N' (a skipped region from the ref)
+
+    - The following CIGAR operations consume the query
+      but not the ref:
+        - 'I' (insertion)
+        - 'S' (soft-clipping)
+
+    - When looping through the reads, the goal is to 
+      find the cigar operation and index of the query 
+      sequence that aligns with the ref.  The number
+      of ref bases that need to be consumed is the
+      transcript or genomic coordinate minus the 
+      start of the read.  Ref bases are consumed by
+      cigar ops:  M, =, X, D, N.  The query index 
+      is increased when a query base is consumed
+      by an M, =, X, I, S.
+
+    - If calls are made on transcript aligned bams 
+      instead of genome aligned bams, then calls from
+      multiple isoforms are merged into one call.  When
+      creating the blat file, we need to query all
+      of the isoforms and then remove the duplicate
+      reads that mapped to more than one isoform.
+
+    - For consistent counting, only count the refs that
+      have a high enough base quality, since that is
+      how we count the alts.
+
+    - The samtools mpileup and pysam pileup functions
+      have a parameter for the max read depth (8,000 by
+      default).  The samtools view command does not, but 
+      it is a good idea to limit the number of reads that
+      are selected.  The read depth can be very high (in
+      the 100,000-200,000 range) in regions with many 
+      indels, especially if RNA secondary alignments 
+      are included.
+
+
+Query and count the reads with mapping quality zero (radia.py)
+
+    When initially executing the samtools mpileup 
+    command, set the mapping quality and base
+    quality params to zero (-Q 0 -q 0).  Then we
+    can count the number of reads that initially 
+    had mapping quality zero.  The sample specific
+    MapQual and BaseQual params are then used to
+    eliminate reads (by default both are set to 10).
+
+
+Major performance enhancements (filterByReadSupport.py)
+
+    - There are many reasons for a read to be
+      deemed not 'perfect'.  There are some easy
+      checks and some that take longer.  Do all
+      easy checks first.
+
+    - The easy checks are for improper pairs,
+      insertions and deletions.
+
+    - Checking the neighbor base quals only
+      evaluates the 5 bases up- and down-stream
+      from the mutation, so do this before
+      checking the whole read.
+
+    - When evaluating each base in the read, 
+      return as soon as the maximum number
+      of mutations are found.
+
+    - When evaluating each cigar operation,
+      return as soon as the maximum number 
+      of mutations are found and/or when the
+      soft-clip percentage reaches the maximum
+      allowed.
+
+    - RNA-Editing events occur in clusters, so
+      do not apply the maximum mutations filter
+      to these calls.
+
+    - Fixed a bug with how the maximum soft-clip
+      percentage was calculated.
+
+
+Fixed off-by-one error (filterByPositionalBias.py)
+
+    - We have enough reads when the depth is greater
+      than or equal to the cutoff. The previous code
+      was only checking for greater than the cutoff.
+
+    - Updated comments of example VCF lines by moving
+      the 'AD' and 'AF' fields to the front of the 
+      FORMAT and sample columns.
+
+    - Updated comments of example VCF lines by converting
+      the 'INDEL' field into two separate fields 'INS' and 
+      'DEL'.
+
+
+Updated comments of example VCF lines (filterByReadSupport.py)
+
+    - Updated comments of example VCF lines by converting
+      the 'INDEL' field into two separate fields 'INS' and 
+      'DEL'.
+
+    - Removed obsolete code.
+
+
+Rearrange FORMAT field (radia.py)
+
+    - For improved readability, move the AD and AF fields
+      to the front of the FORMAT column.
+
+    - Update comments of example VCF lines by moving
+      the AD and AF fields to the front of the 
+      FORMAT and sample columns.
+
+    - To provide more precise information, divide the 
+      INDEL field into two separate INS and DEL fields.
+
+    - Update comments of example VCF lines by converting
+      the INDEL field into two separate fields INS and 
+      DEL.
+
+    - Removed obsolete code.
+
+    - Moved 'AD' and 'AF' fields to the front
+
+    - Updated comments of example VCF lines by converting
+      the 'INDEL' field into two separate fields 'INS' and 
+      'DEL'.
+
+
+
+
 03/24/2018:
 
 - Added mapping qualities (radia.py)
