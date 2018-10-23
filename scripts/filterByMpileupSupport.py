@@ -1093,7 +1093,9 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     filterSet.add("dnmnad")
                     
                 # check to make sure the normal DNA sample percentage of ALT bases is above the min
-                if (float(event_dnaNormalDict["AF"][targetIndex]) < aDnaNormParamsDict["MinAltPct"]):
+                # adjust the minAltPct for purity
+                dnaNormalMinAltPct = round(aDnaNormParamsDict["MinAltPct"] / aDnaNormParamsDict["Purity"], 2)
+                if (float(event_dnaNormalDict["AF"][targetIndex]) < dnaNormalMinAltPct):
                     isValidMod = False
                     filterSet.add("dnmnaf")
                     
@@ -1298,7 +1300,9 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
                     isValidMod = False
                     filterSet.add("dtmnad")
                 # check to make sure the tumor DNA sample percentage of ALT bases is above the min
-                if (float(event_dnaTumorDict["AF"][targetIndex]) < aDnaTumParamsDict["MinAltPct"]):
+                # adjust the minAltPct for purity
+                dnaTumorMinAltPct = round(aDnaTumParamsDict["MinAltPct"] * aDnaTumParamsDict["Purity"], 2)
+                if (float(event_dnaTumorDict["AF"][targetIndex]) < dnaTumorMinAltPct):
                     isValidMod = False
                     filterSet.add("dtmnaf")
                     
@@ -1687,6 +1691,7 @@ def main():
     i_cmdLineParser.add_option("", "--dnaNormalMinAltMapQual", type="int", default=int(20), dest="dnaNormalMinAltMapQual", metavar="DNA_NOR_MIN_ALT_MQ", help="at least 1 ALT read needs this minimum mapping quality, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMaxAltMapQualZeroPct", type="float", default=float(0.50), dest="dnaNormalMaxAltMapQualZeroPct", metavar="DNA_NOR_MAX_ALT_MQ0_PCT", help="the maximum percentage of mapping quality zero reads for the ALT reads, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMaxIndels", type="int", default=int(3), dest="dnaNormalMaxIndels", metavar="DNA_NOR_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
+    i_cmdLineParser.add_option("", "--danNormalPurity", type="float", default=float(1.0), dest="dnaNormalPurity", metavar="DNA_NOR_PURITY", help="estimated purity (non-tumor content) of normal DNA sample, %default by default")
     
     i_cmdLineParser.add_option("", "--dnaTumorMinTotalBases", type="int", default=int(10), dest="dnaTumorMinTotalNumBases", metavar="DNA_TUM_MIN_TOTAL_BASES", help="the minimum number of overall tumor DNA reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMaxTotalBases", type="int", default=int(8000), dest="dnaTumorMaxTotalNumBases", metavar="DNA_TUM_MAX_TOTAL_BASES", help="the maximum number of overall tumor DNA reads covering a position, %default by default")
@@ -1701,6 +1706,7 @@ def main():
     i_cmdLineParser.add_option("", "--dnaTumorMinAltMapQual", type="int", default=int(20), dest="dnaTumorMinAltMapQual", metavar="DNA_TUM_MIN_ALT_MQ", help="at least 1 ALT read needs this minimum mapping quality, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMaxAltMapQualZeroPct", type="float", default=float(0.50), dest="dnaTumorMaxAltMapQualZeroPct", metavar="DNA_TUM_MAX_ALT_MQ0_PCT", help="the maximum percentage of mapping quality zero reads for the ALT reads, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMaxIndels", type="int", default=int(3), dest="dnaTumorMaxIndels", metavar="DNA_TUM_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
+    i_cmdLineParser.add_option("", "--dnaTumorPurity", type="float", default=float(1.0), dest="dnaTumorPurity", metavar="DNA_TUM_PURITY", help="estimated purity (tumor content) of tumor DNA sample, %default by default")
     
     i_cmdLineParser.add_option("", "--rnaNormalMinTotalBases", type="int", default=int(10), dest="rnaNormalMinTotalNumBases", metavar="RNA_NOR_MIN_TOTAL_BASES", help="the minimum number of overall normal RNA-Seq reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMaxTotalBases", type="int", default=int(8000), dest="rnaNormalMaxTotalNumBases", metavar="RNA_NOR_MAX_TOTAL_BASES", help="the maximum number of overall normal RNA-Seq reads covering a position, %default by default")
@@ -1777,6 +1783,7 @@ def main():
     i_dnaNormParams["MinAltMapQual"] = i_cmdLineOptions.dnaNormalMinAltMapQual
     i_dnaNormParams["MaxAltMapQualZeroPct"] = i_cmdLineOptions.dnaNormalMaxAltMapQualZeroPct
     i_dnaNormParams["MaxIndels"] = i_cmdLineOptions.dnaNormalMaxIndels
+    i_dnaNormParams["Purity"] = i_cmdLineOptions.dnaNormalPurity
     
     i_dnaTumParams = {}
     i_dnaTumParams["MinTotalNumBases"] = i_cmdLineOptions.dnaTumorMinTotalNumBases
@@ -1792,6 +1799,7 @@ def main():
     i_dnaTumParams["MinAltMapQual"] = i_cmdLineOptions.dnaTumorMinAltMapQual
     i_dnaTumParams["MaxAltMapQualZeroPct"] = i_cmdLineOptions.dnaTumorMaxAltMapQualZeroPct
     i_dnaTumParams["MaxIndels"] = i_cmdLineOptions.dnaTumorMaxIndels
+    i_dnaTumParams["Purity"] = i_cmdLineOptions.dnaTumorPurity
     
     i_rnaNormParams = {}
     i_rnaNormParams["MinTotalNumBases"] = i_cmdLineOptions.rnaNormalMinTotalNumBases
@@ -1823,7 +1831,7 @@ def main():
     i_rnaTumParams["MaxAltMapQualZeroPct"] = i_cmdLineOptions.rnaTumorMaxAltMapQualZeroPct
     i_rnaTumParams["MaxIndels"] = i_cmdLineOptions.rnaTumorMaxIndels
     
-    # try to get any optional parameters with no defaults    
+    # try to get any optional parameters with no defaults
     i_readFilenameList = [i_vcfFilename]
     i_writeFilenameList = []
     i_dirList = []
@@ -1895,6 +1903,7 @@ def main():
         logging.debug("dna normal minAltMapQual: %s" % i_dnaNormParams["MinAltMapQual"])
         logging.debug("dna normal maxAltMapQualZeroPct: %s" % i_dnaNormParams["MaxAltMapQualZeroPct"])
         logging.debug("dna normal maxIndels: %s" % i_dnaNormParams["MaxIndels"])
+        logging.debug("dna normal purity=%s" % i_dnaNormParams["Purity"])
         
         logging.debug("dna tumor minTotalBases: %s" % i_dnaTumParams["MinTotalNumBases"])
         logging.debug("dna tumor maxTotalBases: %s" % i_dnaTumParams["MaxTotalNumBases"])
@@ -1909,6 +1918,7 @@ def main():
         logging.debug("dna tumor minAltMapQual: %s" % i_dnaTumParams["MinAltMapQual"])
         logging.debug("dna tumor maxAltMapQualZeroPct: %s" % i_dnaTumParams["MaxAltMapQualZeroPct"])
         logging.debug("dna tumor maxIndels: %s" % i_dnaTumParams["MaxIndels"])
+        logging.debug("dna tumor purity=%s" % i_dnaTumParams["Purity"])
         
         logging.debug("rna normal minTotalBases: %s" % i_rnaNormParams["MinTotalNumBases"])
         logging.debug("rna normal maxTotalBases: %s" % i_rnaNormParams["MaxTotalNumBases"])
