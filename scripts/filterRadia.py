@@ -96,6 +96,94 @@ def filter_blacklist(aPythonExecutable, anId, aChromId, anInputFilename, anOutpu
     return outputFilename
 
 
+def flag_radar(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aDbSnpDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+    
+    filterFilename = os.path.join(aDbSnpDir, "chr" + aChromId + ".bed.gz")
+    if (not os.path.isfile(filterFilename)):
+        filterFilename = os.path.join(aDbSnpDir, "chr" + aChromId + ".bed")
+        
+    if (aGzipFlag):
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_radar_chr" + aChromId + ".vcf.gz")
+    else:
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_radar_chr" + aChromId + ".vcf")
+    
+    script = os.path.join(aScriptsDir, "filterByPybed.py")
+    
+    command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " RADAR --includeOverlaps --includeFilterName --includeIdName --idField INFO -d INFO -f \"##INFO=<ID=RADAR,Number=.,Type=String,Description=\\\"Overlaps with Rigorously Annotated Database of A-to-I RNA Editing (RADAR)\\\">\" -o " + outputFilename
+    
+    if (anIsDebug):
+        logging.debug("Script: %s", script)
+        logging.debug("FilterFilename: %s", filterFilename)
+        logging.debug("Input: %s", anInputFilename)
+        logging.debug("Output: %s", outputFilename)
+        logging.debug("Filter: %s", command)
+    
+    readFilenameList = [script, anInputFilename, filterFilename]
+    writeFilenameList = [outputFilename]
+    if (not radiaUtil.check_for_argv_errors(None, readFilenameList, writeFilenameList)):
+        sys.exit(1)
+    
+    if (aJobListFileHandler != None):
+        aJobListFileHandler.write(command + "\n")
+    else:
+        subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
+        if (subprocessCall.returncode != 0):
+            logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
+            logging.error("Error from %s:\n%s", command, stdErr)
+            sys.exit(1)
+            
+    return outputFilename
+
+
+def flag_darned(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aDbSnpDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
+    
+    filterFilename = os.path.join(aDbSnpDir, "chr" + aChromId + ".bed.gz")
+    if (not os.path.isfile(filterFilename)):
+        filterFilename = os.path.join(aDbSnpDir, "chr" + aChromId + ".bed")
+        
+    if (aGzipFlag):
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_darned_chr" + aChromId + ".vcf.gz")
+    else:
+        outputFilename = os.path.join(anOutputDir, aPrefix + "_darned_chr" + aChromId + ".vcf")
+    
+    script = os.path.join(aScriptsDir, "filterByPybed.py")
+    
+    command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " DARNED --includeOverlaps --includeFilterName --includeIdName --idField INFO -d INFO -f \"##INFO=<ID=DARNED,Number=.,Type=String,Description=\\\"Overlaps with Database of RNA Editing (DARNED)\\\">\" -o " + outputFilename
+    
+    if (anIsDebug):
+        logging.debug("Script: %s", script)
+        logging.debug("FilterFilename: %s", filterFilename)
+        logging.debug("Input: %s", anInputFilename)
+        logging.debug("Output: %s", outputFilename)
+        logging.debug("Filter: %s", command)
+    
+    readFilenameList = [script, anInputFilename, filterFilename]
+    writeFilenameList = [outputFilename]
+    if (not radiaUtil.check_for_argv_errors(None, readFilenameList, writeFilenameList)):
+        sys.exit(1)
+    
+    if (aJobListFileHandler != None):
+        aJobListFileHandler.write(command + "\n")
+    else:
+        subprocessCall = subprocess.Popen(command, shell=True, bufsize=-1, stdout=subprocess.PIPE, stderr=subprocess.PIPE, close_fds=True)
+        (stdOut, stdErr) = subprocessCall.communicate()
+        
+        if ("WARNING" in stdErr):
+            logging.warning("Warning from the following filter command %s:\n%s", command, stdErr.rstrip())
+        
+        if (subprocessCall.returncode != 0):
+            logging.error("The return code of '%s' from the following filter command indicates an error.", subprocessCall.returncode)
+            logging.error("Error from %s:\n%s", command, stdErr)
+            sys.exit(1)
+            
+    return outputFilename
+
+
 def flag_dbSnp(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aDbSnpDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
     
     filterFilename = os.path.join(aDbSnpDir, "chr" + aChromId + ".bed.gz")
@@ -107,7 +195,7 @@ def flag_dbSnp(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, 
     else:
         outputFilename = os.path.join(anOutputDir, aPrefix + "_dbsnp_chr" + aChromId + ".vcf")
     
-    script = os.path.join(aScriptsDir, "filterByCoordinate.py")
+    script = os.path.join(aScriptsDir, "filterByPybed.py")
     
     command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " DB --includeOverlaps --includeFilterName --includeIdName -d INFO -f \"##INFO=<ID=DB,Number=0,Type=Flag,Description=\\\"dbSNP common SNP membership\\\">\" -o " + outputFilename
     
@@ -238,7 +326,7 @@ def flag_cosmic(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir,
         outputFilename = os.path.join(anOutputDir, aPrefix + "_cosmic_chr" + aChromId + ".vcf")
     
     script = os.path.join(aScriptsDir, "filterByPybed.py")
-    command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " COSMIC --includeOverlaps --includeFilterName -d INFO -f \"##INFO=<ID=COSMIC,Number=0,Type=Flag,Description=\\\"Overlaps with Catalogue Of Somatic Mutations In Cancer (COSMIC)\\\">\" -o " + outputFilename
+    command = aPythonExecutable + " " + script + " " + anId + " " + aChromId + " " + filterFilename + " " + anInputFilename + " COSMIC --includeOverlaps --includeFilterName --includeFilterCount -d INFO -f \"##INFO=<ID=COSMIC,Number=1,Type=Integer,Description=\\\"Number of overlaps with the Catalogue Of Somatic Mutations In Cancer (COSMIC)\\\">\" -o " + outputFilename
     
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -942,11 +1030,11 @@ def main():
     i_cmdLineParser.add_option("-r", "--retroGenesDir", dest="retroGenesDir", metavar="RETRO_DIR", help="the path to the retrogenes directory")
     i_cmdLineParser.add_option("-p", "--pseudoGenesDir", dest="pseudoGenesDir", metavar="PSEUDO_DIR", help="the path to the pseudogenes directory")
     i_cmdLineParser.add_option("-c", "--cosmicDir", dest="cosmicDir", metavar="COSMIC_DIR", help="the path to the cosmic directory")
+    i_cmdLineParser.add_option("-a", "--radarDir", dest="radarDir", metavar="RADAR_DIR", help="the path to the radar directory")
+    i_cmdLineParser.add_option("-n", "--darnedDir", dest="darnedDir", metavar="DARNED_DIR", help="the path to the darned directory")
     i_cmdLineParser.add_option("-s", "--snpEffDir", dest="snpEffDir", metavar="SNP_EFF_DIR", help="the path to the snpEff directory")
     i_cmdLineParser.add_option("-e", "--snpEffGenome", dest="snpEffGenome", default="GRCh37.75", metavar="SNP_EFF_GENOME", help="the snpEff Genome, %default by default")
     i_cmdLineParser.add_option("", "--canonical", action="store_true", default=False, dest="canonical", metavar="CANONICAL", help="include this argument if only the canonical transcripts from snpEff should be used, %default by default")
-    #i_cmdLineParser.add_option("-j", "--joblistDir", dest="joblistDir", metavar="JOBLIST_DIR", help="the joblist directory")
-    #i_cmdLineParser.add_option("-s", "--shebang", dest="shebang", metavar="SHEBANG", help="the shebang that should be added to the beginning of the joblist filename")
     i_cmdLineParser.add_option("-f", "--blatFastaFilename", dest="blatFastaFilename", metavar="FASTA_FILE", help="the fasta file that can be used during the BLAT filtering, default is the one specified in the VCF header")
     i_cmdLineParser.add_option("-o", "--outputFilename", dest="outputFilename", metavar="OUTPUT_FILE", help="the name of the output file, otherwise a file will be automatically created in the outputDir with the following format:  patientId + '_chr' + chrom + '.vcf')")
     
@@ -962,6 +1050,8 @@ def main():
     i_cmdLineParser.add_option("", "--noRetroGenes", action="store_false", default=True, dest="retroGenes", help="include this argument if the info/retrogenes filter should not be applied")
     i_cmdLineParser.add_option("", "--noPseudoGenes", action="store_false", default=True, dest="pseudoGenes", help="include this argument if the info/pseudogenes filter should not be applied")
     i_cmdLineParser.add_option("", "--noCosmic", action="store_false", default=True, dest="cosmic", help="include this argument if the cosmic annotation should not be applied")
+    i_cmdLineParser.add_option("", "--noRadar", action="store_false", default=True, dest="radar", help="include this argument if the RADAR info/filter should not be applied")
+    i_cmdLineParser.add_option("", "--noDarned", action="store_false", default=True, dest="darned", help="include this argument if the DARNED info/filter should not be applied")
     i_cmdLineParser.add_option("", "--noBlat", action="store_false", default=True, dest="blat", help="include this argument if the blat filter should not be applied")
     i_cmdLineParser.add_option("", "--noRnaBlacklist", action="store_false", default=True, dest="rnaBlacklist", help="include this argument if the RNA blacklist filter should not be applied")
     i_cmdLineParser.add_option("", "--noSnpEff", action="store_false", default=True, dest="snpEff", help="include this argument if the snpEff annotation should not be applied (without the snpEff annotation, filtering of RNA blacklisted genes will also not be applied")
@@ -981,7 +1071,7 @@ def main():
     i_cmdLineParser.add_option("-g", "--logFilename", dest="logFilename", metavar="LOG_FILE", help="the name of the log file, STDOUT by default")
     
     # range(inclusiveFrom, exclusiveTo, by)
-    i_possibleArgLengths = range(5,56,1)
+    i_possibleArgLengths = range(5,64,1)
     i_argLength = len(sys.argv)
     
     # check if this is one of the possible correct commands
@@ -1003,7 +1093,7 @@ def main():
     i_outputDir = str(i_cmdLineArgs[3])
     i_scriptsDir = str(i_cmdLineArgs[4])
     
-    # get the optional params with default values   
+    # get the optional params with default values
     i_blacklistFlag = i_cmdLineOptions.blacklist
     i_rnaBlacklistFlag = i_cmdLineOptions.rnaBlacklist
     i_targetsFlag = i_cmdLineOptions.targets
@@ -1011,6 +1101,8 @@ def main():
     i_retroGenesFlag = i_cmdLineOptions.retroGenes
     i_pseudoGenesFlag = i_cmdLineOptions.pseudoGenes
     i_cosmicFlag = i_cmdLineOptions.cosmic
+    i_radarFlag = i_cmdLineOptions.radar
+    i_darnedFlag = i_cmdLineOptions.darned
     i_blatFlag = i_cmdLineOptions.blat
     i_snpEffFlag = i_cmdLineOptions.snpEff
     i_targetsInfo = i_cmdLineOptions.targetsInfo
@@ -1026,7 +1118,7 @@ def main():
     i_rnaMpileupMinAvgMapQual = i_cmdLineOptions.rnaMpileupMinAvgMapQual
     
     # try to get any optional parameters with no defaults 
-    i_prefix = i_id   
+    i_prefix = i_id
     i_outputFilename = None
     i_blacklistDir = None
     i_targetDir = None
@@ -1034,6 +1126,8 @@ def main():
     i_retroGenesDir = None
     i_pseudoGenesDir = None
     i_cosmicDir = None
+    i_radarDir = None
+    i_darnedDir = None
     i_joblistDir = None
     i_shebang = None
     i_logFilename = None
@@ -1065,6 +1159,12 @@ def main():
     if (i_cmdLineOptions.cosmicDir != None):
         i_cosmicDir = str(i_cmdLineOptions.cosmicDir)
         dirList += [i_cosmicDir]
+    if (i_cmdLineOptions.radarDir != None):
+        i_radarDir = str(i_cmdLineOptions.radarDir)
+        dirList += [i_radarDir]
+    if (i_cmdLineOptions.darnedDir != None):
+        i_darnedDir = str(i_cmdLineOptions.darnedDir)
+        dirList += [i_radarDir]
     #if (i_cmdLineOptions.joblistDir != None):
     #    i_joblistDir = str(i_cmdLineOptions.joblistDir)
     #    dirList += [i_joblistDir]
@@ -1137,6 +1237,8 @@ def main():
         logging.debug("retroGenesFlag? %s", i_retroGenesFlag)
         logging.debug("pseudoGenesFlag? %s", i_pseudoGenesFlag)
         logging.debug("cosmicFlag? %s", i_cosmicFlag)
+        logging.debug("radarFlag? %s", i_radarFlag)
+        logging.debug("darnedFlag? %s", i_darnedFlag)
         logging.debug("blatFlag? %s", i_blatFlag)
         logging.debug("dnaOnlyFlag? %s", i_dnaOnlyFlag)
         logging.debug("rnaOnlyFlag? %s", i_rnaOnlyFlag)
@@ -1149,6 +1251,8 @@ def main():
         logging.debug("retroGenesDir %s", i_retroGenesDir)
         logging.debug("pseudoGenesDir %s", i_pseudoGenesDir)
         logging.debug("cosmicDir %s", i_cosmicDir)
+        logging.debug("radarDir %s", i_radarDir)
+        logging.debug("darnedDir %s", i_darnedDir)
         logging.debug("joblistDir %s", i_joblistDir)
         logging.debug("transcriptNameTag %s", i_transcriptNameTag)
         logging.debug("transcriptCoordinateTag %s", i_transcriptCoordinateTag)
@@ -1157,10 +1261,10 @@ def main():
         logging.debug("readSupportMinMapQual=%s" % i_readSupportMinMapQual)
         logging.debug("rnaMpileupMinMapQual=%s" % i_rnaMpileupMinMapQual)
         logging.debug("rnaMpileupMinAvgMapQual=%s" % i_rnaMpileupMinAvgMapQual)
-     
+    
     if (i_dnaOnlyFlag):
         i_rnaBlacklistFlag = False
-        
+    
     if (i_blacklistFlag):
         if (i_blacklistDir == None):
             logging.critical("No blacklist directory has been specified.")
@@ -1184,6 +1288,16 @@ def main():
     if (i_cosmicFlag):
         if (i_cosmicDir == None):
             logging.critical("No COSMIC directory has been specified.")
+            sys.exit(1)
+    
+    if (i_radarFlag):
+        if (i_radarDir == None):
+            logging.critical("No RADAR directory has been specified.")
+            sys.exit(1)
+    
+    if (i_darnedFlag):
+        if (i_darnedDir == None):
+            logging.critical("No DARNED directory has been specified.")
             sys.exit(1)
     
     if (i_targetsFlag):
@@ -1243,6 +1357,16 @@ def main():
             previousFilename = flag_cosmic(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_cosmicDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
+        # flag radar
+        if (i_radarFlag):
+            previousFilename = flag_radar(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_radarDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
+        # flag darned
+        if (i_darnedFlag):
+            previousFilename = flag_darned(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_darnedDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
         # filter targets
         if (i_targetsFlag):
             previousFilename = filter_targets(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_targetDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_targetsInfo, i_debug)
@@ -1252,7 +1376,7 @@ def main():
         previousFilename = filter_mpileupSupport_dna(i_pythonExecutable, i_id, i_chr, previousFilename, None, True, i_outputDir, i_prefix, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
     
-    else:        
+    else:
         # filter by blacklist
         if (i_blacklistFlag):
             previousFilename = filter_blacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_blacklistDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
@@ -1276,6 +1400,16 @@ def main():
         # flag cosmic
         if (i_cosmicFlag):
             previousFilename = flag_cosmic(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_cosmicDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+            
+        # flag radar
+        if (i_radarFlag):
+            previousFilename = flag_radar(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_radarDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+            rmTmpFilesList.append(previousFilename)
+        
+        # flag darned
+        if (i_darnedFlag):
+            previousFilename = flag_darned(i_pythonExecutable, i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_darnedDir, i_scriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
         
         # filter targets
@@ -1364,10 +1498,10 @@ def main():
     if (not i_debug):
         # remove all the temp files
         remove_tmpFiles(rmTmpFilesList, i_joblistFileHandler, i_debug)
-        
+    
     if (i_joblistDir != None):
         i_joblistFileHandler.close()
-        
+    
     return
 
 main()
