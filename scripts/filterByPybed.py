@@ -67,14 +67,14 @@ def get_vcf_data(anInputFileHandler, anOutputFileHandler, aHeaderLine, anIsDebug
     '''
 
     hasAddedHeader = False
-         
+
     for line in anInputFileHandler:
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
-        
+
         if (anIsDebug):
             logging.debug("VCF Line: %s", line)
-            
+
         # if it is an empty line, then just continue
         if (line.isspace()):
             continue;
@@ -83,13 +83,13 @@ def get_vcf_data(anInputFileHandler, anOutputFileHandler, aHeaderLine, anIsDebug
               ((aHeaderLine.startswith("##INFO") and line.startswith("##INFO")) or
               (aHeaderLine.startswith("##FILTER") and line.startswith("##FILTER")))):
             hasAddedHeader = True
-            if (anOutputFileHandler != None):        
+            if (anOutputFileHandler != None):
                 anOutputFileHandler.write(aHeaderLine + "\n")
                 anOutputFileHandler.write(line + "\n")
             else:
                 print >> sys.stdout, aHeaderLine
                 print >> sys.stdout, line
-                
+
         # these lines are from previous scripts in the pipeline, so output them    
         elif (line.startswith("#")):
             if (anOutputFileHandler != None):
@@ -97,11 +97,11 @@ def get_vcf_data(anInputFileHandler, anOutputFileHandler, aHeaderLine, anIsDebug
             else:
                 print >> sys.stdout, line
         # now we are to the data
-        else:    
-            
+        else:
+
             # split the line on the tab
             splitLine = line.split("\t")
-            
+
             # get the fields to yield
             #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
             chrom = splitLine[0]
@@ -117,13 +117,13 @@ def get_vcf_data(anInputFileHandler, anOutputFileHandler, aHeaderLine, anIsDebug
             filters = splitLine[6]
             info = splitLine[7]
             restLine = splitLine[8:len(splitLine)]
-            
+
             yield chrom, startCoordinate, stopCoordinate, ids, ref, alt, qual, filters, info, restLine, line
-        
+
     return
 
 
-def add_filter(aVCFFilter, aVCFInfo, aFilterName, aFilterField, anIncludeCount, aCount):
+def add_filter(aVCFFilter, aVCFInfo, aFilterName, aFilterField, anIncludeCount, aCount, anIncludeId, anIdField, anId):
     '''
     ' Add the filter name to the filter or info column.
     '
@@ -133,6 +133,9 @@ def add_filter(aVCFFilter, aVCFInfo, aFilterName, aFilterField, anIncludeCount, 
     ' aFilterField: The column that should be altered (filter or info)
     ' anIncludeCount: A flag for whether the count should be included or not
     ' aCount: The number of overlaps (e.g. self-chain hits)
+    ' anIncludeId: A flag for whether an id should be included or not
+    ' anIdField: A field to include the id (e.g. INFO or ID)
+    ' anId: The id to include in the tag
     '''
     # if we should add the filter to the FILTER field
     if (aFilterField == "FILTER"):
@@ -146,22 +149,35 @@ def add_filter(aVCFFilter, aVCFInfo, aFilterName, aFilterField, anIncludeCount, 
             aVCFFilter = ";".join(vcfFilterList)
     # if we should add the filter to the INFO field
     else:
-        # if the info field is empty so far, then return the filter name
+        # if both flags are set, send a warning
+        if (anIncludeCount and anIncludeId):
+            logging.warning("Cannot include both a count and a text as the value of an INFO tag.")
+
+        # if the info field is empty so far, then add the filter name
         if (aVCFInfo == "."):
-            aVCFInfo = aFilterName
+            if (anIncludeId and anIdField == "INFO"):
+                aVCFInfo = aFilterName + "=" + anId
+            elif (anIncludeCount):
+                aVCFInfo = aFilterName + "=" + str(aCount)
+            else:
+                aVCFInfo = aFilterName
         # if an id already exists, then add this one
         else:
             vcfInfoList = aVCFInfo.split(";")
-            if (anIncludeCount):
+
+            if (anIncludeId and anIdField == "INFO"):
+                filterName = aFilterName + "=" + anId
+                vcfInfoList.append(filterName)
+            elif (anIncludeCount):
                 filterName = aFilterName + "=" + str(aCount)
                 vcfInfoList.append(filterName)
             else:
                 vcfInfoList.append(aFilterName)
             aVCFInfo = ";".join(sorted(vcfInfoList))
-            
-    return (aVCFFilter, aVCFInfo)    
-    
-    
+
+    return (aVCFFilter, aVCFInfo)
+
+
 def add_id(aVCFId, anIdName):
     '''
     ' Add the id (e.g. dbSNP rs Ids) to the id column
@@ -175,11 +191,11 @@ def add_id(aVCFId, anIdName):
     # if an id already exists, then add this one
     else:
         vcfIdList = aVCFId.split(";")
-        vcfIdList.append(anIdName)        
+        vcfIdList.append(anIdName)
         return ";".join(vcfIdList)
         
         
-def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename, aFilterName, aFilterField, anIncludeOverlapInfo, anIncludeFilterName, anIncludeIdName, anIncludeCount, aFilterHeaderLine, aBinSize, anIsDebug):
+def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename, aFilterName, aFilterField, anIncludeOverlapInfo, anIncludeFilterName, anIdField, anIncludeId, anIncludeCount, aFilterHeaderLine, aBinSize, anIsDebug):
     '''
     ' The function reads from a .bed file and a .vcf file line by line and looks for variants that should be
     ' filtered out.  The .bed file specifies coordinates for areas where variants should either be included
@@ -195,11 +211,15 @@ def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename,
     ' aBedFilename: A .bed file with at least 3 columns specifying the chrom, start, and stop coordinates and possibly a 4th column with an id
     ' aVCFFilename: A .vcf file with variants that will be either included or excluded
     ' anOutputFilename: An output .vcf file where the filtered variants should be output
-    ' anIncludeOverlapsFlag: A flag specifying whether the variants should be included or excluded when they overlap
+    ' aFilterName: The name of the filter
+    ' aFilterField: The field where the filter name should be included (e.g. INFO or FILTER)
+    ' anIncludeOverlapInfo: A flag specifying whether the variants should be included or excluded when they overlap
     ' anIncludeFilterName: A flag specifying whether the filtering name should be included in the output or not
-    ' anIncludeIdName: A flag specifying whether the id name should be included in the output or not
+    ' anIdField: The field where the ID should be specified (e.g. ID or INFO)
+    ' anIncludeId: A flag specifying whether the id should be included in the output or not
     ' anIncludeCount: A flag specifying whether the number of overlaps should be included in the output or not
     ' aFilterHeaderLine: A filter header line that should be added to the VCF header describing this filter
+    ' aBinSize:  The size of the interval between each bin
     ' anIsDebug: A flag for outputting debug messages to STDERR
     '''
     
@@ -213,7 +233,7 @@ def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename,
     # get the output file
     i_outputFileHandler = None
     if (anOutputFilename != None):
-        i_outputFileHandler = get_write_fileHandler(anOutputFilename)  
+        i_outputFileHandler = get_write_fileHandler(anOutputFilename)
     
     # create the generator for the vcf file
     vcfGenerator = get_vcf_data(i_vcfFileHandler, i_outputFileHandler, aFilterHeaderLine, anIsDebug)
@@ -226,31 +246,30 @@ def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename,
     
     # for each vcf line
     for (vcf_chr, vcf_startCoordinate, vcf_stopCoordinate, vcf_id, vcf_ref, vcf_alt, vcf_qual, vcf_filter, vcf_info, vcf_restLine, vcf_line) in (vcfGenerator):
-    
+
         totalEvents += 1
-        
+
         if (anIsDebug):
             logging.debug("VCF: %s", vcf_line)
-        
-        # check if this vcf coordinate overlaps with the filter coordinates    
-        (isOverlapping, filter_id, count) = filterPybed.overlapswith((vcf_chr, vcf_startCoordinate, vcf_stopCoordinate), anIncludeCount)
-        #print vcf_chr, vcf_startCoordinate, vcf_stopCoordinate, isOverlapping, filter_id
+
+        # check if this vcf coordinate overlaps with the filter coordinates
+        (isOverlapping, filterId, count) = filterPybed.overlapswith((vcf_chr, vcf_startCoordinate, vcf_stopCoordinate), anIncludeCount)
 
         # if an event overlaps with the filters
         if (isOverlapping):
             # count the overlap
             overlappingEvents += 1
-            
+
             # if we want to add info about overlaps
             if (anIncludeOverlapInfo):
-            
+
                 # alter the filter and id name if appropriate
                 if (anIncludeFilterName):
-                    (vcf_filter, vcf_info) = add_filter(vcf_filter, vcf_info, aFilterName, aFilterField, anIncludeCount, count)
-                        
-                if (anIncludeIdName):
-                    vcf_id = add_id(vcf_id, filter_id)
-                
+                    (vcf_filter, vcf_info) = add_filter(vcf_filter, vcf_info, aFilterName, aFilterField, anIncludeCount, count, anIncludeId, anIdField, filterId)
+
+                if (anIncludeId and anIdField == "ID"):
+                    vcf_id = add_id(vcf_id, filterId)
+
                 # output the event
                 outputList = (vcf_chr, str(vcf_stopCoordinate), vcf_id, vcf_ref, vcf_alt, vcf_qual, vcf_filter, vcf_info)
                 if (anOutputFilename != None):
@@ -268,17 +287,17 @@ def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename,
         else:
             # count the non overlap
             nonOverlappingEvents += 1
-                        
+
             # if we don't want to add info about overlaps, then we do want to add info about non-overlaps
             if (not anIncludeOverlapInfo):
-            
+
                 # alter the filter and id name if appropriate
                 if (anIncludeFilterName):
-                    (vcf_filter, vcf_info) = add_filter(vcf_filter, vcf_info, aFilterName, aFilterField, anIncludeCount, count)
-                        
-                if (anIncludeIdName):
-                    vcf_id = add_id(vcf_id, filter_id)
-                
+                    (vcf_filter, vcf_info) = add_filter(vcf_filter, vcf_info, aFilterName, aFilterField, anIncludeCount, count, anIncludeId, anIdField, filterId)
+
+                if (anIncludeId and anIdField == "ID"):
+                    vcf_id = add_id(vcf_id, filterId)
+
                 # output the event
                 outputList = (vcf_chr, str(vcf_stopCoordinate), vcf_id, vcf_ref, vcf_alt, vcf_qual, vcf_filter, vcf_info)
                 if (anOutputFilename != None):
@@ -292,50 +311,51 @@ def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename,
                     i_outputFileHandler.write(vcf_line + "\n")
                 else:
                     print >> sys.stdout, vcf_line
-                    
+
     stopTime = time.time()
     logging.info("Chrom %s and Id %s: Total time=%s hrs, %s mins, %s secs", aChrom, aTCGAId, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime)) 
-           
+
     if (overlappingEvents + nonOverlappingEvents == totalEvents):
         logging.info("For chrom %s and Id %s: %s (overlapping events) + %s (non-overlapping events) = %s", aChrom, aTCGAId, overlappingEvents, nonOverlappingEvents, totalEvents) 
     else:
         logging.info("FilterByCoordinateBruteForce Warning: For chrom %s and Id %s: %s (overlapping events) + %s (non-overlapping events) = %s", aChrom, aTCGAId, overlappingEvents, nonOverlappingEvents, totalEvents)
-        
+
     # close the files
-    i_vcfFileHandler.close()   
+    i_vcfFileHandler.close()
     if (anOutputFilename != None):
-        i_outputFileHandler.close() 
+        i_outputFileHandler.close()
     return
 
 
 def main():
-    
-    #python filterByPybed.py TCGA-AB-2995 12 ../data/test/filterBlacklist.bed ../data/test/TCGA-AB-2995.vcf blck -d FILTER --includeOverlaps --includeFilterName --log=DEBUG -f "##FILTER=<ID=blck,Description=\"Position overlaps 1000 Genomes Project blacklist\">"
-     
+
+    # python filterByPybed.py TCGA-AB-2995 12 ../data/test/filterBlacklist.bed ../data/test/TCGA-AB-2995.vcf blck -d FILTER --includeOverlaps --includeFilterName --log=DEBUG -f "##FILTER=<ID=blck,Description=\"Position overlaps 1000 Genomes Project blacklist\">"
+
     # create the usage statement
     usage = "usage: python %prog id chrom filterFile vcfFile filterName [Options]"
     i_cmdLineParser = OptionParser(usage=usage)
-    
+
     i_cmdLineParser.add_option("-f", "--filterHeader", dest="filterHeader", metavar="FILTER_HEADER", help="the INFO or FORMAT line that should be included in the VCF header")
     i_cmdLineParser.add_option("-p", "--includeOverlaps", action="store_true", default=False, dest="includeOverlaps", help="whether the events that overlap should be considered to PASS (True) or FILTER (False), %default by default")
     i_cmdLineParser.add_option("-n", "--includeFilterName", action="store_true", default=False, dest="includeFilterName", help="whether the filter name should be included in the INFO or FILTER fields of the VCF output, %default by default")
     i_cmdLineParser.add_option("-c", "--includeFilterCount", action="store_true", default=False, dest="includeFilterCount", help="whether the number of overlaps with the filters should be included, %default by default")
-    i_cmdLineParser.add_option("-d", "--filterField", default="FILTER", dest="filterField", help="the column where the filter name should be included (INFO or FILTER) field of the VCF output, %default by default")
-    i_cmdLineParser.add_option("-i", "--includeIdName", action="store_true", default=False, dest="includeIdName", help="whether the name found in the filtering file should be included in the ID field of the VCF output, %default by default")
+    i_cmdLineParser.add_option("-d", "--filterField", default="FILTER", dest="filterField", help="the column where the filter name should be included (e.g. INFO or FILTER) in the VCF output, %default by default")
+    i_cmdLineParser.add_option("-s", "--idField", default="ID", dest="idField", help="the column where the id should be included (e.g. ID or INFO) in the VCF output, %default by default")
+    i_cmdLineParser.add_option("-i", "--includeIdName", action="store_true", default=False, dest="includeIdName", help="whether the name found in the filtering file should be included in the VCF output, %default by default")
     i_cmdLineParser.add_option("-o", "--outputFilename", dest="outputFilename", metavar="OUTPUT_FILE", help="the name of the output file, sys.stdout by default")
     i_cmdLineParser.add_option("-l", "--log", dest="logLevel", default="WARNING", metavar="LOG", help="the logging level (DEBUG, INFO, WARNING, ERROR, CRITICAL), %default by default")
     i_cmdLineParser.add_option("-g", "--logFilename", dest="logFilename", metavar="LOG_FILE", help="the name of the log file, STDOUT by default")
     i_cmdLineParser.add_option("-b", "--binSize", dest="binSize", default=int(10000), metavar="BIN_SIZE", help="the size of the interval between each bin, %default by default")
-    
+
     # range(inclusiveFrom, exclusiveTo, by)
-    i_possibleArgLengths = range(5,27,1)
+    i_possibleArgLengths = range(5, 29, 1)
     i_argLength = len(sys.argv)
-    
+
     # check if this is one of the possible correct commands
     if (i_argLength not in i_possibleArgLengths):
         i_cmdLineParser.print_help()
         sys.exit(1)
-    
+
     # get the required parameters
     (i_cmdLineOptions, i_cmdLineArgs) = i_cmdLineParser.parse_args()
     i_id = str(i_cmdLineArgs[0])
@@ -343,17 +363,18 @@ def main():
     i_filterFilename = str(i_cmdLineArgs[2])
     i_vcfFilename = str(i_cmdLineArgs[3])
     i_filterName = str(i_cmdLineArgs[4])
-    
-    # get the optional params with default values   
+
+    # get the optional params with default values
     i_includeOverlapsFlag = i_cmdLineOptions.includeOverlaps
     i_includeFilterName = i_cmdLineOptions.includeFilterName
     i_includeFilterCount = i_cmdLineOptions.includeFilterCount
     i_filterField = i_cmdLineOptions.filterField
+    i_idField = i_cmdLineOptions.idField
     i_includeIdName = i_cmdLineOptions.includeIdName
     i_logLevel = i_cmdLineOptions.logLevel
     i_binSize = i_cmdLineOptions.binSize
-    
-    # try to get any optional parameters with no defaults    
+
+    # try to get any optional parameters with no defaults
     i_outputFilename = None
     i_logFilename = None
     i_filterHeader = None
@@ -363,21 +384,21 @@ def main():
         i_logFilename = str(i_cmdLineOptions.logFilename)
     if (i_cmdLineOptions.filterHeader != None):
         i_filterHeader = str(i_cmdLineOptions.filterHeader)
-        
+
     # assuming loglevel is bound to the string value obtained from the
     # command line argument. Convert to upper case to allow the user to
     # specify --log=DEBUG or --log=debug
     i_numericLogLevel = getattr(logging, i_logLevel.upper(), None)
     if not isinstance(i_numericLogLevel, int):
         raise ValueError("Invalid log level: '%s' must be one of the following:  DEBUG, INFO, WARNING, ERROR, CRITICAL", i_logLevel)
-    
+
     # set up the logging
     if (i_logFilename != None):
         logging.basicConfig(level=i_numericLogLevel, filename=i_logFilename, filemode='w', format='%(asctime)s\t%(levelname)s\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     else:
         logging.basicConfig(level=i_numericLogLevel, format='%(asctime)s\t%(levelname)s\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
-        
-    # set the debug    
+
+    # set the debug
     i_debug = (i_numericLogLevel == logging.DEBUG)
 
     # do some debugging
@@ -395,22 +416,23 @@ def main():
         logging.debug("includeFilterName=%s", i_includeFilterName)
         logging.debug("includeFilterCount=%s", i_includeFilterCount)
         logging.debug("filterField=%s", i_filterField)
+        logging.debug("idField=%s", i_idField)
         logging.debug("includeIdName=%s", i_includeIdName)
         logging.debug("binSize=%s", i_binSize)
-    
+
     # check for any errors
     writeFilenameList = []
     if (i_outputFilename != None):
         writeFilenameList += [i_outputFilename]
     if (i_logFilename != None):
         writeFilenameList += [i_logFilename]
-        
-    readFilenameList = [i_filterFilename, i_vcfFilename]        
+
+    readFilenameList = [i_filterFilename, i_vcfFilename]
     if (not radiaUtil.check_for_argv_errors(None, readFilenameList, writeFilenameList)):
-        sys.exit(1)           
-    
-    filter_events(i_id, i_chr, i_filterFilename, i_vcfFilename, i_outputFilename, i_filterName, i_filterField, i_includeOverlapsFlag, i_includeFilterName, i_includeIdName, i_includeFilterCount, i_filterHeader, i_binSize, i_debug)
-       
+        sys.exit(1)
+
+    filter_events(i_id, i_chr, i_filterFilename, i_vcfFilename, i_outputFilename, i_filterName, i_filterField, i_includeOverlapsFlag, i_includeFilterName, i_idField, i_includeIdName, i_includeFilterCount, i_filterHeader, i_binSize, i_debug)
+
     return
 
 main()
