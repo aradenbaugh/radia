@@ -772,7 +772,7 @@ class Club():
             if (anIsDebug):
                 logging.debug("counts for this read: refs=%s, muts=%s, germline=%s, softclipped=%s", refCount, mutCount, germlineCount, softClippedCount)
             
-            # RNA editing events with mutSS=4 occur in clusters, so only apply this filter when mutSS!=4
+            # RNA editing events with mutSS=4 occur in clusters, so only apply this filter when mutSS != 4
             if aMutSS != "4" and mutCount >= aParamsDict["maxMutsPerRead"]:
                 return False, "maxMuts"
             
