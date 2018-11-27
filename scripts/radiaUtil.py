@@ -2,10 +2,13 @@
 
 import sys
 import os
+import gzip
 
 
 '''
-'    RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.
+'    RNA and DNA Integrated Analysis (RADIA):
+'    Identifies RNA and DNA variants in NGS data.
+'
 '    Copyright (C) 2010-2018  Amie Radenbaugh
 '
 '    This program is free software: you can redistribute it and/or modify
@@ -23,40 +26,92 @@ import os
 '''
 
 
+def get_read_fileHandler(aFile):
+    '''
+    ' Open aFile for reading and return the file handler.
+    ' The file can be gzipped or not.
+    '''
+    if aFile.endswith('.gz'):
+        try:
+            fileHandler = gzip.open(aFile, 'rb')
+        except IOError:
+            print >> sys.stderr, ("There is a problem reading the file " +
+                                  "'%s'. Please check the path and/or " +
+                                  "permissions.", aFile)
+            sys.exit(1)
+    else:
+        try:
+            fileHandler = open(aFile, 'r')
+        except IOError:
+            print >> sys.stderr, ("There is a problem reading the file " +
+                                  "'%s'. Please check the path and/or " +
+                                  "permissions.", aFile)
+            sys.exit(1)
+    return fileHandler
+
+
+def get_write_fileHandler(aFile):
+    '''
+    ' Open aFile for writing and return the file handler.
+    ' The file can be gzipped or not.
+    '''
+    if aFile.endswith('.gz'):
+        try:
+            fileHandler = gzip.open(aFile, 'wb')
+        except IOError:
+            print >> sys.stderr, ("There is a problem writing to the file " +
+                                  "'%s'. Please check the path and/or " +
+                                  "permissions.", aFile)
+            sys.exit(1)
+    else:
+        try:
+            fileHandler = open(aFile, 'w')
+        except IOError:
+            print >> sys.stderr, ("There is a problem writing to the file " +
+                                  "'%s'. Please check the path and/or " +
+                                  "permissions.", aFile)
+            sys.exit(1)
+
+    return fileHandler
+
+
 def check_for_argv_errors(aDirList, aReadFilenameList, aWriteFilenameList):
     '''
-    '  Error-handling to make sure the directories and filenames provided by the user exist
+    '    Error-handling to make sure the directories and filenames
+    '    provided by the user exist
     '''
-    
-    if (aWriteFilenameList != None):    
+
+    if (aWriteFilenameList is not None):
         for filename in aWriteFilenameList:
             # if the file is nested in a directory
             if (filename.rfind("/") != -1):
                 # get the directory and add it to the dirlist
                 directory = filename[0:(filename.rfind("/")+1)]
-                if (aDirList != None):
+                if (aDirList is not None):
                     aDirList += [directory]
                 else:
-                    aDirList = [directory]    
-    
-    if (aDirList != None):
+                    aDirList = [directory]
+
+    if (aDirList is not None):
         try:
             for directory in aDirList:
                 if (not os.path.isdir(directory)):
-                    print >> sys.stderr, "Error:  Directory", directory, "does not exist."
+                    print >> sys.stderr, ("Error:  Directory",
+                                          directory, "does not exist.")
                     return False
         except IOError:
             print >> sys.stderr, "Error with the command line arguments."
             return False
-    
-    if (aReadFilenameList != None):    
+
+    if (aReadFilenameList is not None):
         for filename in aReadFilenameList:
             try:
                 fileHandler = open(filename, "r")
             except IOError:
-                print >> sys.stderr, "Cannot read the file, check to see if the path exists: ", filename
+                print >> sys.stderr, ("Cannot read the file, check to see " +
+                                      "if the path exists: ", filename)
                 return False
             finally:
                 fileHandler.close()
-                            
+
     return True
