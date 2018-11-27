@@ -1050,14 +1050,14 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
         refPlusAltList = event_refList + event_altList
         
         allFiltersSet = set()
-        
+
         # get rid of bad mod types that don't meet the minimum requirements
         #if (anIsDebug):
         #    logging.debug("before pre_filter_mod_types(): modTypes=%s, modChanges=%s", list(event_infoDict["MT"]), list(event_infoDict["MC"]))
         (event_infoDict, allFiltersSet) = pre_filter_mod_types(refPlusAltList, allFiltersSet, event_infoDict, map(int, event_dnaNormalDict["AD"]), map(int, event_rnaNormalDict["AD"]), map(int, event_dnaTumorDict["AD"]), map(int, event_rnaTumorDict["AD"]), aParamsDict, anIsDebug)
         #if (anIsDebug):
         #    logging.debug("after pre_filter_mod_types(): modTypes=%s, modChanges=%s", list(event_infoDict["MT"]), list(event_infoDict["MC"]))
-            
+
         # make copies of the lists to manipulate
         modTypesList = list(event_infoDict["MT"])
         modChangesList = list(event_infoDict["MC"])
@@ -1678,10 +1678,10 @@ def main():
     i_cmdLineParser.add_option("", "--lohMaxPct", type="float", default=float(0.02), dest="lohMaxPct", metavar="LOH_MAX_PCT", help="the maximum percentage of reads in the tumor DNA for an LOH, %default by default")
     i_cmdLineParser.add_option("", "--maxIndels", type="int", default=int(3), dest="maxIndels", metavar="MAX_INDELS", help="the maximum number of INDELS allowed at this position across all samples, %default by default")
     
-    i_cmdLineParser.add_option("", "--dnaNormalMinTotalBases", type="int", default=int(10), dest="dnaNormalMinTotalNumBases", metavar="DNA_NOR_MIN_TOTAL_BASES", help="the minimum number of overall normal DNA reads covering a position, %default by default")
+    i_cmdLineParser.add_option("", "--dnaNormalMinTotalBases", type="int", default=int(8), dest="dnaNormalMinTotalNumBases", metavar="DNA_NOR_MIN_TOTAL_BASES", help="the minimum number of overall normal DNA reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMaxTotalBases", type="int", default=int(8000), dest="dnaNormalMaxTotalNumBases", metavar="DNA_NOR_MAX_TOTAL_BASES", help="the maximum number of overall normal DNA reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMinAltBases", type="int", default=int(4), dest="dnaNormalMinAltNumBases", metavar="DNA_NOR_MIN_ALT_BASES", help="the minimum number of alternative normal DNA reads supporting a variant at a position, %default by default")
-    i_cmdLineParser.add_option("", "--dnaNormalMinAltPct", type="float", default=float(0.10), dest="dnaNormalMinAltPct", metavar="DNA_NOR_MIN_ALT_PCT", help="the minimum percentage of alternative normal DNA reads supporting a variant at a position, %default by default")
+    i_cmdLineParser.add_option("", "--dnaNormalMinAltPct", type="float", default=float(0.03), dest="dnaNormalMinAltPct", metavar="DNA_NOR_MIN_ALT_PCT", help="the minimum percentage of alternative normal DNA reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMaxErrPct", type="float", default=float(0.01), dest="dnaNormalMaxErrPct", metavar="DNA_NOR_MAX_ERR_PCT", help="the maximum percentage of alternative normal DNA reads allowed that support a variant, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMinErrPctDepth", type="int", default=float(2), dest="dnaNormalMinErrPctDepth", metavar="DNA_NOR_MIN_ERR_PCT_DEPTH", help="the minimum error count depth needed for the max error percent filter to be applied, %default by default")
     i_cmdLineParser.add_option("", "--dnaNormalMaxStrandBias", type="float", default=float(0.99), dest="dnaNormalMaxStrandBias", metavar="DNA_NOR_MAX_STRAND_BIAS", help="the maximum percentage of strand bias on reads that support the ALT, %default by default")
@@ -1693,7 +1693,7 @@ def main():
     i_cmdLineParser.add_option("", "--dnaNormalMaxIndels", type="int", default=int(3), dest="dnaNormalMaxIndels", metavar="DNA_NOR_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
     i_cmdLineParser.add_option("", "--danNormalPurity", type="float", default=float(1.0), dest="dnaNormalPurity", metavar="DNA_NOR_PURITY", help="estimated purity (non-tumor content) of normal DNA sample, %default by default")
     
-    i_cmdLineParser.add_option("", "--dnaTumorMinTotalBases", type="int", default=int(10), dest="dnaTumorMinTotalNumBases", metavar="DNA_TUM_MIN_TOTAL_BASES", help="the minimum number of overall tumor DNA reads covering a position, %default by default")
+    i_cmdLineParser.add_option("", "--dnaTumorMinTotalBases", type="int", default=int(8), dest="dnaTumorMinTotalNumBases", metavar="DNA_TUM_MIN_TOTAL_BASES", help="the minimum number of overall tumor DNA reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMaxTotalBases", type="int", default=int(8000), dest="dnaTumorMaxTotalNumBases", metavar="DNA_TUM_MAX_TOTAL_BASES", help="the maximum number of overall tumor DNA reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMinAltBases", type="int", default=int(4), dest="dnaTumorMinAltNumBases", metavar="DNA_TUM_MIN_ALT_BASES", help="the minimum number of alternative tumor DNA reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorMinAltPct", type="float", default=float(0.10), dest="dnaTumorMinAltPct", metavar="DNA_TUM_MIN_ALT_PCT", help="the minimum percentage of alternative tumor DNA reads supporting a variant at a position, %default by default")
@@ -1708,7 +1708,7 @@ def main():
     i_cmdLineParser.add_option("", "--dnaTumorMaxIndels", type="int", default=int(3), dest="dnaTumorMaxIndels", metavar="DNA_TUM_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
     i_cmdLineParser.add_option("", "--dnaTumorPurity", type="float", default=float(1.0), dest="dnaTumorPurity", metavar="DNA_TUM_PURITY", help="estimated purity (tumor content) of tumor DNA sample, %default by default")
     
-    i_cmdLineParser.add_option("", "--rnaNormalMinTotalBases", type="int", default=int(10), dest="rnaNormalMinTotalNumBases", metavar="RNA_NOR_MIN_TOTAL_BASES", help="the minimum number of overall normal RNA-Seq reads covering a position, %default by default")
+    i_cmdLineParser.add_option("", "--rnaNormalMinTotalBases", type="int", default=int(8), dest="rnaNormalMinTotalNumBases", metavar="RNA_NOR_MIN_TOTAL_BASES", help="the minimum number of overall normal RNA-Seq reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMaxTotalBases", type="int", default=int(8000), dest="rnaNormalMaxTotalNumBases", metavar="RNA_NOR_MAX_TOTAL_BASES", help="the maximum number of overall normal RNA-Seq reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMinAltBases", type="int", default=int(4), dest="rnaNormalMinAltNumBases", metavar="RNA_NOR_MIN_ALT_BASES", help="the minimum number of alternative normal RNA-Seq reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMinAltPct", type="float", default=float(0.10), dest="rnaNormalMinAltPct", metavar="RNA_NOR_MIN_ALT_PCT", help="the minimum percentage of alternative normal RNA-Seq reads supporting a variant at a position, %default by default")
@@ -1722,7 +1722,7 @@ def main():
     i_cmdLineParser.add_option("", "--rnaNormalMaxAltMapQualZeroPct", type="float", default=float(0.50), dest="rnaNormalMaxAltMapQualZeroPct", metavar="RNA_NOR_MAX_ALT_MQ0_PCT", help="the maximum percentage of mapping quality zero reads for the ALT reads, %default by default")
     i_cmdLineParser.add_option("", "--rnaNormalMaxIndels", type="int", default=int(3), dest="rnaNormalMaxIndels", metavar="RNA_NOR_MAX_INDELS", help="the maximum number of INDELS allowed at a position, %default by default")
     
-    i_cmdLineParser.add_option("", "--rnaTumorMinTotalBases", type="int", default=int(10), dest="rnaTumorMinTotalNumBases", metavar="RNA_TUM_MIN_TOTAL_BASES", help="the minimum number of overall tumor RNA-Seq reads covering a position, %default by default")
+    i_cmdLineParser.add_option("", "--rnaTumorMinTotalBases", type="int", default=int(8), dest="rnaTumorMinTotalNumBases", metavar="RNA_TUM_MIN_TOTAL_BASES", help="the minimum number of overall tumor RNA-Seq reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaTumorMaxTotalBases", type="int", default=int(8000), dest="rnaTumorMaxTotalNumBases", metavar="RNA_TUM_MAX_TOTAL_BASES", help="the maximum number of overall tumor RNA-Seq reads covering a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaTumorMinAltBases", type="int", default=int(4), dest="rnaTumorMinAltNumBases", metavar="RNA_TUM_MIN_ALT_BASES", help="the minimum number of alternative tumor RNA-Seq reads supporting a variant at a position, %default by default")
     i_cmdLineParser.add_option("", "--rnaTumorMinAltPct", type="float", default=float(0.10), dest="rnaTumorMinAltPct", metavar="RNA_TUM_MIN_ALT_PCT", help="the minimum percentage of alternative tumor RNA-Seq reads supporting a variant at a position, %default by default")
