@@ -392,7 +392,7 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
     '''
     ' This function returns all of the valid RNA (cDNA) or DNA bases from the given pileup of read bases.
     ' It converts all of the samtools specific characters into human-readable bases and filters out any non 
-    ' RNA/DNA characters. 
+    ' RNA/DNA characters.
     '
     ' This is from the samtools documentation:
     '
@@ -595,7 +595,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
     ' This function converts information from a .bam mpileup coordinate into a format that can be output to a VCF formatted file.
     ' This function calculates the average overall base quality score, strand bias, and fraction of reads supporting the alternative.
     ' It also calculates the allele specific depth, average base quality score, strand bias, and fraction of reads supporting the alternative.
-    ' The format for the output in VCF is:  GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQ:BQ:SB:MMP.
+    ' The format for the output in VCF is:  GT:DP:AD:AF:INS:DEL:DP4:START:STOP:MQ0:MMQ:MQ:BQ:SB:MMP.
     '
     ' aDnaSet:                  A set of dna found at this position
     ' anAltList:                A list of alternative alleles found thus far
@@ -619,7 +619,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
     # if we have reads at this position
     if (aNumBases > 0):
         
-        #format = "GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP"
+        #format = "GT:DP:AD:AF:INS:DEL:DP4:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP"
         
         #vcfHeader += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
         #vcfHeader += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read depth\">\n"
@@ -627,6 +627,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
         #vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting alleles (in order specified by GT)\">\n"
         #vcfHeader += "##FORMAT=<ID=INS,Number=1,Type=Integer,Description=\"Number of small insertions at this location\">\n"
         #vcfHeader += "##FORMAT=<ID=DEL,Number=1,Type=Integer,Description=\"Number of small deletions at this location\">\n"
+        #vcfHeader += "##FORMAT=<ID=DP4,Number=.,Type=Integer,Description=\"Number of high-quality ref-forward, ref-reverse, alt-forward and alt-reverse bases (in order specified by GT)\">\n"
         #vcfHeader += "##FORMAT=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this location\">\n"
         #vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this location\">\n"
         #vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting alleles (in order specified by GT)\">\n"
@@ -635,9 +636,10 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
         #vcfHeader += "##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
         #vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
         #vcfHeader += "##FORMAT=<ID=MMP,Number=.,Type=Float,Description=\"Multi-mapping percent of reads harboring allele (in order specified by GT)\">\n"
-            
+
         # initialize some lists
         depths = list()
+        depths4 = list()
         freqs = list()
         baseQuals = list()
         mapQuals = list()
@@ -654,6 +656,10 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
             # get the number of times the base occurs
             count = aBaseCountsDict[base]
             depths.append(count)
+            
+            # get the DP4 depths
+            depths4.append(aPlusStrandCountsDict[base])
+            depths4.append(count-aPlusStrandCountsDict[base])
 
             # calculate the allele specific fraction of read support
             alleleFreq = round(count/float(aNumBases), 2)
@@ -803,10 +809,10 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
             genotypes = sorted([max1DepthIndex, max2DepthIndex])
         
         # create a list of each of the elements, then join them by colon
-        outputList = ("/".join(map(str, genotypes)), str(aNumBases), ",".join(map(str, depths)), ",".join(map(str, freqs)), str(anInsCount), str(aDelCount), str(aStartsCount), str(aStopsCount), ",".join(map(str, mapQualZeroes)), ",".join(map(str, mapQualMaxes)), ",".join(map(str, mapQuals)), ",".join(map(str, baseQuals)), ",".join(map(str, strandBias)), ",".join(mmps))
+        outputList = ("/".join(map(str, genotypes)), str(aNumBases), ",".join(map(str, depths)), ",".join(map(str, freqs)), str(anInsCount), str(aDelCount), ",".join(map(str, depths4)), str(aStartsCount), str(aStopsCount), ",".join(map(str, mapQualZeroes)), ",".join(map(str, mapQualMaxes)), ",".join(map(str, mapQuals)), ",".join(map(str, baseQuals)), ",".join(map(str, strandBias)), ",".join(mmps))
         aBamOutputString = ":".join(outputList)
         
-    # return the string representation and overall calculations       
+    # return the string representation and overall calculations
     return (aBamOutputString, anAltCountsDict, anAltPerDict, sumAltReadSupport)
 
 
@@ -1034,7 +1040,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     # add RADIA param info
     aParamDict["algorithm"] = "RADIA"
     aParamDict["version"] = "1.1.3"
-    #vcfHeader += "##vcfProcessLog=<"
+
     vcfHeader += "##vcfGenerator=<"
     for (paramName) in sorted(aParamDict.iterkeys()):
         paramValue = aParamDict[paramName]
@@ -1081,8 +1087,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     # get the info fields
     vcfHeader += "##INFO=<ID=NS,Number=1,Type=Integer,Description=\"Number of samples with data\">\n"
     vcfHeader += "##INFO=<ID=AN,Number=1,Type=Integer,Description=\"Number of unique alleles across all samples\">\n"
-    vcfHeader += "##INFO=<ID=AC,Number=.,Type=Integer,Description=\"Allele count in genotypes, for each ALT allele, in the same order as listed\">\n" 
-    vcfHeader += "##INFO=<ID=AF,Number=.,Type=Float,Description=\"Allele frequency, for each ALT allele, in the same order as listed\">\n" 
+    vcfHeader += "##INFO=<ID=AC,Number=A,Type=Integer,Description=\"Allele count in genotypes, for each ALT allele, in the same order as listed\">\n"
+    vcfHeader += "##INFO=<ID=AF,Number=A,Type=Float,Description=\"Allele frequency, for each ALT allele, in the same order as listed\">\n"
     vcfHeader += "##INFO=<ID=DP,Number=1,Type=Integer,Description=\"Total read depth across all samples\">\n"
     vcfHeader += "##INFO=<ID=INS,Number=1,Type=Integer,Description=\"Number of small insertions at this location across all samples\">\n"
     vcfHeader += "##INFO=<ID=DEL,Number=1,Type=Integer,Description=\"Number of small deletions at this location across all samples\">\n"
@@ -1100,7 +1106,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=SOMATIC,Number=0,Type=Flag,Description=\"Indicates if record is a somatic mutation\">\n"
     vcfHeader += "##INFO=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal,0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
     vcfHeader += "##INFO=<ID=SSC,Number=1,Type=Integer,Description=\"Somatic score in Phred scale (0-255) derived from p-value\">\n"
-    vcfHeader += "##INFO=<ID=PVAL,Number=1,Type=Float,Description=\"Fisher's Exact Test P-value\">";
+    vcfHeader += "##INFO=<ID=PVAL,Number=1,Type=Float,Description=\"Fisher's Exact Test P-value\">\n";
     vcfHeader += "##INFO=<ID=SST,Number=1,Type=String,Description=\"Somatic status of variant\">\n"
     vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n"
     
@@ -1114,22 +1120,23 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     # these fields are sample specific
     vcfHeader += "##FORMAT=<ID=GT,Number=1,Type=String,Description=\"Genotype\">\n"
     vcfHeader += "##FORMAT=<ID=DP,Number=1,Type=Integer,Description=\"Read depth at this location in the sample\">\n"
-    vcfHeader += "##FORMAT=<ID=AD,Number=.,Type=Integer,Description=\"Depth of reads supporting allele (in order specified by GT)\">\n"
-    vcfHeader += "##FORMAT=<ID=AF,Number=.,Type=Float,Description=\"Fraction of reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=AD,Number=R,Type=Integer,Description=\"Depth of reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=AF,Number=R,Type=Float,Description=\"Fraction of reads supporting allele (in order specified by GT)\">\n"
     vcfHeader += "##FORMAT=<ID=INS,Number=1,Type=Integer,Description=\"Number of small insertions at this location\">\n"
     vcfHeader += "##FORMAT=<ID=DEL,Number=1,Type=Integer,Description=\"Number of small deletions at this location\">\n"
     vcfHeader += "##FORMAT=<ID=START,Number=1,Type=Integer,Description=\"Number of reads starting at this location\">\n"
     vcfHeader += "##FORMAT=<ID=STOP,Number=1,Type=Integer,Description=\"Number of reads stopping at this location\">\n"
-    vcfHeader += "##FORMAT=<ID=MQ0,Number=.,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
-    vcfHeader += "##FORMAT=<ID=MMQ,Number=.,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
-    vcfHeader += "##FORMAT=<ID=MQA,Number=.,Type=Integer,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
-    vcfHeader += "##FORMAT=<ID=BQ,Number=.,Type=Integer,Description=\"Avg base quality for reads supporting allele (in order specified by GT)\">\n"
-    vcfHeader += "##FORMAT=<ID=SB,Number=.,Type=Float,Description=\"Strand Bias for reads supporting allele (in order specified by GT)\">\n"
-    vcfHeader += "##FORMAT=<ID=MMP,Number=.,Type=Float,Description=\"Multi-mapping percent for reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=MQ0,Number=R,Type=Integer,Description=\"Number of mapping quality zero reads harboring allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=MMQ,Number=R,Type=Integer,Description=\"Maximum mapping quality of read harboring allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=MQA,Number=R,Type=Integer,Description=\"Avg mapping quality for reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=BQ,Number=R,Type=Integer,Description=\"Avg base quality for reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=SB,Number=R,Type=Float,Description=\"Strand Bias for reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=MMP,Number=R,Type=Float,Description=\"Multi-mapping percent for reads supporting allele (in order specified by GT)\">\n"
+    vcfHeader += "##FORMAT=<ID=DP4,Number=.,Type=Integer,Description=\"Number of high-quality ref-forward, ref-reverse, alt-forward and alt-reverse bases\">\n"
     #vcfHeader += "##FORMAT=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal, 0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
     #vcfHeader += "##FORMAT=<ID=SSC,Number=1,Type=Integer,Description=\"Somatic score between 0 and 255\">\n"
     # across the whole read, what is the avg base quality of all mismatches
-    #vcfHeader += "##FORMAT=<ID=MMQS,Number=.,Type=Float,Description=\"Average mismatch quality sum of reads harboring allele (in order specified by GT)\">\n"
+    #vcfHeader += "##FORMAT=<ID=MMQS,Number=R,Type=Float,Description=\"Average mismatch quality sum of reads harboring allele (in order specified by GT)\">\n"
     #vcfHeader += "##FORMAT=<ID=MQ,Number=1,Type=Integer,Description=\"Phred style probability score that the variant is novel with respect to the genome's ancestor\">\n"
     
     vcfHeader += "#" + "\t".join(columnHeaders)
@@ -1142,7 +1149,7 @@ def pad(aList, aPadder, aLength):
     '
     ' aList - The list to be padded
     ' aPadder - The value to pad with
-    ' aLength - The length of the final list after padding 
+    ' aLength - The length of the final list after padding
     '''
     return aList + [aPadder] * (aLength - len(aList))
            
@@ -1162,13 +1169,15 @@ def pad_output(anOutput, anEmptyOutput, anAlleleLength):
         return anOutput
     
     # get the data for this sample
-    # GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP
-    (genotypes, depths, alleleDepths, alleleFractions, insCount, delCount, starts, stops, mapQualZeroes, mapQualMaxes, mapQuals, baseQuals, strandBiases, mmps) = anOutput.split(":")
+    # GT:DP:AD:AF:INS:DEL:DP4:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP
+    (genotypes, depths, alleleDepths, alleleFractions, insCount, delCount, depths4, starts, stops, mapQualZeroes, mapQualMaxes, mapQuals, baseQuals, strandBiases, mmps) = anOutput.split(":")
     
     # if we need some padding
-    alleleDepthList = alleleDepths.split(",") 
+    alleleDepthList = alleleDepths.split(",")
+    depths4List = depths4.split(",")
     if (len(alleleDepthList) < anAlleleLength):
         alleleDepthList = pad(alleleDepthList, "0", anAlleleLength)
+        depths4List = pad(depths4List, "0", (anAlleleLength*2))
         alleleFractionList = pad(alleleFractions.split(","), "0.0", anAlleleLength)
         mapQualZeroesList = pad(mapQualZeroes.split(","), "0", anAlleleLength)
         mapQualMaxesList = pad(mapQualMaxes.split(","), "0", anAlleleLength)
@@ -1177,8 +1186,8 @@ def pad_output(anOutput, anEmptyOutput, anAlleleLength):
         strandBiasList = pad(strandBiases.split(","), "0.0", anAlleleLength)
         mmpList = pad(mmps.split(","), ".", anAlleleLength)
         
-        # GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP
-        outputList = (genotypes, depths, ",".join(alleleDepthList), ",".join(alleleFractionList), insCount, delCount, starts, stops, ",".join(mapQualZeroesList), ",".join(mapQualMaxesList), ",".join(mapQualsList), ",".join(baseQualityList), ",".join(strandBiasList), ",".join(mmpList))
+        # GT:DP:AD:AF:INS:DEL:DP4:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP
+        outputList = (genotypes, depths, ",".join(alleleDepthList), ",".join(alleleFractionList), insCount, delCount, ",".join(depths4List), starts, stops, ",".join(mapQualZeroesList), ",".join(mapQualMaxesList), ",".join(mapQualsList), ",".join(baseQualityList), ",".join(strandBiasList), ",".join(mmpList))
             
         return ":".join(outputList)
     else:
@@ -1283,11 +1292,11 @@ def main():
     (i_cmdLineOptions, i_cmdLineArgs) = i_cmdLineParser.parse_args()
     
     # range(inclusiveFrom, exclusiveTo, by)
-    i_possibleArgLengths = range(3,80,1)
+    i_possibleArgLengths = range(3, 80, 1)
     i_argLength = len(sys.argv)
     
     # check if this is one of the possible correct commands
-    if (i_argLength not in i_possibleArgLengths):   
+    if (i_argLength not in i_possibleArgLengths):
         i_cmdLineParser.print_help()
         sys.exit(0)
     
@@ -1311,7 +1320,7 @@ def main():
     
     i_genotypeMinDepth = i_cmdLineOptions.genotypeMinDepth
     i_genotypeMinPct = i_cmdLineOptions.genotypeMinPct
-        
+    
     i_dnaNormMinTotalNumBases = i_cmdLineOptions.dnaNormalMinTotalNumBases
     i_dnaNormMinAltNumBases = i_cmdLineOptions.dnaNormalMinAltNumBases
     i_dnaNormMinBaseQual = i_cmdLineOptions.dnaNormalMinBaseQuality
@@ -1351,7 +1360,7 @@ def main():
     i_rnaTumDesc = i_cmdLineOptions.rnaTumorDesc
     #i_rnaTumLabel = i_cmdLineOptions.rnaTumorLabel
     i_rnaTumLabel = "RNA_TUMOR"
-        
+    
     # the user can specify that the prefix should be used on all bams with one param
     if (i_useChrPrefix):
         i_dnaNormUseChr = True
@@ -1359,7 +1368,7 @@ def main():
         i_rnaNormUseChr = True
         i_rnaTumUseChr = True
     
-    # try to get any optional parameters with no defaults    
+    # try to get any optional parameters with no defaults
     i_readFilenameList = []
     i_writeFilenameList = []
     i_dirList = []
@@ -1396,41 +1405,41 @@ def main():
     
     if (i_cmdLineOptions.dnaNormalPileupsFilename != None):
         i_dnaNormalPileupsFilename = str(i_cmdLineOptions.dnaNormalPileupsFilename)
-        i_readFilenameList += [i_dnaNormalPileupsFilename]   
+        i_readFilenameList += [i_dnaNormalPileupsFilename]
     if (i_cmdLineOptions.rnaNormalPileupsFilename != None):
         i_rnaNormalPileupsFilename = str(i_cmdLineOptions.rnaNormalPileupsFilename)
-        i_readFilenameList += [i_rnaNormalPileupsFilename] 
+        i_readFilenameList += [i_rnaNormalPileupsFilename]
     if (i_cmdLineOptions.dnaTumorPileupsFilename != None):
         i_dnaTumorPileupsFilename = str(i_cmdLineOptions.dnaTumorPileupsFilename)
-        i_readFilenameList += [i_dnaTumorPileupsFilename] 
+        i_readFilenameList += [i_dnaTumorPileupsFilename]
     if (i_cmdLineOptions.rnaTumorPileupsFilename != None):
         i_rnaTumorPileupsFilename = str(i_cmdLineOptions.rnaTumorPileupsFilename)
         i_readFilenameList += [i_rnaTumorPileupsFilename]
-        
+    
     if (i_cmdLineOptions.dnaNormalFilename != None):
         i_dnaNormalFilename = str(i_cmdLineOptions.dnaNormalFilename)
-        i_readFilenameList += [i_dnaNormalFilename]   
+        i_readFilenameList += [i_dnaNormalFilename]
         filenames += [i_dnaNormalFilename]
         labels += [i_dnaNormLabel]
         descriptions += [i_dnaNormDesc]
         analytes += ["DNA"]
     if (i_cmdLineOptions.rnaNormalFilename != None):
         i_rnaNormalFilename = str(i_cmdLineOptions.rnaNormalFilename)
-        i_readFilenameList += [i_rnaNormalFilename] 
-        filenames += [i_rnaNormalFilename] 
+        i_readFilenameList += [i_rnaNormalFilename]
+        filenames += [i_rnaNormalFilename]
         labels += [i_rnaNormLabel]
         descriptions += [i_rnaNormDesc]
         analytes += ["RNA"]
     if (i_cmdLineOptions.dnaTumorFilename != None):
         i_dnaTumorFilename = str(i_cmdLineOptions.dnaTumorFilename)
-        i_readFilenameList += [i_dnaTumorFilename] 
-        filenames += [i_dnaTumorFilename]  
+        i_readFilenameList += [i_dnaTumorFilename]
+        filenames += [i_dnaTumorFilename]
         labels += [i_dnaTumLabel]
         descriptions += [i_dnaTumDesc]
         analytes += ["DNA"]
     if (i_cmdLineOptions.rnaTumorFilename != None):
         i_rnaTumorFilename = str(i_cmdLineOptions.rnaTumorFilename)
-        i_readFilenameList += [i_rnaTumorFilename]  
+        i_readFilenameList += [i_rnaTumorFilename]
         filenames += [i_rnaTumorFilename]
         labels += [i_rnaTumLabel]
         descriptions += [i_rnaTumDesc]
@@ -1463,7 +1472,7 @@ def main():
         i_dnaTumorFastaFilename = i_universalFastaFilename
         i_rnaNormalFastaFilename = i_universalFastaFilename
         i_rnaTumorFastaFilename = i_universalFastaFilename
-        
+    
     # if individual fasta files are specified, they over-ride the universal one
     if (i_cmdLineOptions.dnaNormalFastaFilename != None):
         i_dnaNormalFastaFilename = str(i_cmdLineOptions.dnaNormalFastaFilename)
@@ -1487,13 +1496,13 @@ def main():
             i_universalFastaFilename = i_rnaTumorFastaFilename
     if (i_universalFastaFilename != None):
         i_readFilenameList += [i_universalFastaFilename]
-        
+    
     # need to set these for the vcf header, especially when only a universal fasta file is specified
     i_cmdLineOptionsDict["dnaNormalFastaFilename"] = i_dnaNormalFastaFilename
     i_cmdLineOptionsDict["dnaTumorFastaFilename"] = i_dnaTumorFastaFilename
     i_cmdLineOptionsDict["rnaNormalFastaFilename"] = i_rnaNormalFastaFilename
     i_cmdLineOptionsDict["rnaTumorFastaFilename"] = i_rnaTumorFastaFilename
-        
+    
     # assuming loglevel is bound to the string value obtained from the
     # command line argument. Convert to upper case to allow the user to
     # specify --log=DEBUG or --log=debug
@@ -1507,9 +1516,9 @@ def main():
     else:
         logging.basicConfig(level=i_numericLogLevel, format='%(asctime)s\t%(levelname)s\t%(message)s', datefmt='%m/%d/%Y %I:%M:%S %p')
     
-    # set the debug    
+    # set the debug
     i_debug = (i_numericLogLevel == logging.DEBUG)
-        
+    
     # output some debug info
     if (i_debug):
         logging.debug("id=%s" % i_id)
@@ -1582,11 +1591,11 @@ def main():
         logging.debug("rna tumor minAltBases: %s" % i_rnaTumMinAltNumBases)
         logging.debug("rna tumor usePrefix? %s" % i_rnaTumUseChr)
         logging.debug("rna tumor mitochon %s" % i_rnaTumMitochon)
-                    
+    
     # check for any errors
     if (not radiaUtil.check_for_argv_errors(i_dirList, i_readFilenameList, i_writeFilenameList)):
         sys.exit(1)
-        
+    
     # the user must specify at least one .bam file
     if (i_dnaNormalFilename == None and i_dnaTumorFilename == None and i_rnaNormalFilename == None and i_rnaTumorFilename == None and
         i_dnaNormalPileupsFilename == None and i_dnaTumorPileupsFilename == None and i_rnaNormalPileupsFilename == None and i_rnaTumorPileupsFilename == None):
@@ -1616,7 +1625,7 @@ def main():
     if (i_rnaTumorFilename != None and not os.path.isfile(i_rnaTumorFilename + ".bai")):
         logging.critical("The index file for the BAM file " + i_rnaTumorFilename + " doesn't exist.  Please use the 'samtools index' command to create one.")
         sys.exit(1)
-        
+    
     # the user cannot specify both a coordinates file and a pileups file
     if ((i_coordinatesFilename != None and i_dnaNormalPileupsFilename != None) or
         (i_coordinatesFilename != None and i_rnaNormalPileupsFilename != None) or
@@ -1624,7 +1633,7 @@ def main():
         (i_coordinatesFilename != None and i_rnaTumorPileupsFilename != None)):
         logging.critical("You cannot specify a coordinates file with coordinate ranges to query and a pileups file with coordinates already queried.  Please remove one or the other.")
         sys.exit(1)
-            
+    
     # make sure the user specified the necessary files
     if ((i_dnaNormalFilename != None and i_dnaNormalFastaFilename == None) or 
         (i_dnaTumorFilename != None and i_dnaTumorFastaFilename == None) or 
@@ -1768,7 +1777,7 @@ def main():
     startTime = time.time()
     
     # initialize some variables
-    formatString = "GT:DP:AD:AF:INS:DEL:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP"
+    formatString = "GT:DP:AD:AF:INS:DEL:DP4:START:STOP:MQ0:MMQ:MQA:BQ:SB:MMP"
     countRnaDnaCoordinateOverlap = 0
     totalGerms = 0
     totalSoms = 0
@@ -1817,7 +1826,7 @@ def main():
         if (currentStart > currentStop):
             logging.critical("The start coordinate must be less than or equal to the stop coordinate %s:%s-%s", currentChrom, currentStart, currentStop)
             sys.exit(1)
-            
+        
         if (i_debug):
             logging.debug("processing currentChrom=%s, currentStart=%s, currentStop=%s, i_batchSize=%s", currentChrom, currentStart, currentStop, i_batchSize)    
     
