@@ -1,3 +1,97 @@
+11/29/2018:
+
+Added previous and next reference bases to INFO (radia.py and filterByReadSupport.py)
+
+
+Added DP4 field (radia.py)
+
+    - Added DP4 field:  The 'Number' field in the header
+      for 'DP4' should be '4' and the VCF lines should 
+      only specify the ref-forward, ref-reverse, 
+      alt-forward and alt-reverse values of the passing
+      call, but we are allowing an unspecified number  
+      of values for the 'DP4' field.  The initial RADIA 
+      script outputs variants at very low depth and 
+      frequency, which results in many calls with multiple 
+      alleles.  Before filtering, it is impossible to know 
+      which alternative allele will be part of the final 
+      passing call when multiple alleles are present.  
+      During the filtering process, we know which alternative 
+      allele to choose from the passing call and could limit 
+      the values at that point, but for all non-passing calls, 
+      we would need to choose an arbitrary alternative allele 
+      to limit it to just 4 values.  In order to provide the 
+      most complete information, all forward and reverse values 
+      for all alleles is provided in the specified order.  
+      This makes it easy to extract the final alt-forward and 
+      alt-reverse values for any alternative allele.
+
+    - Added newline after p-value header line
+
+    - Changed the 'Number' for several INFO
+      and FORMAT fields from the generic '.'
+      to 'A' for all alternative alleles and 
+      'R' for all alleles including the 
+      reference.
+
+
+Added generic read and write functions (radiaUtil.py)
+
+    - Added generic functions to get the read
+      and write file handlers.
+
+    - Fixed pep8 issues
+
+
+Lower the min total depth from 10 to 8 (filterByMpileupSupport.py)
+
+    - Lower the minimum required total depth
+      from 10 to 8 for all samples
+
+    - Lower the minimum alternative allele
+      frequency for germline calls from
+      10% to 3%.
+
+
+Added parameters for normal and tumor purity (filterByMpileupSupport.py)
+
+    The minimum alternative allele frequency will be
+    altered according to the purity parameters provided.
+    
+    For somatic calls, the minimum variant frequency is 
+    decreased in order to detect true somatic calls that 
+    have a lower frequency due to the normal-content in 
+    the tumor sample (low tumor purity).
+    
+    For germline calls, the minimum variant frequency
+    is increased in order to avoid making false positive
+    germline calls due to tumor-content in the normal 
+    sample (low normal purity).
+
+
+Add overlaps with RADAR and DARNED (filterRadia.py)
+
+    - Add number of COSMIC overlaps to INFO
+
+    - Add overlaps with RADAR database
+
+    - Add overlaps with DARNED database
+
+    - Replaced filterByCoordinate.py script with
+      filterByPybed.py for dbSNP overlaps.  The
+      later script takes care of small INDELs
+      that are present in dbSNP.
+
+
+Add counts or text to INFO tags (filterByPybed.py)
+
+    - Added ability to add a count as the value of an 
+      INFO tag
+
+    - Added ability to add a text as the value of an 
+      INFO tag
+
+
 10/17/2018:
 
 Add target regions to INFO instead of FILTER (filterRadia.py)
