@@ -9,7 +9,7 @@ import gzip
 '    RNA and DNA Integrated Analysis (RADIA):
 '    Identifies RNA and DNA variants in NGS data.
 '
-'    Copyright (C) 2010-2018  Amie Radenbaugh
+'    Copyright (C) 2010  Amie J. Radenbaugh, Ph.D.
 '
 '    This program is free software: you can redistribute it and/or modify
 '    it under the terms of the GNU Affero General Public License as
