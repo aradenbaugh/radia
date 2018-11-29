@@ -1109,6 +1109,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     vcfHeader += "##INFO=<ID=PVAL,Number=1,Type=Float,Description=\"Fisher's Exact Test P-value\">\n";
     vcfHeader += "##INFO=<ID=SST,Number=1,Type=String,Description=\"Somatic status of variant\">\n"
     vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n"
+    vcfHeader += "##INFO=<ID=PN,Number=1,Type=String,Description=\"Previous nucleotide in reference sequence\">\n"
+    vcfHeader += "##INFO=<ID=NN,Number=1,Type=String,Description=\"Next nucleotide in reference sequence\">\n"
     
     # get the filter fields
     vcfHeader += "##FILTER=<ID=noref,Description=\"Position skipped, reference=N\">\n"

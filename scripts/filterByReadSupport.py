@@ -45,25 +45,6 @@ cigarDict[7] = "seqmatch"
 cigarDict[8] = "seqmismatch"
 
 
-'''
-'    RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.
-'    Copyright (C) 2010-2015  Amie Radenbaugh
-'
-'    This program is free software: you can redistribute it and/or modify
-'    it under the terms of the GNU Affero General Public License as
-'    published by the Free Software Foundation, either version 3 of the
-'    License, or (at your option) any later version.
-'
-'    This program is distributed in the hope that it will be useful,
-'    but WITHOUT ANY WARRANTY; without even the implied warranty of
-'    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-'    GNU Affero General Public License for more details.
-'
-'    You should have received a copy of the GNU Affero General Public License
-'    along with this program.  If not, see <http://www.gnu.org/licenses/>.
-'''
-
-
 def get_read_fileHandler(aFilename):
     '''
     ' Open aFilename for reading and return
@@ -1167,7 +1148,16 @@ class Club():
             elif (aMutType == "NOR_EDIT"):
                 fastaFile = self.rnaNormalFastaFile
                 mmpList = currData.rnaNormalDict["MMP"]
-            
+
+        # add the previous and next reference base to the INFO
+        chrom = chromList[0]
+        pos = posList[0]
+        prevRefBase = fastaFile.fetch(chrom, pos-1, pos).upper()
+        # refBase = fastaFile.fetch(chrom, pos, pos+1).upper()
+        nextRefBase = fastaFile.fetch(chrom, pos+1, pos+2).upper()
+        currData.infoDict["PN"] = [prevRefBase]
+        currData.infoDict["NN"] = [nextRefBase]
+
         # group all of the reads by name
         readsDict = self.group_reads_by_name(chromList, posList, strandList, aBamOrigin, aParamsDict, mutSS, aMutType, anIsDebug)
 
