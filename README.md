@@ -1,7 +1,7 @@
 RADIA
 =======
 
-RADIA:  RNA and DNA Integrated Analysis identifies RNA and DNA variants in NGS data.
+RADIA:  RNA and DNA Integrated Analysis
 
 RADIA identifies RNA and DNA variants in BAM files.  RADIA is typically run on 3 BAM 
 files consisting of the Normal DNA, Tumor DNA and Tumor RNA.  If no RNA is available 
