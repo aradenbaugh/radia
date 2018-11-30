@@ -67,10 +67,12 @@ the fasta file for the normal and tumor DNA BAMs are the same.  If the fasta fil
 not the same for all BAM files, you can overwrite the default fasta file specified 
 with the -f parameter with the following BAM specific fasta files:
 
---dnaNormalFasta<br>
---rnaNormalFasta<br>
---dnaTumorFasta<br>
---rnaTumorFasta<br>
+<pre><code>
+--dnaNormalFasta
+--rnaNormalFasta
+--dnaTumorFasta
+--rnaTumorFasta
+</code></pre>
 
 If the "chr" prefix is neeeded, then add the corresponding flag:<br>
 --dnaNormalUseChr<br>
@@ -101,26 +103,26 @@ be output, otherwise it will be sent to STDOUT.  If the filename ends with ".gz"
 will be gzipped.
 
 1) Run RADIA on 3 BAM files:<br>
-python radia.py
-    patientId
-    chromId 
-    -n normalDnaBamFilename.bam 
-    -t tumorDnaBamFilename.bam 
-    -r tumorRnaBamFilename.bam 
-    -f hg19.fa 
-    --rnaTumorUseChr 
-    --rnaTumorFasta=hg19_w_chr_prefix.fa 
-    -o /radia/raw/patientId_chr1.vcf.gz 
-    -i hg19 
-    -u http://url_to_fasta.fa
+python radia.py<br>
+    patientId<br>
+    chromId<br>
+    -n normalDnaBamFilename.bam<br> 
+    -t tumorDnaBamFilename.bam<br> 
+    -r tumorRnaBamFilename.bam<br> 
+    -f hg19.fa<br> 
+    --rnaTumorUseChr<br> 
+    --rnaTumorFasta=hg19_w_chr_prefix.fa<br> 
+    -o /radia/raw/patientId_chr1.vcf.gz<br> 
+    -i hg19<br> 
+    -u http://url_to_fasta.fa<br>
 
 2) Run RADIA on 2 BAM files:<br>
-python radia.py 
-    patientId
-    chromId
-    -n normalDnaBamFilename.bam
-    -t tumorDnaBamFilename.bam
-    -f hg19.fa
+python radia.py<br> 
+    patientId<br>
+    chromId<br>
+    -n normalDnaBamFilename.bam<br>
+    -t tumorDnaBamFilename.bam<br>
+    -f hg19.fa<br>
     -o /radia/raw/patientId_chr1.vcf.gz
     -i hg19
     -u http://url_to_fasta.fa
