@@ -74,7 +74,7 @@ with the `-f` parameter with the following BAM specific fasta files:
 --rnaTumorFasta
 ```
 
-If the "chr" prefix is neeeded, then add the corresponding flag:<br>
+If the "chr" prefix is neeeded, then add the corresponding flag:
 ```
 --dnaNormalUseChr
 --rnaNormalUseChr
@@ -88,12 +88,12 @@ TEST SAMTOOLS COMMAND
 In order to see if RADIA will be able to execute the samtools command without any errors,
 test the command prior to running RADIA.  Here is an example command:
 
-If the "chr" prefix should be used:<br>
+If the "chr" prefix should be used:
 ```
 samtools mpileup -f fastaFilename.fa -E -r chr7:55248979-55249079 normalBamFilename.bam
 ```
 
-If no "chr" prefix is needed:<br>
+If no "chr" prefix is needed:
 ```
 samtools mpileup -f fastaFilename.fa -E -r 7:55248979-55249079 normalBamFilename.bam
 ```
@@ -106,7 +106,7 @@ corresponding FASTA files.  You can specify the output filename where the VCF fi
 be output, otherwise it will be sent to STDOUT.  If the filename ends with ".gz", the VCF
 will be gzipped.
 
-1) Run RADIA on 3 BAM files:<br>
+1) Run RADIA on 3 BAM files:
 ```
 python radia.py
     patientId
@@ -122,7 +122,7 @@ python radia.py
     -u http://url_to_fasta.fa
 ```
 
-2) Run RADIA on 2 BAM files:<br>
+2) Run RADIA on 2 BAM files:
 ```
 python radia.py 
     patientId
@@ -167,7 +167,8 @@ For calls that originate in the RNA, there are further filters:
 - Annotate with SnpEff (optional)<br>
 - Filter RNA genes and gene families<br>
 
-If you only have DNA pairs, use the `--dnaOnly` flag<br>
+By default, all calls will be made on the data you provide.<br>
+If you only want the calls from the DNA Only Method, use the `--dnaOnly` flag<br>
 If you only want the calls from the Triple BAM method, use the `--rnaOnly` flag<br>
 
 If you want to exclude a particular filter, there are flags such as `--noBlat` 
@@ -183,25 +184,25 @@ python filterRadia.py
     chrom 
     /radia/raw/patientId_chr1.vcf 
     /radia/filtered/
-    /radiaDir/scripts/
-    -b /radiaDir/data/hg19/blacklists/1000Genomes/phase3/
-    -d /radiaDir/data/hg19/snp150/
-    -r /radiaDir/data/hg19/retroGenes/
-    -p /radiaDir/data/hg19/pseudoGenes/
-    -c /radiaDir/data/hg19/cosmic/
-    -t /radiaDir/data/hg19/gencode/basic/
-    -a /radiaDir/data/hg19/radar/
-    -n /radiaDir/data/hg19/darned/
+    /radia/scripts/
+    -b /radia/data/hg19/blacklists/1000Genomes/phase3/
+    -d /radia/data/hg19/snp150/
+    -r /radia/data/hg19/retroGenes/
+    -p /radia/data/hg19/pseudoGenes/
+    -c /radia/data/hg19/cosmic/
+    -t /radia/data/hg19/gencode/basic/
+    -a /radia/data/hg19/radar/
+    -n /radia/data/hg19/darned/
     -s /snpEffDir/
-    --rnaGeneBlckFile /radiaDir/data/rnaGeneBlacklist.tab
-    --rnaGeneFamilyBlckFile /radiaDir/data/rnaGeneFamilyBlacklist.tab
+    --rnaGeneBlckFile /radia/data/rnaGeneBlacklist.tab
+    --rnaGeneFamilyBlckFile /radia/data/rnaGeneFamilyBlacklist.tab
 ```
 
 Some default parameters to watch out for:<br>
 - The default SnpEff genome is set to "GRCh37.75".  If you are using a different version, 
-be sure to upate the `--snpEffGenome` parameter.<br>
+be sure to upate the <br>`--snpEffGenome` parameter.<br>
 - BLAT FASTA filename:  by default the fasta file specified in the BAM header will be used.  You
-can overwrite it with the `-f` parameter.  We recommend that you use a fasta file that includes
+can overwrite it with the <br>`-f` parameter.  We recommend that you use a fasta file that includes
 the chrUn_gl000 contigs, chr_gl000_random contigs and the hap contigs (e.g. chr6_apd_hap1, 
 chr6_cox_hap2, etc).  Often times, the fasta files that are used during the alignment process of
 the bams exclude these contigs.<br>
@@ -239,7 +240,7 @@ Radenbaugh AJ, Ma S, Ewing A, Stuart JM, Collisson EA, Zhu J, Haussler D. (2014)
 LICENSE
 =========
 
-RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.
+RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.<br>
 Copyright (C) 2010  Amie J. Radenbaugh, Ph.D.
 
 This program is free software: you can redistribute it and/or modify
