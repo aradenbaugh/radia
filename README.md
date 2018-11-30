@@ -62,17 +62,17 @@ prefix and some do not.  If a BAM file uses the "chr" prefix, then the fasta fil
 that is specified must also use the "chr" prefix and vice versa.
 
 There are multiple ways to specify the fasta files when running RADIA.  You can use
-the -f parameter for a fasta file that can be used for multiple BAM files.  Typically, 
+the `-f` parameter for a fasta file that can be used for multiple BAM files.  Typically, 
 the fasta file for the normal and tumor DNA BAMs are the same.  If the fasta file is 
 not the same for all BAM files, you can overwrite the default fasta file specified 
-with the -f parameter with the following BAM specific fasta files:
+with the `-f` parameter with the following BAM specific fasta files:
 
-<pre><code>
+```
 --dnaNormalFasta
 --rnaNormalFasta
 --dnaTumorFasta
 --rnaTumorFasta
-</code></pre>
+```
 
 If the "chr" prefix is neeeded, then add the corresponding flag:<br>
 <pre><code>
