@@ -75,12 +75,12 @@ with the `-f` parameter with the following BAM specific fasta files:
 ```
 
 If the "chr" prefix is neeeded, then add the corresponding flag:<br>
-<pre><code>
+```
 --dnaNormalUseChr
 --rnaNormalUseChr
 --dnaTumorUseChr
 --rnaTumorUseChr
-</code></pre>
+```
 
 TEST SAMTOOLS COMMAND
 =======================
@@ -89,14 +89,14 @@ In order to see if RADIA will be able to execute the samtools command without an
 test the command prior to running RADIA.  Here is an example command:
 
 If the "chr" prefix should be used:<br>
-<pre><code>
+```
 samtools mpileup -f fastaFilename.fa -E -r chr7:55248979-55249079 normalBamFilename.bam
-</code></pre>
+```
 
 If no "chr" prefix is needed:<br>
-<pre><code>
+```
 samtools mpileup -f fastaFilename.fa -E -r 7:55248979-55249079 normalBamFilename.bam
-</code></pre>
+```
 
 RUN RADIA INITIAL COMMAND
 ===========================
@@ -107,7 +107,7 @@ be output, otherwise it will be sent to STDOUT.  If the filename ends with ".gz"
 will be gzipped.
 
 1) Run RADIA on 3 BAM files:<br>
-<pre><code>
+```
 python radia.py
     patientId
     chrom
@@ -120,10 +120,10 @@ python radia.py
     -o /radia/raw/patientId_chr1.vcf.gz 
     -i hg19 
     -u http://url_to_fasta.fa
-</code></pre>
+```
 
 2) Run RADIA on 2 BAM files:<br>
-<pre><code>
+```
 python radia.py 
     patientId
     chrom
@@ -133,12 +133,12 @@ python radia.py
     -o /radia/raw/patientId_chr1.vcf.gz
     -i hg19
     -u http://url_to_fasta.fa
-</code></pre>
+```
 
-For the full list of optional parameters, type:<br>
-<pre><code>
+For the full list of optional parameters, type:
+```
 python radia.py -h
-</code></pre>
+```
 
 
 RUN RADIA FILTER COMMAND 
@@ -167,17 +167,17 @@ For calls that originate in the RNA, there are further filters:
 - Annotate with SnpEff (optional)<br>
 - Filter RNA genes and gene families<br>
 
-If you only have DNA pairs, use the --dnaOnly flag<br>
-If you only want the calls from the Triple BAM method, use the --rnaOnly flag<br>
+If you only have DNA pairs, use the `--dnaOnly` flag<br>
+If you only want the calls from the Triple BAM method, use the `--rnaOnly` flag<br>
 
-If you want to exclude a particular filter, there are flags such as --noBlat 
+If you want to exclude a particular filter, there are flags such as `--noBlat` 
 to exclude the BLAT filter.
 
-Many of the filters rely on data that is provided in the radia/data/ directory.  Other
+Many of the filters rely on data that is provided in the /radia/data/ directory.  Other
 dependencies are on the pysam API and external programs such as BLAT (optional) and SnpEff (optional).
 
 Here is an example filtering command:<br>
-<pre><code>
+```
 python filterRadia.py
     patientId 
     chrom 
@@ -195,39 +195,39 @@ python filterRadia.py
     -s /snpEffDir/
     --rnaGeneBlckFile /radiaDir/data/rnaGeneBlacklist.tab
     --rnaGeneFamilyBlckFile /radiaDir/data/rnaGeneFamilyBlacklist.tab
-</code></pre>
+```
 
 Some default parameters to watch out for:<br>
 - The default SnpEff genome is set to "GRCh37.75".  If you are using a different version, 
-be sure to upate the --snpEffGenome parameter.<br>
+be sure to upate the `--snpEffGenome` parameter.<br>
 - BLAT FASTA filename:  by default the fasta file specified in the BAM header will be used.  You
-can overwrite it with the -f parameter.  We recommend that you use a fasta file that includes
+can overwrite it with the `-f` parameter.  We recommend that you use a fasta file that includes
 the chrUn_gl000 contigs, chr_gl000_random contigs and the hap contigs (e.g. chr6_apd_hap1, 
 chr6_cox_hap2, etc).  Often times, the fasta files that are used during the alignment process of
 the bams exclude these contigs.<br>
 - By default, the calls are filtered by the GENCODE basic gene regions.  By specifying the 
---targetsInfo flag, the calls will be flagged (tagged in the INFO column) instead of filtered. 
-If you don't want to filter by target regions at all, then use the --noTargets flag.<br>
+`--targetsInfo` flag, the calls will be flagged (tagged in the INFO column) instead of filtered. 
+If you don't want to flag or filter by target regions at all, then use the `--noTargets` flag.<br>
 
 For the full list of optional parameters, type:<br>
-<pre><code>
+```
 python filterRadia.py -h
-</code></pre>
+```
 
 
 RUN RADIA MERGE COMMAND 
 ===========================
 
 To merge all of the filtered chromosome files into one VCF file for the patient, execute the following command:<br>
-<pre><code>
+```
 python mergeChroms.py
     patientId
     /radia/filtered/
     /radia/filtered/
     --gzip
-</code></pre>
+```
 
-This will merge all of the files with the names: patientId_chr\*.vcf or patientId_chr\*.vcf.gz into one file called patientId.vcf or patientId.vcf.gz (if you specify the --gzip parameter).
+This will merge all of the files with the names: patientId_chr\*.vcf or patientId_chr\*.vcf.gz into one file called patientId.vcf or patientId.vcf.gz (if you specify the `--gzip` parameter).
 
 
 CITATION
