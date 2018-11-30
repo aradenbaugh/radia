@@ -75,11 +75,12 @@ with the -f parameter with the following BAM specific fasta files:
 </code></pre>
 
 If the "chr" prefix is neeeded, then add the corresponding flag:<br>
---dnaNormalUseChr<br>
---rnaNormalUseChr<br>
---dnaTumorUseChr<br>
---rnaTumorUseChr<br>
-
+<pre><code>
+--dnaNormalUseChr
+--rnaNormalUseChr
+--dnaTumorUseChr
+--rnaTumorUseChr
+</code></pre>
 
 TEST SAMTOOLS COMMAND
 =======================
@@ -88,11 +89,14 @@ In order to see if RADIA will be able to execute the samtools command without an
 test the command prior to running RADIA.  Here is an example command:
 
 If the "chr" prefix should be used:<br>
+<pre><code>
 samtools mpileup -f fastaFilename.fa -E -r chr7:55248979-55249079 normalBamFilename.bam
+</code></pre>
 
 If no "chr" prefix is needed:<br>
+<pre><code>
 samtools mpileup -f fastaFilename.fa -E -r 7:55248979-55249079 normalBamFilename.bam
-
+</code></pre>
 
 RUN RADIA INITIAL COMMAND
 ===========================
@@ -103,32 +107,38 @@ be output, otherwise it will be sent to STDOUT.  If the filename ends with ".gz"
 will be gzipped.
 
 1) Run RADIA on 3 BAM files:<br>
-python radia.py<br>
-    patientId<br>
-    chromId<br>
-    -n normalDnaBamFilename.bam<br> 
-    -t tumorDnaBamFilename.bam<br> 
-    -r tumorRnaBamFilename.bam<br> 
-    -f hg19.fa<br> 
-    --rnaTumorUseChr<br> 
-    --rnaTumorFasta=hg19_w_chr_prefix.fa<br> 
-    -o /radia/raw/patientId_chr1.vcf.gz<br> 
-    -i hg19<br> 
-    -u http://url_to_fasta.fa<br>
+<pre><code>
+python radia.py
+    patientId
+    chromId
+    -n normalDnaBamFilename.bam 
+    -t tumorDnaBamFilename.bam 
+    -r tumorRnaBamFilename.bam 
+    -f hg19.fa 
+    --rnaTumorUseChr 
+    --rnaTumorFasta=hg19_w_chr_prefix.fa 
+    -o /radia/raw/patientId_chr1.vcf.gz 
+    -i hg19 
+    -u http://url_to_fasta.fa
+</code></pre>
 
 2) Run RADIA on 2 BAM files:<br>
-python radia.py<br> 
-    patientId<br>
-    chromId<br>
-    -n normalDnaBamFilename.bam<br>
-    -t tumorDnaBamFilename.bam<br>
-    -f hg19.fa<br>
+<pre><code>
+python radia.py 
+    patientId
+    chromId
+    -n normalDnaBamFilename.bam
+    -t tumorDnaBamFilename.bam
+    -f hg19.fa
     -o /radia/raw/patientId_chr1.vcf.gz
     -i hg19
     -u http://url_to_fasta.fa
+</code></pre>
 
 For the full list of optional parameters, type:<br>
+<pre><code>
 python radia.py -h
+</code></pre>
 
 
 RUN RADIA FILTER COMMAND 
