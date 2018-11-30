@@ -1,7 +1,7 @@
 RADIA
 =======
 
-RADIA:  RNA and DNA Integrated Analysis for Somatic Mutation Detection
+RADIA:  RNA and DNA Integrated Analysis identifies RNA and DNA variants in NGS data.
 
 RADIA identifies RNA and DNA variants in BAM files.  RADIA is typically run on 3 BAM 
 files consisting of the Normal DNA, Tumor DNA and Tumor RNA.  If no RNA is available 
@@ -208,7 +208,7 @@ chr6_cox_hap2, etc).  Often times, the fasta files that are used during the alig
 the bams exclude these contigs.<br>
 - By default, the calls are filtered by the GENCODE basic gene regions.  By specifying the 
 `--targetsInfo` flag, the calls will be flagged (tagged in the INFO column) instead of filtered. 
-If you don't want to flag or filter by target regions at all, then use the `--noTargets` flag.<br>
+If you don't want to flag or filter by target regions at all, use the `--noTargets` flag.<br>
 
 For the full list of optional parameters, type:<br>
 ```
