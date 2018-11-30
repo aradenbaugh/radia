@@ -101,10 +101,29 @@ be output, otherwise it will be sent to STDOUT.  If the filename ends with ".gz"
 will be gzipped.
 
 1) Run RADIA on 3 BAM files:<br>
-python radia.py patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -r tumorRnaBamFilename.bam -f hg19.fa --rnaTumorUseChr --rnaTumorFasta=hg19_w_chr_prefix.fa -o /radia/raw/patientId_chr1.vcf.gz -i hg19 -u http://url_to_fasta.fa
+python radia.py
+    patientId
+    chromId 
+    -n normalDnaBamFilename.bam 
+    -t tumorDnaBamFilename.bam 
+    -r tumorRnaBamFilename.bam 
+    -f hg19.fa 
+    --rnaTumorUseChr 
+    --rnaTumorFasta=hg19_w_chr_prefix.fa 
+    -o /radia/raw/patientId_chr1.vcf.gz 
+    -i hg19 
+    -u http://url_to_fasta.fa
 
 2) Run RADIA on 2 BAM files:<br>
-python radia.py patientId chromId -n normalDnaBamFilename.bam -t tumorDnaBamFilename.bam -f hg19.fa -o /radia/raw/patientId_chr1.vcf.gz -i hg19 -u http://url_to_fasta.fa
+python radia.py 
+    patientId
+    chromId
+    -n normalDnaBamFilename.bam
+    -t tumorDnaBamFilename.bam
+    -f hg19.fa
+    -o /radia/raw/patientId_chr1.vcf.gz
+    -i hg19
+    -u http://url_to_fasta.fa
 
 For the full list of optional parameters, type:<br>
 python radia.py -h
@@ -134,7 +153,7 @@ For calls that originate in the RNA, there are further filters:
 - Filter Retrogenes<br>
 - Filter by BLAT (optional)<br>
 - Annotate with SnpEff (optional)<br>
-- Filter RNA gene and gene families<br>
+- Filter RNA genes and gene families<br>
 
 If you only have DNA pairs, use the --dnaOnly flag<br>
 If you only want the calls from the Triple BAM method, use the --rnaOnly flag<br>
@@ -143,7 +162,7 @@ If you want to exclude a particular filter, there are flags such as --noBlat
 to exclude the BLAT filter.
 
 Many of the filters rely on data that is provided in the radia/data/ directory.  Other
-dependencies are on the pysam API and external programs such as BLAT and SnpEff.
+dependencies are on the pysam API and external programs such as BLAT (optional) and SnpEff (optional).
 
 Here is an example filtering command:<br>
 python filterRadia.py patientId 22 /radia/raw/patientId_chr22.vcf /radia/filtered/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase3/ -d /radiaDir/data/hg19/snp150/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gencode/basic/ -a /radiaDir/data/hg19/radar/ -n /radiaDir/data/hg19/darned/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
