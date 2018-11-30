@@ -39,7 +39,7 @@ RADIA uses the pysam API during the filtering process.
 4) BLAT (optional)<br>
 RADIA uses BLAT to check the mapping of reads for all Triple BAM calls.
 
-5) SnpEff (optional - tested on version 3.3 and 4.3) <br>
+5) SnpEff (optional, tested on version 3.3 and 4.3) <br>
 RADIA uses SnpEff to annotate passing variants and to filter out calls from the 
 Triple BAM method that land in genes with high sequence similarity.
 
@@ -110,7 +110,7 @@ will be gzipped.
 <pre><code>
 python radia.py
     patientId
-    chromId
+    chrom
     -n normalDnaBamFilename.bam 
     -t tumorDnaBamFilename.bam 
     -r tumorRnaBamFilename.bam 
@@ -126,7 +126,7 @@ python radia.py
 <pre><code>
 python radia.py 
     patientId
-    chromId
+    chrom
     -n normalDnaBamFilename.bam
     -t tumorDnaBamFilename.bam
     -f hg19.fa
@@ -177,7 +177,25 @@ Many of the filters rely on data that is provided in the radia/data/ directory. 
 dependencies are on the pysam API and external programs such as BLAT (optional) and SnpEff (optional).
 
 Here is an example filtering command:<br>
-python filterRadia.py patientId 22 /radia/raw/patientId_chr22.vcf /radia/filtered/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase3/ -d /radiaDir/data/hg19/snp150/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gencode/basic/ -a /radiaDir/data/hg19/radar/ -n /radiaDir/data/hg19/darned/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
+<pre><code>
+python filterRadia.py
+    patientId 
+    chrom 
+    /radia/raw/patientId_chr1.vcf 
+    /radia/filtered/
+    /radiaDir/scripts/
+    -b /radiaDir/data/hg19/blacklists/1000Genomes/phase3/
+    -d /radiaDir/data/hg19/snp150/
+    -r /radiaDir/data/hg19/retroGenes/
+    -p /radiaDir/data/hg19/pseudoGenes/
+    -c /radiaDir/data/hg19/cosmic/
+    -t /radiaDir/data/hg19/gencode/basic/
+    -a /radiaDir/data/hg19/radar/
+    -n /radiaDir/data/hg19/darned/
+    -s /snpEffDir/
+    --rnaGeneBlckFile /radiaDir/data/rnaGeneBlacklist.tab
+    --rnaGeneFamilyBlckFile /radiaDir/data/rnaGeneFamilyBlacklist.tab
+</code></pre>
 
 Some default parameters to watch out for:<br>
 - The default SnpEff genome is set to "GRCh37.75".  If you are using a different version, 
@@ -192,14 +210,22 @@ the bams exclude these contigs.<br>
 If you don't want to filter by target regions at all, then use the --noTargets flag.<br>
 
 For the full list of optional parameters, type:<br>
+<pre><code>
 python filterRadia.py -h
+</code></pre>
 
 
 RUN RADIA MERGE COMMAND 
 ===========================
 
 To merge all of the filtered chromosome files into one VCF file for the patient, execute the following command:<br>
-python mergeChroms.py patientId /radia/filtered/ /radia/filtered/ --gzip
+<pre><code>
+python mergeChroms.py
+    patientId
+    /radia/filtered/
+    /radia/filtered/
+    --gzip
+</code></pre>
 
 This will merge all of the files with the names: patientId_chr\*.vcf or patientId_chr\*.vcf.gz into one file called patientId.vcf or patientId.vcf.gz (if you specify the --gzip parameter).
 
