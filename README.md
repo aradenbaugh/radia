@@ -5,7 +5,7 @@ RADIA:  RNA and DNA Integrated Analysis for Somatic Mutation Detection
 
 RADIA identifies RNA and DNA variants in BAM files.  RADIA is typically run on 3 BAM 
 files consisting of the Normal DNA, Tumor DNA and Tumor RNA.  If no RNA is available 
-from the tumor, then it is run on the normal/tumor pairs.  For the normal DNA, RADIA 
+from the tumor, then it is run on the normal/tumor DNA pairs.  For the normal DNA, RADIA 
 outputs any differences compared to the reference which could be potential Germline 
 mutations.  For the tumor DNA, RADIA outputs any differences compared to the reference 
 and the normal DNA which could be potential Somatic mutations.  RADIA combines the 
@@ -36,10 +36,10 @@ You must install samtools prior to running RADIA.
 3) pysam API (version 0.8.1 and higher)<br>
 RADIA uses the pysam API during the filtering process.
 
-4) BLAT<br>
+4) BLAT (optional)<br>
 RADIA uses BLAT to check the mapping of reads for all Triple BAM calls.
 
-5) SnpEff (tested on version 3.3 and 4.3) <br>
+5) SnpEff (optional - tested on version 3.3 and 4.3) <br>
 RADIA uses SnpEff to annotate passing variants and to filter out calls from the 
 Triple BAM method that land in genes with high sequence similarity.
 
@@ -123,6 +123,8 @@ filter added to the FILTER column of the VCF.  By default all of the following f
 - Flag Pseudogenes<br>
 - Flag Retrogenes<br>
 - Flag COSMIC sites<br>
+- Flag RADAR sites<br>
+- Flag DARNED sites<br>
 - MPileup support<br>
 - Read support<br>
 
@@ -130,10 +132,9 @@ For calls that originate in the RNA, there are further filters:
 - Filter dbSNP<br>
 - Filter Pseudogenes<br>
 - Filter Retrogenes<br>
-- Filter by BLAT<br>
-- Filter by positional bias<br>
-- Annotate with SnpEff<br>
-- Filter RNA gene and gene family blacklists<br>
+- Filter by BLAT (optional)<br>
+- Annotate with SnpEff (optional)<br>
+- Filter RNA gene and gene families<br>
 
 If you only have DNA pairs, use the --dnaOnly flag<br>
 If you only want the calls from the Triple BAM method, use the --rnaOnly flag<br>
@@ -145,17 +146,19 @@ Many of the filters rely on data that is provided in the radia/data/ directory. 
 dependencies are on the pysam API and external programs such as BLAT and SnpEff.
 
 Here is an example filtering command:<br>
-python filterRadia.py patientId 22 /radia/raw/patientId_chr22.vcf /radia/filtered/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase3/ -d /radiaDir/data/hg19/snp150/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gencode/basic/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
+python filterRadia.py patientId 22 /radia/raw/patientId_chr22.vcf /radia/filtered/ /radiaDir/scripts/ -b /radiaDir/data/hg19/blacklists/1000Genomes/phase3/ -d /radiaDir/data/hg19/snp150/ -r /radiaDir/data/hg19/retroGenes/ -p /radiaDir/data/hg19/pseudoGenes/ -c /radiaDir/data/hg19/cosmic/ -t /radiaDir/data/hg19/gencode/basic/ -a /radiaDir/data/hg19/radar/ -n /radiaDir/data/hg19/darned/ -s /snpEffDir/ --rnaGeneBlckFile ../data/rnaGeneBlacklist.tab --rnaGeneFamilyBlckFile ../data/rnaGeneFamilyBlacklist.tab
 
 Some default parameters to watch out for:<br>
-- The default SnpEff genome is set to "GRCh37.75".<br>
+- The default SnpEff genome is set to "GRCh37.75".  If you are using a different version, 
+be sure to upate the --snpEffGenome parameter.<br>
 - BLAT FASTA filename:  by default the fasta file specified in the BAM header will be used.  You
 can overwrite it with the -f parameter.  We recommend that you use a fasta file that includes
 the chrUn_gl000 contigs, chr_gl000_random contigs and the hap contigs (e.g. chr6_apd_hap1, 
 chr6_cox_hap2, etc).  Often times, the fasta files that are used during the alignment process of
 the bams exclude these contigs.<br>
-- By default, the calls are filtered by the GENCODE basic gene regions.  If you don't want to filter
-by target regions, then use the --noTargets flag.<br>
+- By default, the calls are filtered by the GENCODE basic gene regions.  By specifying the 
+--targetsInfo flag, the calls will be flagged (tagged in the INFO column) instead of filtered. 
+If you don't want to filter by target regions at all, then use the --noTargets flag.<br>
 
 For the full list of optional parameters, type:<br>
 python filterRadia.py -h
@@ -180,7 +183,7 @@ LICENSE
 =========
 
 RNA and DNA Integrated Analysis (RADIA) identifies RNA and DNA variants in NGS data.
-Copyright (C) 2010-2018  Amie Radenbaugh
+Copyright (C) 2010  Amie J. Radenbaugh, Ph.D.
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU Affero General Public License as
