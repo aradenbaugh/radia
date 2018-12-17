@@ -75,6 +75,31 @@ def get_write_fileHandler(aFile):
     return fileHandler
 
 
+def get_append_fileHandler(aFile):
+    '''
+    ' Open aFile for appending and return the file handler.
+    ' The file can be gzipped or not.
+    '''
+    if aFile.endswith('.gz'):
+        try:
+            fileHandler = gzip.open(aFile, 'ab')
+        except IOError:
+            print >> sys.stderr, ("There is a problem writing to the file " +
+                                  "'%s'. Please check the path and/or " +
+                                  "permissions.", aFile)
+            sys.exit(1)
+    else:
+        try:
+            fileHandler = open(aFile, 'a')
+        except IOError:
+            print >> sys.stderr, ("There is a problem writing to the file " +
+                                  "'%s'. Please check the path and/or " +
+                                  "permissions.", aFile)
+            sys.exit(1)
+
+        return fileHandler
+
+
 def check_for_argv_errors(aDirList, aReadFilenameList, aWriteFilenameList):
     '''
     '    Error-handling to make sure the directories and filenames
