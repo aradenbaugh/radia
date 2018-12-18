@@ -6,7 +6,6 @@ import sys
 import os
 from optparse import OptionParser
 import myVCF
-import gzip
 import radiaUtil
 import logging
 from itertools import izip
@@ -47,30 +46,6 @@ cigarDict[7] = "seqmatch"
 cigarDict[8] = "seqmismatch"
 
 
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-
-
 def get_passing_germline_alts(aCurrData):
     alts = []
     # for passing germline calls, there should only be one, but double-check anyway
@@ -82,7 +57,7 @@ def get_passing_germline_alts(aCurrData):
 
     
 def parse_vcf(aVCFFilename, aTranscriptNameTag, aTranscriptCoordinateTag, anIsDebug):
-    vcf = get_read_fileHandler(aVCFFilename)
+    vcf = radiaUtil.get_read_fileHandler(aVCFFilename)
     currVCF = myVCF.VCF()
 
     dnaNormalBam = None
@@ -1153,7 +1128,7 @@ class Club():
 
         # add the previous and next reference base to the INFO
         chrom = chromList[0]
-        pos = posList[0]
+        pos = int(posList[0])
         prevRefBase = fastaFile.fetch(chrom, pos-1, pos).upper()
         # refBase = fastaFile.fetch(chrom, pos, pos+1).upper()
         nextRefBase = fastaFile.fetch(chrom, pos+1, pos+2).upper()
@@ -1515,13 +1490,13 @@ if __name__ == '__main__':
     if (not radiaUtil.check_for_argv_errors(i_dirList, i_readFilenameList, i_writeFilenameList)):
         sys.exit(1)
     
-    vcf = get_read_fileHandler(vcfFilename)
+    vcf = radiaUtil.get_read_fileHandler(vcfFilename)
     currVCF = myVCF.VCF()
     
     club = Club(vcfFilename, i_transcriptNameTag, i_transcriptCoordinateTag, i_debug)
     
     if i_outputFilename is not sys.stdout:
-        i_outputFileHandler = get_write_fileHandler(i_outputFilename)
+        i_outputFileHandler = radiaUtil.get_write_fileHandler(i_outputFilename)
     else:
         i_outputFileHandler = i_outputFilename
     
