@@ -11,7 +11,6 @@ from optparse import OptionParser
 from itertools import izip
 import radiaUtil
 import collections
-import gzip
 
 
 '''
@@ -33,22 +32,25 @@ import gzip
 '    You should have received a copy of the GNU Affero General Public License
 '    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '
-'    This program identifies RNA and DNA variants in BAM files.  The program is designed
-'    to take in 4 BAM files:  DNA Normal, RNA Normal, DNA Tumor, and RNA Tumor.  For the 
-'    normal DNA, the program outputs any differences compared to the reference which could 
-'    be potential Germline mutations.  For the normal RNA, the program outputs any differences 
-'    compared to the reference and the normal DNA which could be potential normal RNA-Editing
-'    events.  For the tumor DNA, the program outputs any difference compared to the reference, 
-'    normal DNA and normal RNA which could be potential Somatic mutations.  For the tumor
-'    RNA, the program outputs any difference compared to the reference, normal DNA, normal 
-'    RNA and tumor DNA which could be potential RNA-editing events.
+'    This program identifies RNA and DNA variants in BAM files.  The program
+'    is designed to take in 4 BAM files:  DNA Normal, RNA Normal, DNA Tumor,
+'    and RNA Tumor.  For the normal DNA, the program outputs any differences
+'    compared to the reference which could be potential Germline mutations.
+'    For the normal RNA, the program outputs any differences compared to the
+'    reference and the normal DNA which could be potential normal RNA-Editing
+'    events.  For the tumor DNA, the program outputs any difference compared
+'    to the reference, normal DNA and normal RNA which could be potential
+'    Somatic mutations.  For the tumor RNA, the program outputs any difference
+'    compared to the reference, normal DNA, normal RNA and tumor DNA which
+'    could be potential RNA-editing events.
 '
-'    The program is designed for 4 BAM files, but the user can also specify just two or three.
-'    The program will report RNA and DNA variants.
+'    The program is designed for 4 BAM files, but the user can also specify
+'    just two or three. The program will report RNA and DNA variants.
 '
 '''
 
-# this regular expression is used to remove insertions and deletions from raw reads
+# this regular expression is used to remove
+# insertions and deletions from raw reads
 # a read could look like:  "T$TT+3AGGGT+2AG+2AG.-2AGGG..-1A"
 # insertions start with a "+", deletions with a "-"
 # in theory, there could be multiple digits
@@ -57,37 +59,15 @@ i_numOfIndelsRegEx = re.compile("[+-]{1}(\\d+)")
 # this regular expression will match any number of valid cDNA strings
 i_cDNARegEx = re.compile("[ACGTNacgtn]+")
 
-# this regular expression will match full TCGA sample Ids, e.g. TCGA-AG-A016-01A-01R or TCGA-37-4133-10A-01D
+# this regular expression will match full TCGA sample Ids,
+# e.g. TCGA-AG-A016-01A-01R or TCGA-37-4133-10A-01D
 i_tcgaNameRegEx = re.compile("TCGA-(\\w){2}-(\\w){4}-(\\w){3}-(\\w){3}")
 
 
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-    
-
 def get_chrom_size(aChrom, anInputStream, anIsDebug):
     '''
-    ' This function reads from a FASTA index file.  The FASTA index file has 5 columns:  
+    ' This function reads from a FASTA index file.
+    ' The FASTA index file has 5 columns:
     ' NAME        Name of this reference sequence
     ' LENGTH      Total length of this reference sequence, in bases
     ' OFFSET      Offset within the FASTA file of this sequence's first base
@@ -104,7 +84,7 @@ def get_chrom_size(aChrom, anInputStream, anIsDebug):
     ' aChrom: The chrom size to return
     ' anInputStream: The input stream for the FASTA index file
     '''
-     
+
     for line in anInputStream:
           
         # if it is an empty line, then just continue
@@ -135,10 +115,10 @@ def get_chrom_size(aChrom, anInputStream, anIsDebug):
 
 def get_batch_end_coordinate(aStartCoordinate, anEndCoordinate, aBatchSize):
     '''
-    ' This function takes a start coordinate, an end coordinate, and a batch size and
-    ' returns the next appropriate batch end coordinate which is either the start coordinate
-    ' plus the batch size if this is less than the final end coordinate otherwise the end
-    ' coordinate.
+    ' This function takes a start coordinate, an end coordinate, and a batch
+    ' size and returns the next appropriate batch end coordinate which is
+    ' either the start coordinate plus the batch size if this is less than
+    ' the final end coordinate otherwise the end coordinate.
     '
     ' aStartCoordinate:  A start coordinate
     ' anEndCoordinate:  A stop coordinate
@@ -154,26 +134,29 @@ def get_batch_end_coordinate(aStartCoordinate, anEndCoordinate, aBatchSize):
 
 def get_sam_data(aSamFile, aChrom, aStartCoordinate, aStopCoordinate, aSourcePrefix, anIsDebug):
     '''
-    ' This function uses the python generator to yield the information for one coordinate at a time. 
-    ' This function is used during testing to read data from a .sam input file and can also
-    ' be used when the user specifies an mpileup file instead of a bam file as input.  This function 
-    ' yields the chromosome, coordinate, reference base, number of reads, raw reads, and quality scores.
+    ' This function uses the python generator to yield the information for one
+    ' coordinate at a time. This function is used during testing to read data
+    ' from a .sam input file and can also be used when the user specifies an
+    ' mpileup file instead of a bam file as input.  This function yields the
+    ' chromosome, coordinate, reference base, number of reads, raw reads, and
+    ' quality scores.
     '
     ' aSamFile:              A .sam file or .mpileups file
     ' aChrom:                The chromosome
-    ' aStartCoordinate:      The initial start coordinate (typically zero)
-    ' aStopCoordinate:       The initial stop coordinate (typically the size of the chromosome)
-    ' aSourcePrefix:         A label used when debugging to determine the input file
+    ' aStartCoordinate:      The initial start coordinate
+    ' aStopCoordinate:       The initial stop coordinate (size of the chrom)
+    ' aSourcePrefix:         A label for the input file used when debugging
     '''
     
     # open the sam file
-    samFileHandler = get_read_fileHandler(aSamFile)
+    samFileHandler = radiaUtil.get_read_fileHandler(aSamFile)
      
     for line in samFileHandler:
           
-        # if the samtools select statement returns no reads which can happen when the batch size is
-        # small and the selection is done in an area with no reads, then a warning message will be
-        # returned that starts with "[mpileup]".  We can ignore the message and move on to the next
+        # if the samtools select statement returns no reads which can happen
+        # when the batch size is small and the selection is done in an area
+        # with no reads, then a warning message will be returned that starts
+        # with "[mpileup]".  We can ignore the message and move on to the next
         # select statement.
         if (line.isspace() or line.startswith("[mpileup]")):
             continue;
@@ -193,8 +176,9 @@ def get_sam_data(aSamFile, aChrom, aStartCoordinate, aStopCoordinate, aSourcePre
             if (chrom != aChrom):
                 continue
             
-            # the user can specify a pileups file and only be interested in one coordinate
-            # so let them specify that one coordinate with the -a and -z params and be done
+            # the user can specify a pileups file and only be interested in
+            # one coordinate, so let them specify that one coordinate with
+            # the -a and -z params and be done
             coordinate = int(splitLine[1])
             if (coordinate < aStartCoordinate):
                 continue
@@ -217,30 +201,47 @@ def get_sam_data(aSamFile, aChrom, aStartCoordinate, aStopCoordinate, aSourcePre
 
 def get_bam_data(aBamFile, aFastaFile, aChrom, aStartCoordinate, aStopCoordinate, aBatchSize, aUseChrPrefix, aSourcePrefix, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
     '''
-    ' This function uses the python generator to yield the information for one coordinate at a time.
-    ' In order to reduce the time and memory overhead of loading the entire .bam file into memory at
-    ' once, this function reads in chunks of data at a time.  The number of coordinates that should be
-    ' read into memory at a given time is determined by the "aBatchSize" parameter.  This function uses the 
-    ' samtools "mpileup" command to make a selection. 
+    ' This function uses the python generator to yield the information for one
+    ' coordinate at a time. In order to reduce the time and memory overhead of
+    ' loading the entire .bam file into memory at once, this function reads in
+    ' chunks of data at a time.  The number of coordinates that should be read
+    ' into memory at a given time is determined by the "aBatchSize" parameter.
+    ' This function uses the samtools "mpileup" command to make a selection.
     '
-    ' The original start and end coordinates are specified by the "aStartCoordinate" and "anEndCoordinate" 
-    ' parameters and are typically initialized to 0 and the size of the chromosome respectively. This function
-    ' will loop over the .bam file, selecting "aBatchSize" number of coordinates into memory at once.  Each line that
-    ' is selected will be processed and yielded using the python generator.  When all lines from the current batch 
-    ' are processed, the start and end coordinates will be incremented, and the next selection will be made from the
-    ' .bam file.  This process continues until the end of the chromosome has been reached.
+    ' The original start and end coordinates are specified by the
+    ' "aStartCoordinate" and "anEndCoordinate" parameters and are typically
+    ' initialized to 0 and the size of the chromosome respectively. This
+    ' function will loop over the .bam file, selecting "aBatchSize" number
+    ' of coordinates into memory at once.  Each line that is selected will be
+    ' processed and yielded using the python generator.  When all lines from
+    ' the current batch are processed, the start and end coordinates will be
+    ' incremented, and the next selection will be made from the .bam file.
+    ' This process continues until the end of the chromosome has been reached.
     '
-    ' This function yields the chromosome, coordinate, reference base, number of reads, raw reads, and the quality scores.
+    ' This function yields the chromosome, coordinate, reference base,
+    ' number of reads, raw reads, and the quality scores.
     '
-    ' aBamFile:                              A .bam file to be read from
-    ' aFastaFile:                            The FASTA file that should be used in the samtools command which is needed for the reference base.
-    ' aChrom:                                The chromosome that should be used in the samtools command
-    ' aStartCoordinate:                      The initial start coordinate (typically zero)
-    ' aStopCoordinate:                       The initial stop coordinate (typically the size of the chromosome)
-    ' aBatchSize:                            The number of coordinates to load into memory at one time
-    ' aUseChrPrefix:                         Whether the 'chr' should be used in the region parameter of the samtools command
-    ' aSourcePrefix:                         A label used when debugging to determine the input file
-    ' anRnaIncludeSecondayAlignmentsFlag:    If you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups
+    ' aBamFile:
+    '    A .bam file to be read from
+    ' aFastaFile:
+    '    The FASTA file that should be used in the samtools
+    '    command which is needed for the reference base.
+    ' aChrom:
+    '    The chromosome that should be used in the samtools command
+    ' aStartCoordinate:
+    '    The initial start coordinate (typically zero)
+    ' aStopCoordinate:
+    '    The initial stop coordinate (typically the size of the chromosome)
+    ' aBatchSize:
+    '    The number of coordinates to load into memory at one time
+    ' aUseChrPrefix:
+    '    Whether the 'chr' should be used in the region
+    '    parameter of the samtools command
+    ' aSourcePrefix:
+    '    A label used when debugging to determine the input file
+    ' anRnaIncludeSecondayAlignmentsFlag:
+    '    If you align the RNA to transcript isoforms, then you may want
+    '    to include RNA secondary alignments in the samtools mpileups
     '''
     
     # initialize the first start and stop coordinates
@@ -259,10 +260,11 @@ def get_bam_data(aBamFile, aFastaFile, aChrom, aStartCoordinate, aStopCoordinate
         # for each line representing one coordinate
         for line in pileups:
                 
-            # if the samtools select statement returns no reads which can happen when the batch size is
-            # small and the selection is done in an area with no reads, then a warning message will be
-            # returned that starts with "[mpileup]".  We can ignore the message and move on to the next
-            # select statement.
+            # if the samtools select statement returns no reads which can
+            # happen when the batch size is small and the selection is done
+            # in an area with no reads, then a warning message will be
+            # returned that starts with "[mpileup]".  We can ignore the
+            # message and move on to the next select statement.
             if (line.isspace() or line.startswith("[mpileup]") or line.startswith("<mpileup>")):
                 continue;
 
@@ -272,7 +274,7 @@ def get_bam_data(aBamFile, aFastaFile, aChrom, aStartCoordinate, aStopCoordinate
             # split the line on the tab
             splitLine = line.split("\t")
             
-            if (anIsDebug):    
+            if (anIsDebug):
                 logging.debug("Original BAM pileup for %s: %s", aSourcePrefix, line)
 
             if (len(splitLine) > 1):
@@ -291,7 +293,7 @@ def get_bam_data(aBamFile, aFastaFile, aChrom, aStartCoordinate, aStopCoordinate
             yield (chrom, coordinate, reference, numOfReads, reads, baseQualScores, mapQualScores)
             numPileups += 1
 
-        if (anIsDebug):        
+        if (anIsDebug):
             logging.debug("samtools number of lines selected from %s to %s = %s", currentStartCoordinate, currentStopCoordinate, numPileups)
         
         # calculate a new start and stop coordinate for the next select statement
@@ -303,23 +305,36 @@ def get_bam_data(aBamFile, aFastaFile, aChrom, aStartCoordinate, aStopCoordinate
 
 def execute_samtools_cmd(aBamFile, aFastaFile, aChrom, aUseChrPrefix, aStartCoordinate, aStopCoordinate, anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
     '''
-    ' This function executes an external command.  The command is the "samtools mpileup" command which returns all 
-    ' the information about the sequencing reads for specific coordinates.  There are two things to be careful about
-    ' when using the samtools mpileup command.  Some .bam files use the 'chr' prefix when specifying the region to 
-    ' select with the -r argument.  If the 'chr' prefix is required, then specify the --useChrPrefix argument and also
-    ' make sure that the fasta file that is specified also has the 'chr' prefix.  Here are some examples of the commands
-    ' that can be used to view the output:
+    ' This function executes an external command.  The command is the
+    ' "samtools mpileup" command which returns all the information about the
+    ' sequencing reads for specific coordinates.  There are two things to be
+    ' careful about when using the samtools mpileup command.  Some .bam files
+    ' use the 'chr' prefix when specifying the region to select with the -r
+    ' argument.  If the 'chr' prefix is required, then specify the
+    ' --useChrPrefix argument and also make sure that the fasta file that
+    ' is specified also has the 'chr' prefix.  Here are some examples of
+    ' the commands that can be used to view the output:
     '
-    ' samtools mpileup -f /path/to/fasta/hg19.fa -Q 20 -q 10 -r chr1:855155-1009900 /path/to/bams/myBam.bam
-    ' samtools mpileup -f /path/to/fasta/hg19.fa -Q 20 -q 10 -r 1:855155-1009900 /path/to/bams/myBam.bam
+    ' samtools mpileup -f /path/to/fasta/hg19.fa -Q 20 -q 10
+    '    -r chr1:855155-1009900 /path/to/bams/myBam.bam
+    ' samtools mpileup -f /path/to/fasta/hg19.fa -Q 20 -q 10
+    '    -r 1:855155-1009900 /path/to/bams/myBam.bam
     '
-    ' aBamFile:                              A .bam file to be read from
-    ' aFastaFile:                            The FASTA file which is needed for the reference base.
-    ' aChrom:                                The chromosome that we are selecting from
-    ' aUseChrPrefix:                         Whether the 'chr' should be used in the samtools command
-    ' aStartCoordinate:                      The start coordinate of the selection
-    ' aStopCoordinate:                       The stop coordinate of the selection
-    ' anRnaIncludeSecondayAlignmentsFlag:    If you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups
+    ' aBamFile:
+    '    A .bam file to be read from
+    ' aFastaFile:
+    '    The FASTA file which is needed for the reference base.
+    ' aChrom:
+    '    The chromosome that we are selecting from
+    ' aUseChrPrefix:
+    '    Whether the 'chr' should be used in the samtools command
+    ' aStartCoordinate:
+    '    The start coordinate of the selection
+    ' aStopCoordinate:
+    '    The stop coordinate of the selection
+    ' anRnaIncludeSecondayAlignmentsFlag:
+    '    If you align the RNA to transcript isoforms, then you may want
+    '    to include RNA secondary alignments in the samtools mpileups
     '''
     # create the samtools command
     if (aUseChrPrefix):
@@ -392,43 +407,59 @@ def convert_raw_base(aBase, aRawBaseQual, aRawMapQual, aConvertedBaseQual, aConv
 
 def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOfRawBaseQuals, aStringOfRawMapQuals, aReferenceBase, aMinBaseQual, aMinMapQual, anIsDebug):
     '''
-    ' This function returns all of the valid RNA (cDNA) or DNA bases from the given pileup of read bases.
-    ' It converts all of the samtools specific characters into human-readable bases and filters out any non 
+    ' This function returns all of the valid RNA (cDNA) or DNA bases from the
+    ' given pileup of read bases. It converts all of the samtools specific
+    ' characters into human-readable bases and filters out any non
     ' RNA/DNA characters.
     '
     ' This is from the samtools documentation:
     '
-    ' In the pileup format, each line represents a genomic position, consisting of chromosome name, 
-    ' 1-based coordinate, reference base, read bases, read qualities and alignment mapping qualities. 
-    ' Information on match, mismatch, indel, strand, mapping quality and start and end of a read are all 
-    ' encoded at the read base column. At this column, a dot stands for a match to the reference base on 
-    ' the forward strand, a comma for a match on the reverse strand, a ">" or "<" for a reference skip, 
-    ' "ACGTN" for a mismatch on the forward strand and "acgtn" for a mismatch on the reverse strand. A 
-    ' pattern "\+[0-9]+[ACGTNacgtn]+" indicates there is an insertion between this reference position and 
-    ' the next reference position. The length of the insertion is given by the integer in the pattern, 
-    ' followed by the inserted sequence. Similarly, a pattern "-[0-9]+[ACGTNacgtn]+" represents a deletion 
-    ' from the reference. The deleted bases will be presented as "*" in the following lines. Also at the 
-    ' read base column, a symbol "^" marks the start of a read. The ASCII of the character following "^" 
-    ' minus 33 gives the mapping quality. A symbol "$" marks the end of a read segment.
+    ' In the pileup format, each line represents a genomic position, consisting
+    ' of chromosome name, 1-based coordinate, reference base, read bases, read
+    ' qualities and alignment mapping qualities. Information on match,
+    ' mismatch, indel, strand, mapping quality and start and end of a read are
+    ' all encoded at the read base column. At this column, a dot stands for a
+    ' match to the reference base on the forward strand, a comma for a match
+    ' on the reverse strand, a ">" or "<" for a reference skip, "ACGTN" for a
+    ' mismatch on the forward strand and "acgtn" for a mismatch on the reverse
+    ' strand. A pattern "\+[0-9]+[ACGTNacgtn]+" indicates there is an insertion
+    ' between this reference position and the next reference position. The
+    ' length of the insertion is given by the integer in the pattern, followed
+    ' by the inserted sequence. Similarly, a pattern "-[0-9]+[ACGTNacgtn]+"
+    ' represents a deletion from the reference. The deleted bases will be
+    ' presented as "*" in the following lines. Also at the read base column,
+    ' a symbol "^" marks the start of a read. The ASCII of the character
+    ' following "^" minus 33 gives the mapping quality. A symbol "$" marks the
+    ' end of a read segment.
     '
-    ' Note:  the samtools documentation is a bit out of date.  They now allow all of the IUPAC nucleotide
-    ' codes for INDELS:  [ACGTURYSWKMBDHVNacgturyswkmbdhvn].
+    ' Note:  the samtools documentation is a bit out of date.  They now allow
+    ' all of the IUPAC nucleotide codes for INDELS:
+    ' [ACGTURYSWKMBDHVNacgturyswkmbdhvn].
     '
-    ' We are converting all dots and commas to the upper case reference base.  Even though the comma represents 
-    ' a match on the reverse strand, there is no need to take the complement of it, since samtools does
-    ' that for us.  We are converting all mismatches on the reverse strand to upper case as well, and again 
-    ' no complement is needed.
+    ' We are converting all dots and commas to the upper case reference base.
+    ' Even though the comma represents a match on the reverse strand, there is
+    ' no need to take the complement of it, since samtools does that for us.
+    ' We are converting all mismatches on the reverse strand to upper case as
+    ' well, and again no complement is needed.
     '
     ' We are ignoring the following for now:
     ' 1) Reference skips (">" and "<")
     '
-    ' aStringOfRawReads: A string representing the pile-up of read bases from a samtools mpileup command 
-    ' aStringOfRawBaseQuals: A string representing the raw base quality scores for the read bases from the mpileup command
-    ' aStringOfRawMapQuals: A string representing the raw mapping quality scores for the reads from the mpileup command
-    ' aReferenceBase: Used to convert "." and "," from the samtools mpileup command
+    ' aStringOfRawReads:
+    '    A string representing the pile-up of read
+    '    bases from a samtools mpileup command
+    ' aStringOfRawBaseQuals:
+    '    A string representing the raw base quality scores
+    '    for the read bases from the mpileup command
+    ' aStringOfRawMapQuals:
+    '    A string representing the raw mapping quality
+    '    scores for the reads from the mpileup command
+    ' aReferenceBase:
+    '    Used to convert "." and "," from the samtools mpileup command
     '''
-    # Note:  Reverse strand mismatches have been reverse-complemented by samtools
-            
+    # Note:  Reverse strand mismatches have been
+    #        reverse-complemented by samtools
+
     # initialize some counts
     starts = 0
     stops = 0
@@ -467,9 +498,9 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
         # get the current base
         base = aStringOfRawReads[currBaseIndex]
         
-        # if the currBaseQualIndex is >= the length of base qual 
-        # scores, then we've reached the end of base qual scores, 
-        # even though there could be more non-base characters in 
+        # if the currBaseQualIndex is >= the length of base qual
+        # scores, then we've reached the end of base qual scores,
+        # even though there could be more non-base characters in
         # aStringOfRawReads to process (e.g. <>$+2AG)
         if (currBaseQualIndex < len(aStringOfRawBaseQuals)):
             # the scores are in ascii, so convert them to integers
@@ -490,7 +521,8 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
         #    logging.debug("index=%s, currBaseIndex=%s, currBase=%s, currBaseQual=%s, currMapQual=%s", str(index), str(currBaseIndex), base, str(convertedBaseQual), str(convertedMapQual))
 
         if base in "+-":
-            # if we found an indel, count them and skip ahead to the next base in the pileup
+            # if we found an indel, count them and skip
+            # ahead to the next base in the pileup
             # a pileup could look like:  "T$TT+3AGGGT+2AG+2AG.-2AGGG..-1A"
             # insertions start with a "+", deletions with a "-"
             # in theory, there could be multiple digits
@@ -523,13 +555,16 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
             #    logging.debug("indelStart=%s, indelEnd=%s, indel=%s", indelStart, indelEnd, aStringOfRawReads[indelStart:indelEnd])
             currBaseIndex = indelEnd
         elif base == "^":
-            # skip over all start of read symbols "^" (plus the following mapping quality score)
-            # there are no base or mapping quality scores for start symbols that need to be skipped
+            # skip over all start of read symbols "^"
+            # (plus the following mapping quality score)
+            # there are no base or mapping quality scores
+            # for start symbols that need to be skipped
             currBaseIndex += 2
             starts += 1
         elif base == "$":
             # skip over all end of read symbols "$"
-            # there are no base or mapping quality scores for stop symbols that need to be skipped
+            # there are no base or mapping quality scores
+            # for stop symbols that need to be skipped
             currBaseIndex += 1
             stops += 1
         elif base == ".":
@@ -594,27 +629,46 @@ def convert_and_filter_raw_reads(aChr, aCoordinate, aStringOfRawReads, aStringOf
 
 def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict, aNumBases, aStartsCount, aStopsCount, anInsCount, aDelCount, aBaseCountsDict, aBaseQualSumsDict, aMapQualSumsDict, aMapQualZeroesDict, aMapQualMaxesDict, aPlusStrandCountsDict, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
     '''
-    ' This function converts information from a .bam mpileup coordinate into a format that can be output to a VCF formatted file.
-    ' This function calculates the average overall base quality score, strand bias, and fraction of reads supporting the alternative.
-    ' It also calculates the allele specific depth, average base quality score, strand bias, and fraction of reads supporting the alternative.
-    ' The format for the output in VCF is:  GT:DP:AD:AF:INS:DEL:DP4:START:STOP:MQ0:MMQ:MQ:BQ:SB:MMP.
+    ' This function converts information from a .bam mpileup coordinate into a
+    ' format that can be output to a VCF formatted file. This function
+    ' calculates the average overall base quality score, strand bias, and
+    ' fraction of reads supporting the alternative. It also calculates the
+    ' allele specific depth, average base quality score, strand bias, and
+    ' fraction of reads supporting the alternative. The format for the output
+    ' in VCF is:  GT:DP:AD:AF:INS:DEL:DP4:START:STOP:MQ0:MMQ:MQ:BQ:SB:MMP.
     '
-    ' aDnaSet:                  A set of dna found at this position
-    ' anAltList:                A list of alternative alleles found thus far
-    ' aStringReads:             A string of reads that have been converted from raw format and filtered
-    ' aStringQualScores:        A string of quality scores for the reads
-    ' aStartsCount:             The number of bases that were at the start of the read
-    ' aStopsCount:              The number of bases that were at the stop of the read
-    ' anInsCount:               The number of insertions at this position
-    ' aDelCount:                The number of deletions at this position
-    ' aBaseCountsDict:          A dictionary with the number of bases of each type
-    ' aBaseQualSumsDict:        A dictionary with the sum of all base quality scores for each allele
-    ' aMapQualSumsDict:         A dictionary with the sum of all map quality scores for each allele
-    ' aMapQualMaxesDict:        A dictionary with the maximum mapping quality for each allele
-    ' aMapQualZeroesDict:       A dictionary with the number of reads with a mapping score of zero for each allele
-    ' aPlusStrandCountsDict:    The number of bases that occurred on the plus strand
+    ' aDnaSet:
+    '    A set of dna found at this position
+    ' anAltList:
+    '    A list of alternative alleles found thus far
+    ' aStringReads:
+    '    A string of reads that have been converted from
+    '    raw format and filtered
+    ' aStringQualScores:
+    '    A string of quality scores for the reads
+    ' aStartsCount:
+    '    The number of bases that were at the start of the read
+    ' aStopsCount:
+    '    The number of bases that were at the stop of the read
+    ' anInsCount:
+    '    The number of insertions at this position
+    ' aDelCount:
+    '    The number of deletions at this position
+    ' aBaseCountsDict:
+    '    A dictionary with the number of bases of each type
+    ' aBaseQualSumsDict:
+    '    A dictionary with the sum of all base quality scores for each allele
+    ' aMapQualSumsDict:
+    '    A dictionary with the sum of all map quality scores for each allele
+    ' aMapQualMaxesDict:
+    '    A dictionary with the maximum mapping quality for each allele
+    ' aMapQualZeroesDict:
+    '    A dictionary with the number of reads with a mapping score of zero
+    '    for each allele
+    ' aPlusStrandCountsDict:
+    '    The number of bases that occurred on the plus strand
     '''
-    
+
     # initialize the return variables
     sumAltReadSupport = 0
     
@@ -691,7 +745,6 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
             strandBias.append(avgPlusStrandBias)
             mmps.append(".")
 
-            
         # get the genotype:
         #    if chrom Y
         #        then genotype = the ref or alt with the max read depth
@@ -699,7 +752,8 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
         #        then genotype = 0/0
         #    if there are only reads for alt
         #        then genotype = 1/1
-        #    if there are reads for both ref and alt above the min depth and percent, then pick the ones with max counts
+        #    if there are reads for both ref and alt above the min depth
+        #    and percent, then pick the ones with max counts
         #        then genotype = 0/1
         #    if chrom M or MT
         #        then any allele above the min depth and percent can be listed
@@ -708,8 +762,9 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
         singleGenotypeChroms = ["chrY", "Y"]
         mChroms = ["chrM", "chrMT", "M", "MT"]
         
-        # if it is a single chrom, then we can only assign one allele for the genotype
-        # if one of the alts has a depth and percent above the mins, then use it, otherwise use the ref
+        # if it is a single chrom, then we can only assign one allele for the
+        # genotype. if one of the alts has a depth and percent above the mins,
+        # then use it, otherwise use the ref
         if (aChrom in singleGenotypeChroms):
             if aBaseCountsDict:
                 
@@ -718,7 +773,7 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
                     
                 # if we have some alts
                 if altCountsDict:
-                    # find the max alt allele    
+                    # find the max alt allele
                     (maxAltBase, maxAltDepth) = max(altCountsDict.iteritems(), key=lambda x:x[1])
                     maxAltPct = round(maxAltDepth/float(totalDepth), 2)
                     
@@ -733,15 +788,16 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
                     # no alts, so just use the ref
                     maxAltIndex = 0
                 
-                # set the single genotype    
+                # set the single genotype
                 genotypes = [maxAltIndex]
                 
             else:
                 # we don't have any bases, so just set it to the ref
                 genotypes = [0]
         
-        # if it is an M chrom, then we can assign as many alleles as we want for the genotype
-        # for all bases with a depth and percent above the mins, set the genotype
+        # if it is an M chrom, then we can assign as many alleles as we want
+        # for the genotype. for all bases with a depth and percent above the
+        # mins, set the genotype
         elif (aChrom in mChroms):
             if aBaseCountsDict:
                 
@@ -768,7 +824,8 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
                 # we don't have any bases, so just set it to the ref
                 genotypes = [0]
                     
-        # if it is a diploid chrom, then assign the 2 max counts above the min cutoffs
+        # if it is a diploid chrom, then assign the
+        # 2 max counts above the min cutoffs
         else:
             # get the total depth
             totalDepth = sum(aBaseCountsDict.itervalues())
@@ -794,11 +851,12 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
                 
                 # if the max depth is large enough
                 if (max2Depth >= aGTMinDepth and max2Pct >= aGTMinPct):
-                    # find the index for the max depth base on the original list
-                    # note: here we are using the dictionary of base=count, so we
-                    # can specifically ask for the base.  In subsequence genotypes()
-                    # methods, we only have the depths without the corresponding base
-                    # so we have to pay extra attention when the depths are equal
+                    # find the index for the max depth base on the original
+                    # list. note: here we are using the dictionary of
+                    # base=count, so we can specifically ask for the base.
+                    # In subsequence genotypes() methods, we only have the
+                    # depths without the corresponding base so we have to
+                    # pay extra attention when the depths are equal
                     max2DepthIndex = refAltList.index(max2Base)
                 else:
                     # it wasn't large enough, so just use previous max
@@ -820,10 +878,12 @@ def format_bam_output(aChrom, aRefList, anAltList, anAltCountsDict, anAltPerDict
 
 def get_next_pileup(aGenerator):
     '''
-    ' This function returns the next pileup from a generator that yields pileups.  If the user doesn't
-    ' specify all four BAM files, then the generator will be "None", so just return some default values.
-    ' If we reach the end of a file, the generator will throw a StopIteration, so just catch it and 
-    ' return some default values.  Otherwise, return the appropriate pileup information.
+    ' This function returns the next pileup from a generator that yields
+    ' pileups.  If the user doesn't specify all four BAM files, then the
+    ' generator will be "None", so just return some default values. If we
+    ' reach the end of a file, the generator will throw a StopIteration,
+    ' so just catch it and return some default values.  Otherwise, return
+    ' the appropriate pileup information.
     '
     ' aGenerator:  A .bam mpileup generator that yields the next pileup
     '''
@@ -841,28 +901,37 @@ def get_next_pileup(aGenerator):
 
 def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aMapQuals, aPreviousUniqueBases, aPreviousBaseCounts, aReadDepthDict, anAltPerDict, aCoordinateWithData, aDnaSet, aRefList, anAltList, anAltCountsDict, aHasValidData, aShouldOutput, aGainModCount, aLossModCount, aGainModType, aLossModType, anInfoDict, aMinTotalNumBases, aMinAltNumBases, aPreviousMinAltNumBases, aMinBaseQual, aMinMapQual, aBaseQualsList, aSourcePrefix, aGTMinDepth, aGTMinPct, aBamOutputString, anIsDebug):
     '''
-    ' This function finds variants in BAM pileups.  This function first converts the samtools pileup of reads into 
-    ' human-readable reads and then records some characteristics of the pileups.  It counts the number of bases on the 
-    ' plus and minus strands, the number of bases at the start and end of reads, and the number of indels.  This function 
-    ' then ensures that the bases in the reads pass the minimum base quality score.  If the number of remaining bases is 
-    ' greater than or equal to the minimum total of bases specified by 'aMinTotalNumBases', then this function looks 
-    ' to see if there are any variants in the data.
+    ' This function finds variants in BAM pileups.  This function first
+    ' converts the samtools pileup of reads into human-readable reads and then
+    ' records some characteristics of the pileups.  It counts the number of
+    ' bases on the plus and minus strands, the number of bases at the start
+    ' and end of reads, and the number of indels.  This function then ensures
+    ' that the bases in the reads pass the minimum base quality score. If the
+    ' number of remaining bases is greater than or equal to the minimum total
+    ' of bases specified by 'aMinTotalNumBases', then this function looks to
+    ' see if there are any variants in the data.
     '
-    ' The 'aDnaSet' object is empty when processing normal DNA.  This function automatically adds the reference base, so no
-    ' pre-processing of aDnaSet is needed.  After the reference has been added, the function looks for variants in the reads.  If a base
-    ' is not in aDnaSet and there are at least 'aMinAltNumBases' of them, then this function adds the variant to 'aModTypesSet'.  After 
-    ' all the variants have been processed, the unique reads at this position are added to 'aDnaSet' which is used in the next steps: 
-    ' looking for somatic variations and rna-editing events.
+    ' The 'aDnaSet' object is empty when processing normal DNA.  This function
+    ' automatically adds the reference base, so no pre-processing of aDnaSet
+    ' is needed.  After the reference has been added, the function looks for
+    ' variants in the reads.  If a base is not in aDnaSet and there are at
+    ' least 'aMinAltNumBases' of them, then this function adds the variant to
+    ' 'aModTypesSet'.  After all the variants have been processed, the unique
+    ' reads at this position are added to 'aDnaSet' which is used in the next
+    ' steps: looking for somatic variations and rna-editing events.
     '
     ' This function returns:
-    ' bamOutputString - The concatenated form of the pileup data at this position
-    ' aDnaSet - A set of 'parent' DNA {Ref for germline variants, ref + normal for somatic mutations, ref + normal + tumor for rna-editing}
+    ' bamOutputString - The FORMAT field for the pileup data at this position
+    ' aDnaSet - A set of 'parent' DNA:
+    '    - Ref for germline variants,
+         - Ref + normal for somatic mutations,
+         - Ref + normal + tumor for rna-editing
     ' aHasValidData - If there was valid data at this position
     ' aShouldOutput - If there were any variants found to be output
     ' aModCount - The number of variants found
     ' aModTypesSet - The set of variants found
     '''
-    
+
     # default outputs
     sumOfBaseQuals = 0
     sumOfMapQuals = 0
@@ -870,7 +939,7 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aM
     sumOfStrandBiases = 0
     sumOfAltReads = 0
     oneAboveMinAltBasesFlag = False
-    setBelowMinAltBasesFlag = False 
+    setBelowMinAltBasesFlag = False
     uniqueBases = ""
     baseCountsDict = collections.defaultdict(int)
     insCount = 0
@@ -901,15 +970,16 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aM
             # keep track of the base quals for later filtering
             #aBaseQualsList.append([aSourcePrefix, aChr, str(aCoordinate), aReads, aBaseQuals, convertedReads, convertedBaseQuals])
             
-            # if the dna set is empty, then none of the previous samples had data
-            # add the reference below, and set all bases to equal aMinAltNumBases 
-            # because we assume that the reference or "neutral" sample had enough
-            # previous bases for all bases
+            # if the dna set is empty, then none of the previous samples had
+            # data add the reference below, and set all bases to equal
+            # aMinAltNumBases because we assume that the reference or "neutral"
+            # sample had enough previous bases for all bases
             if (len(aDnaSet) == 0):
                 for base in ('ACTG'):
-                    # we can do this, b/c baseCountsDict gets returned as the previousCounts
-                    # for this sample.  we can't do this if aPreviousBaseCounts should hold
-                    # the counts for all previous samples.
+                    # we can do this, b/c baseCountsDict gets returned as the
+                    # previousCounts for this sample.  we can't do this if
+                    # aPreviousBaseCounts should hold the counts for all
+                    # previous samples.
                     #aPreviousBaseCounts[base] = aMinAltNumBases
                     aPreviousBaseCounts[base] = aPreviousMinAltNumBases
                     
@@ -935,7 +1005,8 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aM
                     uniqueBases += base
                     
                     # if there is a base that wasn't in the previous sample,
-                    # or the base was in the previous sample, but there weren't enough to make a call
+                    # or the base was in the previous sample, but there weren't
+                    # enough to make a call
                     #if ((base not in aDnaSet) or (aPreviousBaseCounts[base] < aMinAltNumBases)):            
                     if ((base not in aDnaSet) or (aPreviousBaseCounts[base] < aPreviousMinAltNumBases)):
                         
@@ -948,7 +1019,8 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aM
                             if (anIsDebug):
                                 logging.debug("Modification found!  Base '%s' does not exist in the parent DNA %s or the parent count %s was not above the min %s", base, aDnaSet, str(aPreviousBaseCounts[base]), str(aPreviousMinAltNumBases))
                                 
-                            # if this is the first modification found, then record it in the "SS" field
+                            # if this is the first modification found,
+                            # then record it in the "SS" field
                             if (len(anInfoDict["SS"]) == 0):
                                 # germline
                                 if (aGainModType == "GERM"):
@@ -966,7 +1038,8 @@ def find_variants(aChr, aCoordinate, aRefBase, aNumBases, aReads, aBaseQuals, aM
                             
                             # it didn't match anything so far
                             for dna in aDnaSet:
-                                # check to see which parent bases were above the minimum
+                                # check to see which parent bases
+                                # were above the minimum
                                 #if (aPreviousBaseCounts[dna] >= aMinAltNumBases):
                                 if (aPreviousBaseCounts[dna] >= aPreviousMinAltNumBases):
                                     anInfoDict["MT"].append(aGainModType)
@@ -999,7 +1072,7 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
     ' aRefFilename - The filename of the reference
     ' aRadiaVersion - The version of RADIA
     ' aPatientId - The unique patient Id to be used in the SAMPLE tag
-    ' aParamDict - Used to record the parameters that were used to run RADIA and generate the VCF file.
+    ' aParamDict - Used to record the parameters that were used to run RADIA
     ' aFilenameList - Used in the SAMPLE tag
     ' aLabelList - Used in the SAMPLE tag
     ' aDescList - Used in the SAMPLE tag
@@ -1149,7 +1222,8 @@ def get_vcf_header(aVCFFormat, aRefId, aRefURL, aRefFilename, aFastaFilename, aR
            
 def pad(aList, aPadder, aLength):
     '''
-    ' This function pads a list with the value specified in the aPadder variable to the length specified in the aLength variable.
+    ' This function pads a list with the value specified in the aPadder
+    ' variable to the length specified in the aLength variable.
     '
     ' aList - The list to be padded
     ' aPadder - The value to pad with
@@ -1160,9 +1234,11 @@ def pad(aList, aPadder, aLength):
         
 def pad_output(anOutput, anEmptyOutput, anAlleleLength):
     '''
-    ' This function pads some of the output components with null or zero values.  If a variant is found in a sample and the output for 
-    ' previous samples has already been formatted, it needs to be reformatted with null or zero values.  For example, all of the allele 
-    ' specific components such as depth and frequency need to be set to zero in previous samples.
+    ' This function pads some of the output components with null or zero
+    ' values.  If a variant is found in a sample and the output for previous
+    ' samples has already been formatted, it needs to be reformatted with null
+    ' or zero values.  For example, all of the allele specific components such
+    ' as depth and frequency need to be set to zero in previous samples.
     '
     ' anOutput - The formatted output for a sample
     ' anAlleleLength - The number of alleles found at this site 
@@ -1365,7 +1441,7 @@ def main():
     #i_rnaTumLabel = i_cmdLineOptions.rnaTumorLabel
     i_rnaTumLabel = "RNA_TUMOR"
     
-    # the user can specify that the prefix should be used on all bams with one param
+    # the user can specify a universal prefix to be used on all bams
     if (i_useChrPrefix):
         i_dnaNormUseChr = True
         i_dnaTumUseChr = True
@@ -1501,13 +1577,14 @@ def main():
     if (i_universalFastaFilename != None):
         i_readFilenameList += [i_universalFastaFilename]
     
-    # need to set these for the vcf header, especially when only a universal fasta file is specified
+    # need to set these for the vcf header,
+    # especially when only a universal fasta file is specified
     i_cmdLineOptionsDict["dnaNormalFastaFilename"] = i_dnaNormalFastaFilename
     i_cmdLineOptionsDict["dnaTumorFastaFilename"] = i_dnaTumorFastaFilename
     i_cmdLineOptionsDict["rnaNormalFastaFilename"] = i_rnaNormalFastaFilename
     i_cmdLineOptionsDict["rnaTumorFastaFilename"] = i_rnaTumorFastaFilename
     
-    # assuming loglevel is bound to the string value obtained from the
+    # assuming log level is bound to the string value obtained from the
     # command line argument. Convert to upper case to allow the user to
     # specify --log=DEBUG or --log=debug
     i_numericLogLevel = getattr(logging, i_logLevel.upper(), None)
@@ -1684,14 +1761,14 @@ def main():
     i_chroms = list()
     i_starts = list()
     i_stops = list()
-    # when a coordinates file is provided: 
+    # when a coordinates file is provided:
     #    - if we should load the coordinate range:
     #        - set the overall range to be loaded
     #        - store the individual coordinate chroms, starts, and stops
     #    - else:
     #        - set all of the individual chroms, starts, and stops to be loaded
     if (i_coordinatesFilename != None):
-        coordinatesFileHandler = get_read_fileHandler(i_coordinatesFilename)
+        coordinatesFileHandler = radiaUtil.get_read_fileHandler(i_coordinatesFilename)
         if (i_loadCoordinatesRange):
             rangeDict = dict()
             for line in coordinatesFileHandler:
@@ -1757,7 +1834,7 @@ def main():
     # open the output stream
     i_outputFileHandler = None
     if (i_outputFilename != None):
-        i_outputFileHandler = get_write_fileHandler(i_outputFilename)
+        i_outputFileHandler = radiaUtil.get_write_fileHandler(i_outputFilename)
             
     # if we should output the header
     if (i_outputHeader):
@@ -1815,11 +1892,12 @@ def main():
     rnaNormalCoordinateWithData = 0
     rnaTumorCoordinateWithData = 0
     
-    # this only needs to be initialized once for the first pass through filterVariants
-    # filterVariants() creates a new baseCounts dict for each sample and returns it 
-    # these are used for 2 purposes:
-    # 1) to make a call when the previous sample didn't have enough bases for a call (not > aMinAltNumBases)
-    # 2) to determine the bases that were lost on an LOH call 
+    # this only needs to be initialized once for the first pass through
+    # filterVariants(). filterVariants() creates a new baseCounts dict for
+    # each sample and returns it. these are used for 2 purposes:
+    # 1) to make a call when the previous sample didn't have enough bases
+    #    for a call (not > aMinAltNumBases)
+    # 2) to determine the bases that were lost on an LOH call
     previousBaseCounts = collections.defaultdict(int)
     dnaNormalPreviousBaseCounts = collections.defaultdict(int)
     
@@ -1836,13 +1914,20 @@ def main():
     
         # get the generators that will yield the pileups
         # the order matters:  first check for pileups, then bams
-        # Note:  Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
-        #        Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params 
+        # Note:
+        #    - Use the get_sam_data() method when testing locally on a
+        #      .sam file or using the pileups files
+        #    - Use the get_bam_data() method when querying the entire
+        #      chromosome, coordinate ranges from the coordinates file,
+        #      or one coordinate range via the -a to -z params
         
-        # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        # Use the get_sam_data() method when testing locally on a .sam file
+        # or using the pileups files
         if (i_dnaNormalPileupsFilename != None):
             i_dnaNormalGenerator = get_sam_data(i_dnaNormalPileupsFilename, currentChrom, currentStart, currentStop, i_dnaNormLabel, i_debug)  
-        # Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params
+        # Use the get_bam_data() method when querying the entire chromosome,
+        # coordinate ranges from the coordinates file, or one coordinate range
+        # via the -a to -z params
         elif (i_dnaNormalFilename != None):
             # some bams/references use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_dnaNormMitochon != None):
@@ -1850,10 +1935,13 @@ def main():
             else:
                 i_dnaNormalGenerator = get_bam_data(i_dnaNormalFilename, i_dnaNormalFastaFilename, currentChrom, currentStart, currentStop, i_batchSize, i_dnaNormUseChr, i_dnaNormLabel, False, i_debug)
       
-        # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        # Use the get_sam_data() method when testing locally on a .sam file
+        # or using the pileups files
         if (i_rnaNormalPileupsFilename != None):
             i_rnaNormalGenerator = get_sam_data(i_rnaNormalPileupsFilename, currentChrom, currentStart, currentStop, i_rnaNormLabel, i_debug)                      
-        # Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params
+        # Use the get_bam_data() method when querying the entire chromosome,
+        # coordinate ranges from the coordinates file, or one coordinate range
+        # via the -a to -z params
         elif (i_rnaNormalFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_rnaNormMitochon != None):
@@ -1861,10 +1949,13 @@ def main():
             else:
                 i_rnaNormalGenerator = get_bam_data(i_rnaNormalFilename, i_rnaNormalFastaFilename, currentChrom, currentStart, currentStop, i_batchSize, i_rnaNormUseChr, i_rnaNormLabel, i_rnaIncludeSecondaryAlignments, i_debug)
             
-        # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        # Use the get_sam_data() method when testing locally on a .sam file
+        # or using the pileups files
         if (i_dnaTumorPileupsFilename != None):
             i_dnaTumorGenerator = get_sam_data(i_dnaTumorPileupsFilename, currentChrom, currentStart, currentStop, i_dnaTumLabel, i_debug)                      
-        # Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params
+        # Use the get_bam_data() method when querying the entire chromosome,
+        # coordinate ranges from the coordinates file, or one coordinate range
+        # via the -a to -z params
         elif (i_dnaTumorFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_dnaTumMitochon != None):
@@ -1872,10 +1963,13 @@ def main():
             else:
                 i_dnaTumorGenerator = get_bam_data(i_dnaTumorFilename, i_dnaTumorFastaFilename, currentChrom, currentStart, currentStop, i_batchSize, i_dnaTumUseChr, i_dnaTumLabel, False, i_debug)
         
-        # Use the get_sam_data() method when testing locally on a .sam file or using the pileups files
+        # Use the get_sam_data() method when testing locally on a .sam file or
+        # using the pileups files
         if (i_rnaTumorPileupsFilename != None):
             i_rnaTumorGenerator = get_sam_data(i_rnaTumorPileupsFilename, currentChrom, currentStart, currentStop, i_rnaTumLabel, i_debug)                      
-        # Use the get_bam_data() method when querying the entire chromosome, coordinate ranges from the coordinates file, or one coordinate range via the -a to -z params
+        # Use the get_bam_data() method when querying the entire chromosome,
+        # coordinate ranges from the coordinates file, or one coordinate range
+        # via the -a to -z params
         elif (i_rnaTumorFilename != None):
             # some bams/reference use "M", some use "MT"
             if (i_chrom == "M" or i_chrom == "MT" and i_rnaTumMitochon != None):
@@ -1884,7 +1978,8 @@ def main():
                 i_rnaTumorGenerator = get_bam_data(i_rnaTumorFilename, i_rnaTumorFastaFilename, currentChrom, currentStart, currentStop, i_batchSize, i_rnaTumUseChr, i_rnaTumLabel, i_rnaIncludeSecondaryAlignments, i_debug)
         
         # get the first pileup from each file
-        # if a file is not specified, then the "moreLines" flags will be set to false and initial values will be returned
+        # if a file is not specified, then the "moreLines" flags will be set
+        # to false and initial values will be returned
         (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals) = get_next_pileup(i_dnaNormalGenerator)
         (moreRnaNormalLines, rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalBaseQuals, rnaNormalMapQuals) = get_next_pileup(i_rnaNormalGenerator)
         (moreDnaTumorLines, dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals) = get_next_pileup(i_dnaTumorGenerator)
@@ -1893,12 +1988,13 @@ def main():
         # for each coordinate that we'd like to investigate
         for currentCoordinate in xrange(currentStart, currentStop+1):
             
-            # if the entire coordinate range has been loaded,
-            # but we're only interested in the coordinates in the coordinates file,
-            # and this coordinate is not in the file, then get the next coordinate and continue
+            # if the entire coordinate range has been loaded, but we're only
+            # interested in the coordinates in the coordinates file, and this
+            # coordinate is not in the file, then get the next coordinate and continue
             if (i_loadCoordinatesRange and i_coordinatesFilename != None and currentCoordinate not in i_lookupStarts):
                 
-                # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
+                # if there are more lines, and the coordinate is <= the
+                # current coordinate, then get the next pileup
                 if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
                     (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals) = get_next_pileup(i_dnaNormalGenerator)
                 if (moreRnaNormalLines and rnaNormalCoordinate <= currentCoordinate):
@@ -1910,22 +2006,22 @@ def main():
                 
                 # skipping a lookup that we don't care about
                 continue;
-            
+
             # for each coordinate
-                # if we have normal dna
-                    # compare to reference -> germline mutations
-                    
-                # if we have normal rna-seq
-                    # characterize germline variants
-                    # identify normal rna-editing
-                    
-                # if we have tumor dna
-                    # compare to reference and normal -> somatic mutations
-                
-                # if we have tumor rna-seq
-                    # characterize somatic mutations
-                    # identify tumor rna-editing
-        
+            #     if we have normal dna
+            #         compare to reference -> germline mutations
+
+            #     if we have normal rna-seq
+            #        characterize germline variants
+            #        identify normal rna-editing
+
+            #     if we have tumor dna
+            #         compare to reference and normal -> somatic mutations
+
+            #     if we have tumor rna-seq
+            #         characterize somatic mutations
+            #         identify tumor rna-editing
+
             if (i_debug):
                 logging.debug("currentCoordinate: %s", currentCoordinate)
                 logging.debug("Initial NormalDNAData: %s %s %s %s %s %s %s", dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals)
@@ -1933,9 +2029,10 @@ def main():
                 logging.debug("Initial TumorDNAData: %s %s %s %s %s %s %s", dnaTumorChr, dnaTumorCoordinate, dnaTumorRefBase, dnaTumorNumBases, dnaTumorReads, dnaTumorBaseQuals, dnaTumorMapQuals)
                 logging.debug("Initial TumorRNAData: %s %s %s %s %s %s %s", rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals)
                 
-            # if we are not looking up specific coordinates via the coordinates file,
-            # and we don't have any more data, then break out of the loop
-            # this can happen when testing, or when we've reached the end of all the data in the .mpileups files
+            # if we are not looking up specific coordinates via the coordinates
+            # file, and we don't have any more data, then break out of the loop
+            # this can happen when testing, or when we've reached the end of
+            # all the data in the .mpileups files
             if (i_coordinatesFilename == None and dnaNormalCoordinate == -1 and rnaNormalCoordinate == -1 and dnaTumorCoordinate == -1 and rnaTumorCoordinate == -1):
                 break
                 
@@ -1965,15 +2062,18 @@ def main():
             totalSumStrandBias = 0
             totalAltReadDepth = 0
             
-            # create some default output in case there are no reads for one dataset but there are for others
-            #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
+            # create some default output in case there are no reads for
+            # one dataset but there are for others
+            # columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT",
+            #                  "QUAL", "FILTER", "INFO", "FORMAT"]
             vcfOutputList = [currentChrom, str(currentCoordinate), "."]
             formatItemCount = len(formatString.split(":"))
-            # the default genotype should be '.' for haploid calls (e.g. chrom Y) and './.' for diploid calls
+            # the default genotype should be '.' for haploid calls
+            # (e.g. chrom Y) and './.' for diploid calls
             if (currentChrom != "Y"):
                 emptyFormatList = ["./."] + ["."] * (formatItemCount - 1)
             else:
-                emptyFormatList = ["."] * formatItemCount   
+                emptyFormatList = ["."] * formatItemCount
             emptyFormatString = ":".join(emptyFormatList)
             dnaNormalOutputString = emptyFormatString
             dnaTumorOutputString = emptyFormatString
@@ -2002,9 +2102,12 @@ def main():
             if (rnaTumorCoordinate == currentCoordinate and rnaTumorRefBase not in refList):
                 refList.append(rnaTumorRefBase)
             
-            # if we aren't debugging and we have an "N" in the ref or more than one ref, then just ignore this coordinate and move on to the next
+            # if we aren't debugging and we have an "N" in the ref or more
+            # than one ref, then just ignore this coordinate and move on
+            # to the next
             if (not i_debug and ("N" in refList or len(refList) > 1)):
-                # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
+                # if there are more lines, and the coordinate is <= the
+                # current coordinate, then get the next pileup
                 if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
                     (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals) = get_next_pileup(i_dnaNormalGenerator)
                 
@@ -2048,16 +2151,17 @@ def main():
             # if we have normal rna-seq reads at the current position
             if (rnaNormalCoordinate == currentCoordinate):
                 
-                # if either a normal or tumor file is specified, we will label them as edits
-                # if neither a normal file nor a tumor file is specified, we will label them as variants
+                # if either a normal or tumor file is specified, we will label
+                # them as edits. if neither a normal file nor a tumor file is
+                # specified, we will label them as variants
                 if (i_dnaNormalFilename == None and i_dnaTumorFilename == None and i_dnaNormalPileupsFilename == None and i_dnaTumorPileupsFilename == None):
                     gainModType = "RNA_NOR_VAR"
                 else:
-                    gainModType = "NOR_EDIT"    
+                    gainModType = "NOR_EDIT"
                 lossModType = "NOTEXP"
                 
-                # this is temporary, b/c we don't want to output NOTEXP right now
-                # need to think about this in more detail
+                # this is temporary, b/c we don't want to output NOTEXP
+                # right now. need to think about this in more detail
                 previousUniqueBases = ""
                 
                 (rnaNormalOutputString, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalNormEdits, totalNormNotExp, infoDict, numBases, insCount, delCount, starts, stops, totalBaseQual, totalMapQual, totalMapQualZero, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaNormalChr, rnaNormalCoordinate, rnaNormalRefBase, rnaNormalNumBases, rnaNormalReads, rnaNormalBaseQuals, rnaNormalMapQuals, previousUniqueBases, previousBaseCounts, rnaNormalReadDPDict, rnaNormalAltPercentDict, rnaNormalCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalNormEdits, totalNormNotExp, gainModType, lossModType, infoDict, i_rnaNormMinTotalNumBases, i_rnaNormMinAltNumBases, i_dnaNormMinAltNumBases, i_rnaNormMinBaseQual, i_rnaNormMinMapQual, coordinateBaseQualsList, "RNA_NORMAL", i_genotypeMinDepth, i_genotypeMinPct, rnaNormalOutputString, i_debug)
@@ -2080,8 +2184,8 @@ def main():
             # if we have tumor reads at the current position
             if (dnaTumorCoordinate == currentCoordinate):
                     
-                # if a normal file is specified, we will label them as somatic mutations
-                # otherwise, we will just call them variants
+                # if a normal file is specified, we will label them as
+                # somatic mutations, otherwise, we will just call them variants
                 if (i_dnaNormalFilename != None or i_dnaNormalPileupsFilename != None):
                     gainModType = "SOM"
                 else:
@@ -2109,16 +2213,17 @@ def main():
             # if we have tumor rna-seq reads at the current position
             if (rnaTumorCoordinate == currentCoordinate):
                 
-                # if either a normal or tumor file is specified, we will label them as edits
-                # if neither a normal file nor a tumor file is specified, we will label them as variants
+                # if either a normal or tumor file is specified, we will label
+                # them as edits. if neither a normal file nor a tumor file is
+                # specified, we will label them as variants
                 if (i_dnaNormalFilename == None and i_dnaTumorFilename == None and i_dnaNormalPileupsFilename == None and i_dnaTumorPileupsFilename == None):
                     gainModType = "RNA_TUM_VAR"
                 else:
                     gainModType = "TUM_EDIT"
                 lossModType = "NOTEXP"
                 
-                # this is temporary, b/c we don't want to output NOTEXP right now
-                # need to think about this in more detail
+                # this is temporary, b/c we don't want to output NOTEXP
+                # right now. need to think about this in more detail
                 previousUniqueBases = ""
                 
                 (rnaTumorOutputString, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, altList, altCountsDict, hasRNA, shouldOutput, numTotalBasesFilter, numAltBasesFilter, totalTumEdits, totalTumNotExp, infoDict, numBases, insCount, delCount, starts, stops, totalBaseQual, totalMapQual, totalMapQualZero, totalStrandBias, totalAltReadSupport, coordinateBaseQualsList) = find_variants(rnaTumorChr, rnaTumorCoordinate, rnaTumorRefBase, rnaTumorNumBases, rnaTumorReads, rnaTumorBaseQuals, rnaTumorMapQuals, previousUniqueBases, previousBaseCounts, rnaTumorReadDPDict, rnaTumorAltPercentDict, rnaTumorCoordinateWithData, dnaSet, refList, altList, altCountsDict, hasRNA, shouldOutput, totalTumEdits, totalTumNotExp, gainModType, lossModType, infoDict, i_rnaTumMinTotalNumBases, i_rnaTumMinAltNumBases, i_dnaTumMinAltNumBases, i_rnaTumMinBaseQual, i_rnaTumMinMapQual, coordinateBaseQualsList, "RNA_TUMOR", i_genotypeMinDepth, i_genotypeMinPct, rnaTumorOutputString, i_debug)
@@ -2154,12 +2259,13 @@ def main():
                 (i_debug and hasDNA or hasRNA)):
                 
                 # the chrom, position, and Id columns have been filled
-                #columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT", "QUAL", "FILTER", "INFO", "FORMAT"]
+                # columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT",
+                #                  "QUAL", "FILTER", "INFO", "FORMAT"]
                 
                 # add the ref, alt, and score
                 vcfOutputList.append(",".join(refList))
-                # if we are outputting all data, 
-                # there might not be an ALT to 
+                # if we are outputting all data,
+                # there might not be an ALT to
                 # output, so default to '.'
                 if (len(altList) == 0):
                     vcfOutputList.append(".")
@@ -2172,23 +2278,25 @@ def main():
                 if ("N" in refList):
                     filterList.append("noref")
                 # if there is more than one reference, then set the filter
-                if (len(refList) > 1):   
-                    filterList.append("diffref")  
-                # if none of the samples have enough total bases, then set the filter
+                if (len(refList) > 1):
+                    filterList.append("diffref")
+                # if none of the samples have enough total bases,
+                # then set the filter
                 if (setMinTotalBasesFlag):
                     filterList.append("mbt")
-                # if none of the samples have enough ALT bases, then set the filter
+                # if none of the samples have enough ALT bases,
+                # then set the filter
                 if (setMinAltBasesFlag):
-                    filterList.append("mba")    
-                # if there are no filters thus far, then pass it    
+                    filterList.append("mba")
+                # if there are no filters thus far, then pass it
                 if (len(filterList) == 0):
                     filterList.append("PASS")
                 
                 # if we should output all data and we have data, or
                 # if we should output and we pass the basic filters, or
-                # if we are debugging, and this call doesn't pass    
+                # if we are debugging, and this call doesn't pass
                 if ((i_outputAllData and totalReadDepth > 0) or
-                    (shouldOutput and "PASS" in filterList) or 
+                    (shouldOutput and "PASS" in filterList) or
                     (i_debug and "PASS" not in filterList)):
                     vcfOutputList.append(";".join(filterList))
                     
@@ -2214,7 +2322,8 @@ def main():
                     #vcfHeader += "##INFO=<ID=SS,Number=1,Type=Integer,Description=\"Variant status relative to non-adjacent Normal,0=wildtype,1=germline,2=somatic,3=LOH,4=post-transcriptional modification,5=unknown\">\n"
                     #vcfHeader += "##INFO=<ID=VT,Number=1,Type=String,Description=\"Variant type, can be SNP, INS or DEL\">\n"
                     
-                    # add the alt counts and frequencies in the same order as the alt list 
+                    # add the alt counts and frequencies in the
+                    # same order as the alt list
                     for base in altList:
                         infoDict["AC"].append(str(altCountsDict[base]))
                         infoDict["AF"].append(str(round(altCountsDict[base]/float(totalReadDepth),2)))
@@ -2276,7 +2385,8 @@ def main():
             if (hasDNA and hasRNA):
                 countRnaDnaCoordinateOverlap += 1
             
-            # if there are more lines, and the coordinate is <= the current coordinate, then get the next pileup
+            # if there are more lines, and the coordinate is <= the
+            # current coordinate, then get the next pileup
             if (moreDnaNormalLines and dnaNormalCoordinate <= currentCoordinate):
                 (moreDnaNormalLines, dnaNormalChr, dnaNormalCoordinate, dnaNormalRefBase, dnaNormalNumBases, dnaNormalReads, dnaNormalBaseQuals, dnaNormalMapQuals) = get_next_pileup(i_dnaNormalGenerator)
             if (moreRnaNormalLines and rnaNormalCoordinate <= currentCoordinate):
@@ -2298,20 +2408,20 @@ def main():
         i_genStatsFileHandler.write(i_id + "\t" + currentChrom + "\t" + str(dnaNormalCoordinateWithData) + "\t" + str(rnaNormalCoordinateWithData) + "\t" + str(dnaTumorCoordinateWithData) + "\t" + str(rnaTumorCoordinateWithData) + "\n")
         i_genStatsFileHandler.close()
     
-    stopTime = time.time()  
+    stopTime = time.time()
     
     summaryMessage = "Summary for Chrom " + i_chrom + " and Id " + i_id + ": "
     if (i_dnaNormalFilename != None or i_dnaNormalPileupsFilename != None):
-        #summaryMessage += "Total GERMs=" + str(totalGerms-totalLohs) + ", "
+        # summaryMessage += "Total GERMs=" + str(totalGerms-totalLohs) + ", "
         summaryMessage += "Total GERMs=" + str(totalGerms) + ", "
     if (i_rnaNormalFilename != None or i_rnaNormalPileupsFilename != None):
         summaryMessage += "Total Normal RNA Variants/Edits=" + str(totalNormEdits) + ", "
     if (i_dnaTumorFilename != None or i_dnaTumorPileupsFilename != None):
         summaryMessage += "Total SOMs=" + str(totalSoms) + ", "
-        #summaryMessage += "Total LOHs=" + str(totalLohs) + ", "
+        # summaryMessage += "Total LOHs=" + str(totalLohs) + ", "
     if (i_rnaTumorFilename != None or i_rnaTumorPileupsFilename != None):
         summaryMessage += "Total Tumor RNA Variants/Edits=" + str(totalTumEdits) + ", "
-    #summaryMessage += "Total coordinates with both DNA and RNA=" + str(countRnaDnaCoordinateOverlap) + ", "
+        # summaryMessage += "Total coordinates with both DNA and RNA=" + str(countRnaDnaCoordinateOverlap) + ", "
     
     logging.info(summaryMessage.rstrip(", "))
     if (i_outputFilename != None):
@@ -2319,11 +2429,11 @@ def main():
     else:
         logging.info("radia.py Chrom %s and Id %s: Total time=%s hrs, %s mins, %s secs", currentChrom, i_id, ((stopTime-startTime)/(3600)), ((stopTime-startTime)/60), (stopTime-startTime))
            
-    # close the files 
+    # close the files
     if (i_outputFilename != None):
         i_outputFileHandler.close()
     return
- 
- 
-main()    
+
+
+main()
 sys.exit(0)
