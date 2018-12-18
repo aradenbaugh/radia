@@ -7,7 +7,6 @@ import logging
 import os
 #import time
 import subprocess
-import gzip
 
 
 '''
@@ -29,30 +28,6 @@ import gzip
 '    You should have received a copy of the GNU Affero General Public License
 '    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
-
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
 
 
 def filter_blacklist(aPythonExecutable, anId, aChromId, anInputFilename, anOutputDir, aPrefix, aBlacklistDir, aScriptsDir, aJobListFileHandler, aGzipFlag, anIsDebug):
@@ -759,7 +734,7 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
     
     # if no fasta file was specified, try to get it from the header file
     if (aFastaFile == None):
-        fileHandler = get_read_fileHandler(aHeaderFilename)
+        fileHandler = radiaUtil.get_read_fileHandler(aHeaderFilename)
          
         for line in fileHandler:
               
@@ -1326,7 +1301,7 @@ def main():
     
     i_joblistFileHandler = None
     if (i_joblistDir != None):
-        i_joblistFileHandler = get_write_fileHandler(os.path.join(i_joblistDir, i_id + "_chr" + i_chr + ".sh"))
+        i_joblistFileHandler = radiaUtil.get_write_fileHandler(os.path.join(i_joblistDir, i_id + "_chr" + i_chr + ".sh"))
         if (i_shebang != None):
             i_joblistFileHandler.write(i_shebang + "\n")
     

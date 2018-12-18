@@ -6,7 +6,6 @@ from optparse import OptionParser
 import radiaUtil
 import os
 import logging
-import gzip
 import collections
 
 
@@ -31,30 +30,6 @@ import collections
 '''
 
 
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-    
-    
 def merge_filters(anRnaFilterColumn, aDnaFilterColumn):
     # merge the filters for the FILTER column
     # get the rna filters
@@ -141,11 +116,11 @@ def set_sst_field(anInfoField):
 def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile, aDnaHeaderOnlyFlag, anIsDebug):
     
     # open the header file
-    dnaFileHandler = get_read_fileHandler(aDnaFile)
-    rnaFileHandler = get_read_fileHandler(anRnaFile)
-    overlapsFileHandler = get_read_fileHandler(anOverlapsFile)
+    dnaFileHandler = radiaUtil.get_read_fileHandler(aDnaFile)
+    rnaFileHandler = radiaUtil.get_read_fileHandler(anRnaFile)
+    overlapsFileHandler = radiaUtil.get_read_fileHandler(anOverlapsFile)
     if (os.path.isfile(aNonOverlapsFile)):
-        nonOverlapsFileHandler = get_read_fileHandler(aNonOverlapsFile)
+        nonOverlapsFileHandler = radiaUtil.get_read_fileHandler(aNonOverlapsFile)
     
     headerList = list()
     coordinateDict = dict()
@@ -518,7 +493,7 @@ def main():
     # get the VCF generator
     (headerList, coordinateDict) = merge_vcf_data(i_dnaFilename, i_rnaFilename, i_overlapsFilename, i_nonOverlapsFilename, i_dnaHeaderOnly, i_debug)
     
-    outputFileHandler = get_write_fileHandler(i_outputFilename)
+    outputFileHandler = radiaUtil.get_write_fileHandler(i_outputFilename)
     
     for headerLine in headerList:
         outputFileHandler.write(headerLine)

@@ -6,7 +6,6 @@ import radiaUtil
 import logging
 import collections
 import re
-import gzip
 
 
 '''
@@ -30,30 +29,6 @@ import gzip
 '''
 
 
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-
-
 def get_rna_genes(anRnaGeneFile, anRnaGeneFamilyFile, anIsDebug):
     '''
     ' This function parses the RNA gene and RNA gene family blacklist files.
@@ -64,8 +39,8 @@ def get_rna_genes(anRnaGeneFile, anRnaGeneFamilyFile, anIsDebug):
     '''
     
     # open the file
-    geneFileHandler = get_read_fileHandler(anRnaGeneFile)
-    geneFamilyFileHandler = get_read_fileHandler(anRnaGeneFamilyFile)
+    geneFileHandler = radiaUtil.get_read_fileHandler(anRnaGeneFile)
+    geneFamilyFileHandler = radiaUtil.get_read_fileHandler(anRnaGeneFamilyFile)
     rnaGeneList = list()
     rnaGeneFamilyList = list()
     
@@ -182,13 +157,13 @@ def main():
     # open the output stream
     i_outputFileHandler = None
     if (i_outputFilename != None):
-        i_outputFileHandler = get_write_fileHandler(i_outputFilename)
+        i_outputFileHandler = radiaUtil.get_write_fileHandler(i_outputFilename)
     
     # get the RNA gene blacklists
     (i_rnaGeneList, i_rnaGeneFamilyList) = get_rna_genes(i_rnaGeneFilename, i_rnaGeneFamilyFilename, i_debug)
     
     hasAddedHeader = False
-    i_vcfFileHandler = get_read_fileHandler(i_vcfFilename)
+    i_vcfFileHandler = radiaUtil.get_read_fileHandler(i_vcfFilename)
     vcfHeader = "##FILTER=<ID=rgene,Description=\"This gene is on the RNA gene blacklist\">\n"
     vcfHeader += "##FILTER=<ID=rgfam,Description=\"This gene family is on the RNA gene family blacklist\">\n"
     

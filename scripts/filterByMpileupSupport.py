@@ -8,7 +8,6 @@ import logging
 from itertools import izip
 import re
 from math import floor
-import gzip
 
 '''
 '    RNA and DNA Integrated Analysis (RADIA):
@@ -34,30 +33,6 @@ import gzip
 i_headerIDRegEx = re.compile("ID=(\\w)*,")
 # this regular expression is used to extract the Type tag from the INFO and FORMAT fields
 i_headerTypeRegEx = re.compile("Type=(\\w)*,")
-
-
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
 
 
 def fix_genotypes(aChrom, aRefList, anAltList, anAlleleDepthsList, aParamsDict):
@@ -575,7 +550,7 @@ def filterByMaxError(aRefPlusAltList, aParamsDict, aSampleDict, aSourceIndex, aT
 def get_sample_columns(aFilename, aHeaderDict, anIsDebug):
     
     # get the file
-    i_fileHandler = get_read_fileHandler(aFilename)
+    i_fileHandler = radiaUtil.get_read_fileHandler(aFilename)
     
     for line in i_fileHandler:
         # strip the carriage return and newline characters
@@ -732,7 +707,7 @@ def get_mpileup_header(anAddOriginFlag):
 def get_vcf_header(aHeaderDict, aFilename, aCmdLineParams, aColumnsList, anIsDebug):
     
     # open the file
-    vcfFileHandler = get_read_fileHandler(aFilename)
+    vcfFileHandler = radiaUtil.get_read_fileHandler(aFilename)
     
     for line in vcfFileHandler:
         
@@ -862,7 +837,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
     # get the output file handler
     i_outputFileHandler = None
     if (anOutputFilename):
-        i_outputFileHandler = get_write_fileHandler(anOutputFilename)
+        i_outputFileHandler = radiaUtil.get_write_fileHandler(anOutputFilename)
     
     # get the mpileup filter header lines
     headerDict = get_mpileup_header(anAddOriginFlag)
@@ -884,7 +859,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename, anOut
     i_outputFileHandler.write(headerDict["chrom"])
     
     # get the file
-    i_vcfFileHandler = get_read_fileHandler(aVCFFilename)
+    i_vcfFileHandler = radiaUtil.get_read_fileHandler(aVCFFilename)
         
     # for each event in the vcf file 
     for line in i_vcfFileHandler:

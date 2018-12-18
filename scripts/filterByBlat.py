@@ -7,7 +7,6 @@ from itertools import izip
 import radiaUtil
 import collections
 import logging
-import gzip
 
 '''
 '    RNA and DNA Integrated Analysis (RADIA):
@@ -30,30 +29,6 @@ import gzip
 '''
 
 
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-
-
 def get_vcf_data(aVcfFile, aPassOnlyFlag, anIsDebug):
     '''
     ' This function reads from a .vcf input file and uses the python generator to yield the information
@@ -66,7 +41,7 @@ def get_vcf_data(aVcfFile, aPassOnlyFlag, anIsDebug):
     ''' 
     
     # open the VCF file
-    fileHandler = get_read_fileHandler(aVcfFile)
+    fileHandler = radiaUtil.get_read_fileHandler(aVcfFile)
      
     for line in fileHandler:
           
@@ -130,7 +105,7 @@ def parse_blat_output(aBlatFile, anOutputFormat, anIsDebug):
     '''
     
     # open the file
-    fileHandler = get_read_fileHandler(aBlatFile)
+    fileHandler = radiaUtil.get_read_fileHandler(aBlatFile)
     blatHitsDict = collections.defaultdict(dict)
      
     for line in fileHandler:
@@ -499,7 +474,7 @@ def main():
     # open the output stream
     i_outputFileHandler = None
     if (i_outputFilename != None):
-        i_outputFileHandler = get_write_fileHandler(i_outputFilename)
+        i_outputFileHandler = radiaUtil.get_write_fileHandler(i_outputFilename)
     
     # get the BLAT results
     i_blatCoordinateDict = parse_blat_output(i_blatOutputFilename, i_blatOutputFormat, i_debug)

@@ -7,7 +7,6 @@ import radiaUtil
 import os
 import glob
 import logging
-import gzip
 
 
 '''
@@ -30,30 +29,6 @@ import gzip
 '    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-    
 
 def get_vcf_data(anId, anInputDir, anIsDebug):
     
@@ -81,7 +56,7 @@ def get_vcf_data(anId, anInputDir, anIsDebug):
     # they might be gzipped, they might not    
     for vcfFile in (glob.glob(anInputDir + anId + "_chr*.vcf*")):
         # open the file
-        vcfFileHandler = get_read_fileHandler(vcfFile)
+        vcfFileHandler = radiaUtil.get_read_fileHandler(vcfFile)
         
         for line in vcfFileHandler:
             
@@ -226,7 +201,7 @@ def main():
     else:
         i_outputFilename = os.path.join(i_outputDir, i_id + ".vcf")
     
-    outputFileHandler = get_write_fileHandler(i_outputFilename)
+    outputFileHandler = radiaUtil.get_write_fileHandler(i_outputFilename)
     
     # if we have header info to output
     if (len(headerDict["metadata"]) > 0):

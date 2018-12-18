@@ -6,7 +6,6 @@ import radiaUtil                    # utility functions for rna editing
 import logging
 import time
 import collections
-import gzip
 
 
 '''
@@ -30,42 +29,6 @@ import gzip
 '''
 
 
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-    
-
-def get_append_fileHandler(aFilename):
-    '''
-    ' Open aFilename for appending and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'ab')
-    else:
-        return open(aFilename,'a')
-
-
 def get_vcf_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIsDebug):
     '''
     ' The .vcf files must have at least 10 fields:  chromosome, coordinate, id
@@ -79,7 +42,7 @@ def get_vcf_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIsDebug):
     ' anIsDebug: A flag for outputting debug messages to STDERR
     '''
     
-    inputFileHandler = get_read_fileHandler(anInputFilename)
+    inputFileHandler = radiaUtil.get_read_fileHandler(anInputFilename)
     outputDict = {}
      
     for line in inputFileHandler:
@@ -206,7 +169,7 @@ def get_maf_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIsDebug):
     ' anIsDebug: A flag for outputting debug messages to STDERR
     '''
     
-    inputFileHandler = get_read_fileHandler(anInputFilename)
+    inputFileHandler = radiaUtil.get_read_fileHandler(anInputFilename)
     outputDict = {}
      
     for line in inputFileHandler:
@@ -311,7 +274,7 @@ def get_validation_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIs
     ' anIsDebug: A flag for outputting debug messages to STDERR
     '''
     
-    inputFileHandler = get_read_fileHandler(anInputFilename)
+    inputFileHandler = radiaUtil.get_read_fileHandler(anInputFilename)
     outputDict = {}
      
     for line in inputFileHandler:
@@ -395,7 +358,7 @@ def get_simulation_data(anInputFilename, aStatsDict, aCompareDict, aPrefix, anIs
     ' anIsDebug: A flag for outputting debug messages to STDERR
     '''
     
-    inputFileHandler = get_read_fileHandler(anInputFilename)
+    inputFileHandler = radiaUtil.get_read_fileHandler(anInputFilename)
     outputDict = {}
      
     for line in inputFileHandler:
@@ -496,9 +459,9 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
     #(i_cmpDict, i_statsDict) = get_simulation_data(aCompareFilename, i_statsDict, aCompareDict, "cmp", anIsDebug)
     
     if (anOverlapFilename != None):
-        overlapFileHandler = get_write_fileHandler(anOverlapFilename)
+        overlapFileHandler = radiaUtil.get_write_fileHandler(anOverlapFilename)
     if (aNonOverlapFilename != None):
-        nonOverlapFileHandler = get_write_fileHandler(aNonOverlapFilename)
+        nonOverlapFileHandler = radiaUtil.get_write_fileHandler(aNonOverlapFilename)
 
     # initialize some variables
     startTime = time.time()
@@ -703,7 +666,7 @@ def compare_events(aTCGAId, aChrom, aRadiaFilename, aCompareFilename, aStatsFile
     # get the files
     i_statsFileHandler = None
     if (aStatsFilename != None):
-        i_statsFileHandler = get_append_fileHandler(aStatsFilename)
+        i_statsFileHandler = radiaUtil.get_append_fileHandler(aStatsFilename)
         i_statsFileHandler.write("\t".join(outputList) + "\n")
         i_statsFileHandler.close() 
                         

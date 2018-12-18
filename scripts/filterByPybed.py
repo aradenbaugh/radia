@@ -6,7 +6,6 @@ import radiaUtil                    # utility functions for rna editing
 import logging
 import time
 from pybed import pybed
-import gzip
 
 
 '''
@@ -28,30 +27,6 @@ import gzip
 '    You should have received a copy of the GNU Affero General Public License
 '    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
-
-
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
 
 
 def get_vcf_data(anInputFileHandler, anOutputFileHandler, aHeaderLine, anIsDebug):
@@ -230,12 +205,12 @@ def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename,
     filterPybed.loadfromfile(aBedFilename)
     
     # get the vcf file
-    i_vcfFileHandler = get_read_fileHandler(aVCFFilename)
+    i_vcfFileHandler = radiaUtil.get_read_fileHandler(aVCFFilename)
     
     # get the output file
     i_outputFileHandler = None
     if (anOutputFilename != None):
-        i_outputFileHandler = get_write_fileHandler(anOutputFilename)
+        i_outputFileHandler = radiaUtil.get_write_fileHandler(anOutputFilename)
     
     # create the generator for the vcf file
     vcfGenerator = get_vcf_data(i_vcfFileHandler, i_outputFileHandler, aFilterHeaderLine, anIsDebug)

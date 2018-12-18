@@ -5,7 +5,6 @@ import time
 from optparse import OptionParser
 import radiaUtil
 import logging
-import gzip
 
 
 '''
@@ -29,30 +28,6 @@ import gzip
 '''
 
 
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-
-
 def get_vcf_data(aVCFFile, anIsDebug):
     
     headerList = list()
@@ -61,7 +36,7 @@ def get_vcf_data(aVCFFile, anIsDebug):
     filterList = list() 
     coordinateDict = dict()
     
-    vcfFileHandler = get_read_fileHandler(aVCFFile)
+    vcfFileHandler = radiaUtil.get_read_fileHandler(aVCFFile)
     
     for line in vcfFileHandler:
         
@@ -171,7 +146,7 @@ def main():
     (passHeaderList, chromLine, passInfoList, passFilterList, passCoordinateDict) = get_vcf_data(i_passingFilename, i_debug)
     (orgHeaderList, chromLine, orgInfoList, orgFilterList, orgCoordinateDict) = get_vcf_data(i_originalFilename, i_debug)    
     
-    outputFileHandler = get_write_fileHandler(i_outputFilename)
+    outputFileHandler = radiaUtil.get_write_fileHandler(i_outputFilename)
     
     for headerLine in orgHeaderList:
         outputFileHandler.write(headerLine + "\n")

@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 import sys
-import gzip
+import radiaUtil
 
 
 '''
@@ -23,30 +23,6 @@ import gzip
 '    along with this program.  If not, see <http://www.gnu.org/licenses/>.
 '''
 
-
-def get_read_fileHandler(aFilename):
-    '''
-    ' Open aFilename for reading and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'rb')
-    else:
-        return open(aFilename,'r')
-
-
-def get_write_fileHandler(aFilename):
-    '''
-    ' Open aFilename for writing and return
-    ' the file handler.  The file can be 
-    ' gzipped or not.
-    '''
-    if aFilename.endswith('.gz'):
-        return gzip.open(aFilename,'wb')
-    else:
-        return open(aFilename,'w')
-    
 
 def overlap(t, q, buf = 0):
     if len(t) == 0 or len(q) == 0:
@@ -201,7 +177,7 @@ class pybed:
 
     def loadfromfile(self, fname, ci=0, sti=1, spi=2, vi=3):
             
-        inFile = get_read_fileHandler(fname)
+        inFile = radiaUtil.get_read_fileHandler(fname)
 
         for line in inFile:
             data = line[:-1].split('\t')
