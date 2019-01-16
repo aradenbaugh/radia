@@ -24,7 +24,7 @@ import radiaUtil
 '''
 
 
-def overlap(t, q, buf = 0):
+def overlap(t, q, buf=0):
     if len(t) == 0 or len(q) == 0:
         return []
 
@@ -32,22 +32,23 @@ def overlap(t, q, buf = 0):
     for tst, tsp, tv in t:
         for qst, qsp, qv in q:
             if tst <= qsp + buf and tsp >= qst - buf:
-                tuples.append( (tst, tsp, tv) )
+                tuples.append((tst, tsp, tv))
                 break
-            
+
     return tuples
+
 
 class pybed:
     def __init__(self, binsize=100000):
-        self.paired  = False
+        self.paired = False
         self.binsize = binsize
-        self.chroms  = {}
+        self.chroms = {}
         self.rchroms = {}
         for i in range(1, 23):
             self.chroms[str(i)] = i
             self.chroms['chr' + str(i)] = i
             self.rchroms[i] = 'chr' + str(i)
-        
+
         i += 1
         self.chroms['X'] = i
         self.chroms['chrX'] = i
@@ -83,10 +84,10 @@ class pybed:
             for b in sd[c]:
                 count += len(sd[c][b])
         return count
-    
+
     def output(self, f=sys.stdout, delim='\t'):
         sd = self.data
-        
+
         for c in sd:
             chrom = self.rchroms[c]
             for b in sd[c]:
@@ -94,7 +95,7 @@ class pybed:
                     v = [chrom, str(st), str(sp), v]
                     print >> f, delim.join(v)
 
-    def intersect(self, other, buffer=0):
+    def intersect(self, other, buf=0):
         new = pybed()
         sd = self.data
         od = other.data
@@ -104,85 +105,91 @@ class pybed:
             for b in sd[c]:
                 if b not in od[c]:
                     continue
-                ovtuples = overlap(sd[c][b], od[c][b], buffer)
+                ovtuples = overlap(sd[c][b], od[c][b], buf)
                 for ov in ovtuples:
                     st, sp, v = ov
-                    new.loadtuple( (chrom, st, sp, v) )
+                    new.load_bins((chrom, st, sp, v))
 
         return new
-    
-    def findbin(self, pos):
-        return int( round(float(pos) / float(self.binsize)) * self.binsize )
 
-    def overlapswith(self, tuple, anIncludeCount, buf=0):
-        chrom, st, sp = tuple
-        #print chrom, st, sp
+    def find_bin(self, pos):
+        return int(round(float(pos) / float(self.binsize)) * self.binsize)
+
+    def overlaps_with(self, aPosition, anIncludeCount, buf=0):
+        chrom, st, sp = aPosition
+        # print chrom, st, sp
 
         try:
             c = self.chroms[chrom]
-        except:
-            #print "no chrom"
-            return (False, "", 0)       
+        except KeyError:
+            # print "no chrom"
+            return (False, "", 0)
 
-        b = self.findbin(st)
-        #print self.data
-        #print "bin", b
+        b = self.find_bin(st)
+        # print self.data
+        # print "bin", b
 
         if b not in self.data[c]:
-            #print "bin not in data"
+            # print "bin not in data"
             return (False, "", 0)
-        
-        count=0
+
+        count = 0
         for qst, qsp, qv in self.data[c][b]:
-            #if st <= qsp + buf and sp >= qst - buf:
-            #print "loop", st, qst, qsp, qv
+            # print "loop", st, qst, qsp, qv
+            # if the bed file has 93-94, then this code will include
+            # 92-93, 93-94, and 94-95 as overlaps:
+            # if st <= qsp + buf and sp >= qst - buf:
+            # if the bed file has 93-94, then this code will include
+            # just 93-94 as overlaps (preferred):
             if st >= qst + buf and sp <= qsp - buf:
                 if (anIncludeCount):
                     count += 1
                 else:
                     return (True, qv, 0)
-                #print st, ">=", qst, sp, "<=", qsp, "count=", count
+                # print st, ">=", qst, sp, "<=", qsp, "count=", count
             # if the start is past the bin stop, then stop looping
             if (qst > sp):
-                #print qst, ">", sp, "break"
-                break;
-                
+                # print qst, ">", sp, "break"
+                break
+
         if (count > 0):
             return (True, qv, count)
 
-        #print "didn't overlap"
+        # print "didn't overlap"
         return (False, "", 0)
-        
-    def loadtuple(self, tuple):
-        chrom, st, sp, v = tuple
-        #print "trying to load", chrom, st, sp
+
+    def load_bins(self, position):
+        chrom, st, sp, v = position
+        # print "trying to load", chrom, st, sp
 
         try:
             c = self.chroms[chrom]
-        except:
-            #print "problem with chrom"
+        except KeyError:
+            # print "problem with chrom"
             return
-        
-        startBin = self.findbin(st)
-        stopBin = self.findbin(sp)
-        #print "loading bin" , startBin, stopBin
 
-        for currentBin in range(startBin, (stopBin + self.binsize), self.binsize):
+        startBin = self.find_bin(st)
+        stopBin = self.find_bin(sp)
+        # print "loading bin" , startBin, stopBin
+
+        for currentBin in range(startBin,
+                                stopBin + self.binsize,
+                                self.binsize):
             if currentBin not in self.data[c]:
-                #print currentBin, "not in data"
+                # print currentBin, "not in data"
                 self.data[c][currentBin] = []
 
-            self.data[c][currentBin].append( (st, sp, v) )
-            #print "appending", st, sp
+            self.data[c][currentBin].append((st, sp, v))
+            # print "appending", st, sp
 
-    def loadfromfile(self, fname, ci=0, sti=1, spi=2, vi=3):
-            
+    def load_from_file(self, fname, ci=0, sti=1, spi=2, vi=3):
+
         inFile = radiaUtil.get_read_fileHandler(fname)
 
         for line in inFile:
             data = line[:-1].split('\t')
 
-            c  = data[ci]
+            c = data[ci]
             st = int(data[sti])
             sp = int(data[spi])
 
@@ -190,9 +197,7 @@ class pybed:
                 v = ''
             else:
                 v = data[vi]
-            
-            self.loadtuple( (c, st, sp, v) )
+
+            self.load_bins((c, st, sp, v))
 
         inFile.close()
-
-    

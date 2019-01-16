@@ -35,7 +35,8 @@ def get_vcf_data(anInputFileHandler, anOutputFileHandler, aHeaderLine, anIsDebug
     ' references, alts, quality score, filters, infos, format, and summary info
     ' for at least one .bam file.
     '
-    ' Note: vcf files are 1-based, so create a fake startCoordinate to compare to 0-based beds
+    ' Note: vcf files are 1-based, so create a fake startCoordinate to compare
+    ' to 0-based beds
     '
     ' anInputFileHandler: The input stream for the file
     ' anOutputFileHandler: The output stream for the file
@@ -67,7 +68,7 @@ def get_vcf_data(anInputFileHandler, anOutputFileHandler, aHeaderLine, anIsDebug
                 print >> sys.stdout, aHeaderLine
                 print >> sys.stdout, line
 
-        # these lines are from previous scripts in the pipeline, so output them    
+        # these lines are from previous scripts in the pipeline, so output them
         elif (line.startswith("#")):
             if (anOutputFileHandler != None):
                 anOutputFileHandler.write(line + "\n")
@@ -84,7 +85,7 @@ def get_vcf_data(anInputFileHandler, anOutputFileHandler, aHeaderLine, anIsDebug
             chrom = splitLine[0]
             stopCoordinate = int(splitLine[1])
             # since vcf files are 1-based and bed files are 0-based,
-            # make a fake starting coordinate so that we can compare 
+            # make a fake starting coordinate so that we can compare
             # on the 0-based level
             startCoordinate = (stopCoordinate-1)
             ids = splitLine[2]
@@ -170,57 +171,69 @@ def add_id(aVCFId, anIdName):
         vcfIdList = aVCFId.split(";")
         vcfIdList.append(anIdName)
         return ";".join(vcfIdList)
-        
-        
+
+
 def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename, aFilterName, aFilterField, anIncludeOverlapInfo, anIncludeFilterName, anIdField, anIncludeId, anIncludeCount, aFilterHeaderLine, aBinSize, anIsDebug):
     '''
-    ' The function reads from a .bed file and a .vcf file line by line and looks for variants that should be
-    ' filtered out.  The .bed file specifies coordinates for areas where variants should either be included
-    ' or excluded.  For example, a .bed file specifying transcription or exon start and stop coordinates can 
-    ' be provided along with the --includeOverlaps flag to indicate that the variants in these regions 
-    ' should be kept, and all the others should be filtered out.  Conversely, a bed file specifying areas of 
-    ' the genome that are accessible (as defined by the 1000 Genomes project) can be given without the
-    ' --includeOverlaps flat to indicate that the variants outside of the accessible genome should be filtered 
-    ' out, and all the other ones should be kept. 
+    ' This function reads from a .bed file and a .vcf file line by line and
+    ' looks for variants that should be filtered or tagged. The .bed file
+    ' specifies coordinates for areas where variants should either be included
+    ' or excluded.  For example, a .bed file specifying transcription or exon
+    ' start and stop coordinates can be provided along with the
+    ' --includeOverlaps flag to indicate that the variants in these regions
+    ' should be kept, and variants outside of these regions should be flagged
+    ' or filtered out.  Conversely, a bed file specifying areas of the genome
+    ' that are accessible (as defined by the 1000 Genomes project) can be given
+    ' without the --includeOverlaps flag to indicate that the variants outside
+    ' of the accessible genome should be flagged or filtered out, and variants
+    ' overlapping the accessible regions should not be flagged or filtered out.
     '
     ' aTCGAId: The TCGA Id for this sample
     ' aChrom: The chromosome being filtered
-    ' aBedFilename: A .bed file with at least 3 columns specifying the chrom, start, and stop coordinates and possibly a 4th column with an id
-    ' aVCFFilename: A .vcf file with variants that will be either included or excluded
-    ' anOutputFilename: An output .vcf file where the filtered variants should be output
+    ' aBedFilename: A .bed file with at least 3 columns specifying the chrom,
+    '    start, and stop coordinates and possibly a 4th column with an id
+    ' aVCFFilename: A .vcf file with variants that will be either
+    '    included or excluded
+    ' anOutputFilename: An output file where the filtered variants are output
     ' aFilterName: The name of the filter
-    ' aFilterField: The field where the filter name should be included (e.g. INFO or FILTER)
-    ' anIncludeOverlapInfo: A flag specifying whether the variants should be included or excluded when they overlap
-    ' anIncludeFilterName: A flag specifying whether the filtering name should be included in the output or not
+    ' aFilterField: The field where the filter name should be included
+    '    (e.g. INFO or FILTER)
+    ' anIncludeOverlapInfo: A flag specifying whether the variants should be
+    '    included or excluded when they overlap
+    ' anIncludeFilterName: A flag specifying whether the filtering name should
+    '    be included in the output or not
     ' anIdField: The field where the ID should be specified (e.g. ID or INFO)
-    ' anIncludeId: A flag specifying whether the id should be included in the output or not
-    ' anIncludeCount: A flag specifying whether the number of overlaps should be included in the output or not
-    ' aFilterHeaderLine: A filter header line that should be added to the VCF header describing this filter
+    ' anIncludeId: A flag specifying whether the id should be included in the
+    '    output or not
+    ' anIncludeCount: A flag specifying whether the number of overlaps should
+    '    be included in the output or not
+    ' aFilterHeaderLine: A filter header line that should be added to the VCF
+    '    header describing this filter
     ' aBinSize:  The size of the interval between each bin
     ' anIsDebug: A flag for outputting debug messages to STDERR
     '''
-    
+
     # initialize pybed with the filtering file
     filterPybed = pybed(binsize=aBinSize)
-    filterPybed.loadfromfile(aBedFilename)
-    
+    filterPybed.load_from_file(aBedFilename)
+
     # get the vcf file
     i_vcfFileHandler = radiaUtil.get_read_fileHandler(aVCFFilename)
-    
+
     # get the output file
     i_outputFileHandler = None
     if (anOutputFilename != None):
         i_outputFileHandler = radiaUtil.get_write_fileHandler(anOutputFilename)
-    
+
     # create the generator for the vcf file
     vcfGenerator = get_vcf_data(i_vcfFileHandler, i_outputFileHandler, aFilterHeaderLine, anIsDebug)
-    
+
     # initialize some variables
     overlappingEvents = 0
     nonOverlappingEvents = 0
     totalEvents = 0
     startTime = time.time()
-    
+
     # for each vcf line
     for (vcf_chr, vcf_startCoordinate, vcf_stopCoordinate, vcf_id, vcf_ref, vcf_alt, vcf_qual, vcf_filter, vcf_info, vcf_restLine, vcf_line) in (vcfGenerator):
 
@@ -230,7 +243,7 @@ def filter_events(aTCGAId, aChrom, aBedFilename, aVCFFilename, anOutputFilename,
             logging.debug("VCF: %s", vcf_line)
 
         # check if this vcf coordinate overlaps with the filter coordinates
-        (isOverlapping, filterId, count) = filterPybed.overlapswith((vcf_chr, vcf_startCoordinate, vcf_stopCoordinate), anIncludeCount)
+        (isOverlapping, filterId, count) = filterPybed.overlaps_with((vcf_chr, vcf_startCoordinate, vcf_stopCoordinate), anIncludeCount)
 
         # if an event overlaps with the filters
         if (isOverlapping):
@@ -411,6 +424,7 @@ def main():
     filter_events(i_id, i_chr, i_filterFilename, i_vcfFilename, i_outputFilename, i_filterName, i_filterField, i_includeOverlapsFlag, i_includeFilterName, i_idField, i_includeIdName, i_includeFilterCount, i_filterHeader, i_binSize, i_debug)
 
     return
+
 
 main()
 sys.exit(0)
