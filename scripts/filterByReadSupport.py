@@ -1548,7 +1548,8 @@ class Club():
 
         # add the previous and next reference base to the INFO
         chrom = chromList[0]
-        pos = int(posList[0])
+        # vcfs are 1-based and pysam requires a 0-based coordinate
+        pos = int(posList[0]) - 1
         prevRefBase = fastaFile.fetch(chrom, pos-1, pos).upper()
         # refBase = fastaFile.fetch(chrom, pos, pos+1).upper()
         nextRefBase = fastaFile.fetch(chrom, pos+1, pos+2).upper()
