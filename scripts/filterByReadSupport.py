@@ -391,6 +391,7 @@ def mismatch_counts(aCigarNum, aChrom, aRefIndex, aQueryIndex,
     refs = 0
     germs = 0
     muts = 0
+    edits = 0
 
     for offset in range(aCigarNum):
         # get the ref base
@@ -458,6 +459,21 @@ def mismatch_counts(aCigarNum, aChrom, aRefIndex, aQueryIndex,
                               aTxStrand, anAlignedRead.is_read1,
                               anAlignedRead.is_read2, anAlignedRead.is_reverse,
                               anAlignedRead.mate_is_reverse)
+        # if this is an A>G RNA editing event which occur in clusters
+        # use the original stranded bases instead of the genomic bases
+        elif (orgRefBase == "A" and orgReadBase == "G"):
+            edits += 1
+            if (anIsDebug):
+                logging.debug("mismatch_counts() A>G editing found: " +
+                              "aRefIndex=%s, aQueryIndex=%s, offset=%s, " +
+                              "chrom=%s, pos=%s, orgBase=%s, orgRef=%s, " +
+                              "base=%s, ref=%s, txStrand=%s, r1=%s, r2=%s, " +
+                              "rev=%s, mateRev=%s", aRefIndex, aQueryIndex,
+                              offset, aChrom, refPos, orgReadBase, orgRefBase,
+                              readBase, refBase, aTxStrand,
+                              anAlignedRead.is_read1, anAlignedRead.is_read2,
+                              anAlignedRead.is_reverse,
+                              anAlignedRead.mate_is_reverse)
         else:
             muts += 1
             if (anIsDebug):
@@ -474,9 +490,9 @@ def mismatch_counts(aCigarNum, aChrom, aRefIndex, aQueryIndex,
 
         # as soon as the muts count is >= the maxMutsPerRead, return
         if (muts >= aParamsDict["maxMutsPerRead"]):
-            return refs, germs, muts
+            return refs, germs, muts, edits
 
-    return refs, germs, muts
+    return refs, germs, muts, edits
 
 
 class Club():
@@ -914,6 +930,7 @@ class Club():
         refCount = 0
         mutCount = 0
         germCount = 0
+        editCount = 0
         softClippedCount = 0
 
         # Op  Description                                Consumes  Consumes
@@ -957,26 +974,24 @@ class Club():
 
             # if it aligns
             if i_cigarDict[cigarOp] == "match":
-                # RNA editing events with mutSS=4 occur in clusters,
-                # so don't bother counting mismatches
-                if (aMutSS != "4"):
-                    # count the number of mismatches across the
-                    # aligned portion of the read
-                    refs, germs, muts = mismatch_counts(cigarNum,
-                                                        aReadDict["chrom"],
-                                                        refIndex,
-                                                        queryIndex,
-                                                        aReadDict["strand"],
-                                                        alignedRead,
-                                                        self.germDict,
-                                                        self.txGermDict,
-                                                        aFastaFile,
-                                                        aBamOrigin,
-                                                        aParamsDict,
-                                                        anIsDebug)
-                    refCount += refs
-                    germCount += germs
-                    mutCount += muts
+                # count the number of mismatches across the
+                # aligned portion of the read
+                refs, germs, muts, edits = mismatch_counts(cigarNum,
+                                                           aReadDict["chrom"],
+                                                           refIndex,
+                                                           queryIndex,
+                                                           aReadDict["strand"],
+                                                           alignedRead,
+                                                           self.germDict,
+                                                           self.txGermDict,
+                                                           aFastaFile,
+                                                           aBamOrigin,
+                                                           aParamsDict,
+                                                           anIsDebug)
+                refCount += refs
+                germCount += germs
+                mutCount += muts
+                editCount += edits
 
                 refIndex += cigarNum
                 queryIndex += cigarNum
@@ -1001,26 +1016,24 @@ class Club():
                 refCount += cigarNum
             # the base in the read does not match the reference
             elif i_cigarDict[cigarOp] == "seqmismatch":
-                # RNA editing events with mutSS=4 occur in clusters,
-                # so don't bother counting mismatches
-                if (aMutSS != "4"):
-                    # count the number of mismatches across the
-                    # aligned portion of the read
-                    refs, germs, muts = mismatch_counts(cigarNum,
-                                                        aReadDict["chrom"],
-                                                        refIndex,
-                                                        queryIndex,
-                                                        aReadDict["strand"],
-                                                        alignedRead,
-                                                        self.germDict,
-                                                        self.txGermDict,
-                                                        aFastaFile,
-                                                        aBamOrigin,
-                                                        aParamsDict,
-                                                        anIsDebug)
-                    refCount += refs
-                    germCount += germs
-                    mutCount += muts
+                # count the number of mismatches across the
+                # aligned portion of the read
+                refs, germs, muts, edits = mismatch_counts(cigarNum,
+                                                           aReadDict["chrom"],
+                                                           refIndex,
+                                                           queryIndex,
+                                                           aReadDict["strand"],
+                                                           alignedRead,
+                                                           self.germDict,
+                                                           self.txGermDict,
+                                                           aFastaFile,
+                                                           aBamOrigin,
+                                                           aParamsDict,
+                                                           anIsDebug)
+                refCount += refs
+                germCount += germs
+                mutCount += muts
+                editCount += edits
 
                 refIndex += cigarNum
                 queryIndex += cigarNum
@@ -1031,12 +1044,12 @@ class Club():
 
             if (anIsDebug):
                 logging.debug("counts for this read: refs=%s, muts=%s, " +
-                              "germs=%s, softclipped=%s", refCount,
-                              mutCount, germCount, softClippedCount)
+                              "germs=%s, edits=%s, softclipped=%s", refCount,
+                              mutCount, germCount, editCount, softClippedCount)
 
-            # RNA editing events with mutSS=4 occur in clusters,
-            # so only apply this filter when mutSS != 4
-            if aMutSS != "4" and mutCount >= aParamsDict["maxMutsPerRead"]:
+            # if the number of muts in this read exceeds the limit
+            # then apply the maxMutsPerRead filter
+            if (mutCount >= aParamsDict["maxMutsPerRead"]):
                 return False, "maxMuts"
 
             # softClippedCount is number of soft clipped bases across the read
@@ -1066,8 +1079,8 @@ class Club():
 
         if (anIsDebug):
             logging.debug("this perfect read has refs=%s, muts=%s, " +
-                          "germs=%s, softClip=%s", refCount,
-                          mutCount, germCount, softClippedCount)
+                          "germs=%s, edits=%s, softClip=%s", refCount,
+                          mutCount, germCount, editCount, softClippedCount)
 
         return True, "perfect"
 
