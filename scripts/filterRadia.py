@@ -1001,6 +1001,8 @@ def main():
     usage = "usage: python %prog id chrom inputFile outputDir scriptsDir [Options]"
     i_cmdLineParser = OptionParser(usage=usage)
 
+    #a,b,c,d,e,f,g,l,n,p,r,s,t,
+
     i_cmdLineParser.add_option("-b", "--blacklistDir", dest="blacklistDir", metavar="BLACKLIST_DIR", help="the path to the blacklist directory")
     i_cmdLineParser.add_option("-t", "--targetDir", dest="targetDir", metavar="TARGET_DIR", help="the path to the exon capture targets directory")
     i_cmdLineParser.add_option("-d", "--dbSnpDir", dest="dbSnpDir", metavar="SNP_DIR", help="the path to the dbSNP directory")
@@ -1036,9 +1038,9 @@ def main():
     i_cmdLineParser.add_option("", "--dnaOnly", action="store_true", default=False, dest="dnaOnly", help="include this argument if you only have DNA or filtering should only be done on the DNA")
     i_cmdLineParser.add_option("", "--rnaOnly", action="store_true", default=False, dest="rnaOnly", help="include this argument if the filtering should only be done on the RNA")
     i_cmdLineParser.add_option("", "--gzip", action="store_true", default=False, dest="gzip", help="include this argument if the final VCF should be compressed with gzip")
-    i_cmdLineParser.add_option("", "--transcriptNameTag", dest="transcriptNameTag", help="the INFO key where the original transcript name can be found")
-    i_cmdLineParser.add_option("", "--transcriptCoordinateTag", dest="transcriptCoordinateTag", help="the INFO key where the original transcript coordinate can be found")
-    i_cmdLineParser.add_option("", "--transcriptStrandTag", dest="transcriptStrandTag", help="the INFO key where the original transcript strand can be found")
+    i_cmdLineParser.add_option("", "--transcriptNameTag", dest="transcriptNameTag", metavar="TX_NAME_TAG", help="the INFO key where the original transcript name can be found")
+    i_cmdLineParser.add_option("", "--transcriptCoordinateTag", dest="transcriptCoordinateTag", metavar="TX_COORDINATE_TAG", help="the INFO key where the original transcript coordinate can be found")
+    i_cmdLineParser.add_option("", "--transcriptStrandTag", dest="transcriptStrandTag", metavar="TX_STRAND_TAG", help="the INFO key where the original transcript strand can be found")
     i_cmdLineParser.add_option("", "--rnaIncludeSecondaryAlignments", action="store_true", default=False, dest="rnaIncludeSecondaryAlignments", help="if you align the RNA to transcript isoforms, then you may want to include RNA secondary alignments in the samtools mpileups")
     i_cmdLineParser.add_option("", "--readSupportMinMapQual", type="int", default=int(10), dest="readSupportMinMapQual", metavar="READ_SUPPORT_MIN_MAP_QUAL", help="the minimum mapping quality for reads supporting the ALT, %default by default")
     i_cmdLineParser.add_option("", "--rnaMpileupMinMapQual", type="int", default=int(15), dest="rnaMpileupMinMapQual", metavar="RNA_MPILEUP_MIN_MAP_QUAL", help="at least 1 ALT read needs this minimum mapping quality, %default by default")
