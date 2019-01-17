@@ -2093,6 +2093,7 @@ if __name__ == '__main__':
         i_txCoordinateTag = cmdLineOpts.transcriptCoordinateTag
     if (cmdLineOpts.transcriptStrandTag is not None):
         i_txStrandTag = cmdLineOpts.transcriptStrandTag
+
     # assuming loglevel is bound to the string value obtained from the
     # command line argument. Convert to upper case to allow the user to
     # specify --log=DEBUG or --log=debug
