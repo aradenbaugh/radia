@@ -1549,16 +1549,24 @@ class Club():
         if (mutSS == "Somatic" or mutSS == "2"):
             if (aBamOrigin == "RNA"):
                 fastaFile = self.rnaTumFastaFile
+                if "MMP" not in currData.rnaTumorDict:
+                    currData.rnaTumorDict["MMP"] = list()
                 mmpList = currData.rnaTumorDict["MMP"]
             else:
                 fastaFile = self.dnaTumFastaFile
+                if "MMP" not in currData.dnaTumorDict:
+                    currData.dnaTumorDict["MMP"] = list()
                 mmpList = currData.dnaTumorDict["MMP"]
         elif (mutSS == "4"):
             if (aMutType == "TUM_EDIT"):
                 fastaFile = self.rnaTumFastaFile
+                if "MMP" not in currData.rnaTumorDict:
+                    currData.rnaTumorDict["MMP"] = list()
                 mmpList = currData.rnaTumorDict["MMP"]
             elif (aMutType == "NOR_EDIT"):
                 fastaFile = self.rnaNormFastaFile
+                if "MMP" not in currData.rnaNormalDict:
+                    currData.rnaNormalDict["MMP"] = list()
                 mmpList = currData.rnaNormalDict["MMP"]
 
         # add the previous and next reference base to the INFO
