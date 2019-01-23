@@ -384,7 +384,7 @@ def is_mutation(aReadDict, aRef, anAltList, aBamOrigin, anMMPDict, anIsDebug):
     return False
 
 
-def mismatch_counts(aCigarNum, aChrom, aRefIndex, aQueryIndex,
+def mismatch_counts(aCigarNum, aChrom, aRefIndex, aQueryIndex, aMutSS,
                     aTxStrand, anAlignedRead, aGermDict,
                     aTxGermDict, aFastafile, aBamOrigin,
                     aParamsDict, anIsDebug):
@@ -461,7 +461,7 @@ def mismatch_counts(aCigarNum, aChrom, aRefIndex, aQueryIndex,
                               anAlignedRead.mate_is_reverse)
         # if this is an A>G RNA editing event which occur in clusters
         # use the original stranded bases instead of the genomic bases
-        elif (orgRefBase == "A" and orgReadBase == "G"):
+        elif (aMutSS == "4" and orgRefBase == "A" and orgReadBase == "G"):
             edits += 1
             if (anIsDebug):
                 logging.debug("mismatch_counts() A>G editing found: " +
@@ -980,6 +980,7 @@ class Club():
                                                            aReadDict["chrom"],
                                                            refIndex,
                                                            queryIndex,
+                                                           aMutSS,
                                                            aReadDict["strand"],
                                                            alignedRead,
                                                            self.germDict,
@@ -1022,6 +1023,7 @@ class Club():
                                                            aReadDict["chrom"],
                                                            refIndex,
                                                            queryIndex,
+                                                           aMutSS,
                                                            aReadDict["strand"],
                                                            alignedRead,
                                                            self.germDict,
