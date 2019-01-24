@@ -1112,23 +1112,31 @@ class Club():
                         if (aCurrData.dnaNormalDict is not None):
                             refDp = aCurrData.dnaNormalDict["AD"][refIndex]
                             altDp = aCurrData.dnaNormalDict["AD"][altIndex]
-                            totalRefReads += int(refDp)
-                            totalAltReads += int(altDp)
+                            if (refDp != "."):
+                                totalRefReads += int(refDp)
+                            if (altDp != "."):
+                                totalAltReads += int(altDp)
                         if (aCurrData.rnaNormalDict is not None):
                             refDp = aCurrData.rnaNormalDict["AD"][refIndex]
                             altDp = aCurrData.rnaNormalDict["AD"][altIndex]
-                            totalRefReads += int(refDp)
-                            totalAltReads += int(altDp)
+                            if (refDp != "."):
+                                totalRefReads += int(refDp)
+                            if (altDp != "."):
+                                totalAltReads += int(altDp)
                         if (aCurrData.dnaTumorDict is not None):
                             refDp = aCurrData.dnaTumorDict["AD"][refIndex]
                             altDp = aCurrData.dnaTumorDict["AD"][altIndex]
-                            totalRefReads += int(refDp)
-                            totalAltReads += int(altDp)
+                            if (refDp != "."):
+                                totalRefReads += int(refDp)
+                            if (altDp != "."):
+                                totalAltReads += int(altDp)
                         if (aCurrData.rnaTumorDict is not None):
                             refDp = aCurrData.rnaTumorDict["AD"][refIndex]
                             altDp = aCurrData.rnaTumorDict["AD"][altIndex]
-                            totalRefReads += int(refDp)
-                            totalAltReads += int(altDp)
+                            if (refDp != "."):
+                                totalRefReads += int(refDp)
+                            if (altDp != "."):
+                                totalAltReads += int(altDp)
 
                         totalCoverage = totalRefReads + totalAltReads
 
@@ -1170,23 +1178,31 @@ class Club():
                         if (aCurrData.dnaNormalDict is not None):
                             normRefDp = aCurrData.dnaNormalDict["AD"][refIndex]
                             normAltDp = aCurrData.dnaNormalDict["AD"][altIndex]
-                            normalRefReads += int(normRefDp)
-                            normalAltReads += int(normAltDp)
+                            if (normRefDp != "."):
+                                normalRefReads += int(normRefDp)
+                            if (normAltDp != "."):
+                                normalAltReads += int(normAltDp)
                         if (aCurrData.rnaNormalDict is not None):
                             normRefDp = aCurrData.rnaNormalDict["AD"][refIndex]
                             normAltDp = aCurrData.rnaNormalDict["AD"][altIndex]
-                            normalRefReads += int(normRefDp)
-                            normalAltReads += int(normAltDp)
+                            if (normRefDp != "."):
+                                normalRefReads += int(normRefDp)
+                            if (normAltDp != "."):
+                                normalAltReads += int(normAltDp)
                         if (aCurrData.dnaTumorDict is not None):
                             tumRefDp = aCurrData.dnaTumorDict["AD"][refIndex]
                             tumAltDp = aCurrData.dnaTumorDict["AD"][altIndex]
-                            tumorRefReads += int(tumRefDp)
-                            tumorAltReads += int(tumAltDp)
+                            if (tumRefDp != "."):
+                                tumorRefReads += int(tumRefDp)
+                            if (tumAltDp != "."):
+                                tumorAltReads += int(tumAltDp)
                         if (aCurrData.rnaTumorDict is not None):
                             tumRefDp = aCurrData.rnaTumorDict["AD"][refIndex]
                             tumAltDp = aCurrData.rnaTumorDict["AD"][altIndex]
-                            tumorRefReads += int(tumRefDp)
-                            tumorAltReads += int(tumAltDp)
+                            if (tumRefDp != "."):
+                                tumorRefReads += int(tumRefDp)
+                            if (tumAltDp != "."):
+                                tumorAltReads += int(tumAltDp)
 
                         totalCoverage = (normalRefReads + normalAltReads +
                                          tumorRefReads + tumorAltReads)
@@ -1229,31 +1245,43 @@ class Club():
                         if (aCurrData.dnaNormalDict is not None):
                             refDp = aCurrData.dnaNormalDict["AD"][refIndex]
                             altDp = aCurrData.dnaNormalDict["AD"][altIndex]
-                            totalRefReads += int(refDp)
-                            totalAltReads += int(altDp)
+                            if (refDp != "."):
+                                totalRefReads += int(refDp)
+                            if (altDp != "."):
+                                totalAltReads += int(altDp)
                         if (aCurrData.rnaNormalDict is not None):
                             refDp = aCurrData.rnaNormalDict["AD"][refIndex]
                             altDp = aCurrData.rnaNormalDict["AD"][altIndex]
                             editRefDp = aCurrData.rnaNormalDict["AD"][refIndex]
                             editAltDp = aCurrData.rnaNormalDict["AD"][altIndex]
-                            totalRefReads += int(refDp)
-                            totalAltReads += int(altDp)
-                            editingRefReads += int(editRefDp)
-                            editingAltReads += int(editAltDp)
+                            if (refDp != "."):
+                                totalRefReads += int(refDp)
+                            if (altDp != "."):
+                                totalAltReads += int(altDp)
+                            if (editRefDp != "."):
+                                editingRefReads += int(editRefDp)
+                            if (editAltDp != "."):
+                                editingAltReads += int(editAltDp)
                         if (aCurrData.dnaTumorDict is not None):
                             refDp = aCurrData.dnaTumorDict["AD"][refIndex]
                             altDp = aCurrData.dnaTumorDict["AD"][altIndex]
-                            totalRefReads += int(refDp)
-                            totalAltReads += int(altDp)
+                            if (refDp != "."):
+                                totalRefReads += int(refDp)
+                            if (altDp != "."):
+                                totalAltReads += int(altDp)
                         if (aCurrData.rnaTumorDict is not None):
                             refDp = aCurrData.rnaTumorDict["AD"][refIndex]
                             altDp = aCurrData.rnaTumorDict["AD"][altIndex]
                             editRefDp = aCurrData.rnaTumorDict["AD"][refIndex]
                             editAltDp = aCurrData.rnaTumorDict["AD"][altIndex]
-                            totalRefReads += int(refDp)
-                            totalAltReads += int(altDp)
-                            editingRefReads += int(editRefDp)
-                            editingAltReads += int(editAltDp)
+                            if (refDp != "."):
+                                totalRefReads += int(refDp)
+                            if (altDp != "."):
+                                totalAltReads += int(altDp)
+                            if (editRefDp != "."):
+                                editingRefReads += int(editRefDp)
+                            if (editAltDp != "."):
+                                editingAltReads += int(editAltDp)
 
                         totalCoverage = totalRefReads + totalAltReads
 
