@@ -134,7 +134,7 @@ def parse_vcf(aVCFFilename, aTxNameTag, aTxCoordinateTag, anIsDebug):
 
             # keep track of the passing germline and LOH calls
             if (("SNP" in currData.infoDict["VT"] and
-                 "PASS" in currData.filterList) and
+                 "PASS" in currData.filterSet) and
                 ("1" in currData.infoDict["SS"] or
                  "3" in currData.infoDict["SS"])):
                 # initialize the dict
@@ -165,14 +165,14 @@ def parse_vcf(aVCFFilename, aTxNameTag, aTxCoordinateTag, anIsDebug):
             # keep track of the passing somatic calls
             elif ("SNP" in currData.infoDict["VT"] and
                   "2" in currData.infoDict["SS"] and
-                  "PASS" in currData.filterList):
+                  "PASS" in currData.filterSet):
                 if (currData.chrom not in mutationsDict):
                     mutationsDict[currData.chrom] = {}
                 mutationsDict[currData.chrom][str(currData.pos-1)] = currData
             # keep track of the filtered calls
             elif ("SNP" in currData.infoDict["VT"] and
                   "2" in currData.infoDict["SS"] and
-                  "PASS" not in currData.filterList):
+                  "PASS" not in currData.filterSet):
                 if (currData.chrom not in filterDict):
                     filterDict[currData.chrom] = {}
                 filterDict[currData.chrom][str(currData.pos-1)] = currData
@@ -1092,7 +1092,7 @@ class Club():
         # so only do it for all passing calls by default
         pvalue = 0.98
         phred = 0
-        if ((aScorePassingOnlyFlag and "PASS" in aCurrData.filterList) or
+        if ((aScorePassingOnlyFlag and "PASS" in aCurrData.filterSet) or
             (not aScorePassingOnlyFlag)):
 
             if ("GERM" in aCurrData.infoDict["MT"]):
@@ -1742,7 +1742,7 @@ class Club():
                           readsWithMaxSoftClips, numPerfect)
 
         # keep track of all filters
-        filters = []
+        filters = set()
 
         # all of the counts have been done for the genomic forward strand
         # so we can use aModChange here to access the MMP
@@ -1755,7 +1755,7 @@ class Club():
             total = mmpDict[target]["total"]
             multiMappingPct = round(secondary/float(total), 2)
             if (multiMappingPct >= aParamsDict["maxMultiMapPct"]):
-                filters.append("mxmmp")
+                filters.add("mxmmp")
                 if (anIsDebug):
                     logging.debug("checkfilter multiMap applied for %s:%s, " +
                                   "mutSS=%s, mutType=%s, " +
@@ -1783,7 +1783,7 @@ class Club():
             # if sbias < 0.1 or sbias > 0.9:
             if ((sbias > (aParamsDict["maxStrandBias"])) or
                 (sbias < (1.0 - aParamsDict["maxStrandBias"]))):
-                filters.append("perfsbias")
+                filters.add("perfsbias")
                 if (anIsDebug):
                     logging.debug("checkfilter perfsbias for %s:%s, " +
                                   "numPerfect=%s, filters=%s, forstrand=%s, " +
@@ -1807,7 +1807,7 @@ class Club():
                               pbiasEnds)
             '''
             if (pbiasStarts >= aParamsDict["maxPositionBias"]):
-                filters.append("pbias")
+                filters.add("pbias")
                 '''
                 if (anIsDebug):
                     logging.debug("pbias from starts starts=%s, middles=%s, " +
@@ -1815,7 +1815,7 @@ class Club():
                                   middles, ends, mutCountQualReads)
                 '''
             elif (pbiasEnds >= aParamsDict["maxPositionBias"]):
-                filters.append("pbias")
+                filters.add("pbias")
                 '''
                 if (anIsDebug):
                     logging.debug("pbias from ends starts=%s, middles=%s, " +
@@ -1848,7 +1848,7 @@ class Club():
                               perfPbiasStarts, perfPbiasEnds)
             '''
             if (perfPbiasStarts >= aParamsDict["maxPositionBias"]):
-                filters.append("perfpbias")
+                filters.add("perfpbias")
                 '''
                 if (anIsDebug):
                     logging.debug("perfectpbias from starts " +
@@ -1858,7 +1858,7 @@ class Club():
                                   perfectEnds, numPerfect)
                 '''
             elif (perfPbiasEnds >= aParamsDict["maxPositionBias"]):
-                filters.append("perfpbias")
+                filters.add("perfpbias")
                 '''
                 if (anIsDebug):
                     logging.debug("perfectpbias from ends perfectStarts=%s, " +
@@ -1882,12 +1882,12 @@ class Club():
 
         # if we don't have enough perfect reads
         if numPerfect < aParamsDict["minPerfectReads"]:
-            filters.append("perfmnad")
+            filters.add("perfmnad")
         # check if the percent of perfect reads is high enough
         if (mutCountReads + refCount > 0):
             perfectPct = round(numPerfect/float(mutCountReads + refCount), 2)
             if perfectPct < aParamsDict["minPerfectReadsPct"]:
-                filters.append("perfmnaf")
+                filters.add("perfmnaf")
             elif (anIsDebug):
                 logging.debug("perfectPct=%s >= minPerfectPct=%s",
                               perfectPct, aParamsDict["minPerfectReadsPct"])
@@ -1908,7 +1908,7 @@ class Club():
             return filters
         # if no filters have been returned thus far, this call passes
         else:
-            return ["PASS"]
+            return set(["PASS"])
 
 
 if __name__ == '__main__':
@@ -2237,7 +2237,7 @@ if __name__ == '__main__':
 
             # if we should only process passing calls and this call passes
             # or we should process all calls
-            if ((i_passedVCFCallsOnlyFlag and "PASS" in currData.filterList) or
+            if ((i_passedVCFCallsOnlyFlag and "PASS" in currData.filterSet) or
                 (not i_passedVCFCallsOnlyFlag)):
 
                 # if this is a somatic mutation or an RNA editing event
@@ -2245,8 +2245,8 @@ if __name__ == '__main__':
                     ("2" in currData.infoDict["SS"] or
                      "4" in currData.infoDict["SS"])):
 
-                    dnaFilter = list()
-                    rnaFilter = list()
+                    dnaFilters = set()
+                    rnaFilters = set()
 
                     # Somatic calls can be made by the DNA or RNA
                     # RNA editing calls can be made by the normal or tumor RNA
@@ -2255,47 +2255,50 @@ if __name__ == '__main__':
                             # a somatic call made by the DNA
                             modType = currData.infoDict["MT"][0]
                             modChange = currData.infoDict["MC"][0]
-                            dnaFilter += club.filter_by_read_support(
+                            dnaReadFilters = club.filter_by_read_support(
                                 currData,
                                 i_txNameTag,
                                 i_txCoordinateTag,
                                 i_txStrandTag,
                                 modType, modChange,
                                 "DNA", params, i_debug)
+                            dnaFilters = dnaFilters.union(dnaReadFilters)
 
                         # if we already passed using the DNA,
                         # then don't bother checking the RNA
-                        elif ("PASS" not in dnaFilter):
+                        elif ("PASS" not in dnaFilters):
                             # for RNA editing events, a call can have both
                             # normal and tumor editing, loop through them both
                             modTypes = currData.infoDict["MT"]
                             modChanges = currData.infoDict["MC"]
                             for (modType, modChange) in izip(modTypes,
                                                              modChanges):
-                                rnaFilter += club.filter_by_read_support(
+                                rnaReadFilters = club.filter_by_read_support(
                                     currData,
                                     i_txNameTag,
                                     i_txCoordinateTag,
                                     i_txStrandTag,
                                     modType, modChange,
                                     "RNA", params, i_debug)
+                                rnaFilters = rnaFilters.union(rnaReadFilters)
 
                     # if it passed by DNA or RNA, then it passed
-                    if ("PASS" in dnaFilter or "PASS" in rnaFilter):
-                        currData.filterList = ["PASS"]
+                    if ("PASS" in dnaFilters or "PASS" in rnaFilters):
+                        currData.filterSet = set(["PASS"])
                     # if this call was passing until now,
                     # then just add the new filters from here
-                    elif ("PASS" in currData.filterList):
-                        currData.filterList = dnaFilter + rnaFilter
+                    elif ("PASS" in currData.filterSet):
+                        currData.filterSet = dnaFilters.union(rnaFilters)
                     # if this call was not passing until now,
                     # then add the filters to the previous filters
                     else:
-                        currData.filterList += dnaFilter + rnaFilter
+                        filters = dnaFilters.union(rnaFilters)
+                        currData.filterSet = currData.filterSet.union(filters)
 
                     if (i_debug):
                         logging.debug("dnaFilter=%s, rnaFilter=%s, " +
-                                      "currData.filter=%s", dnaFilter,
-                                      rnaFilter, currData.filterList)
+                                      "currData.filter=%s", dnaFilters,
+                                      rnaFilters, currData.filterSet)
 
             # set the score
             club.set_score(currData, i_scorePassingVCFCallsOnly, i_debug)

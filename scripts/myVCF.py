@@ -203,7 +203,7 @@ class Data:
         self.allelesList = [self.ref] + self.altList
         lenAltList = len(self.allelesList)
         self.qual = aQual
-        self.filterList = aFilterField.split(";")
+        self.filterSet = set(aFilterField.split(";"))
         self.infoDict = parse_info(anInfoField)
         self.formatField = aFormatField
         self.sampleData = aSampleData
@@ -299,7 +299,7 @@ class Data:
 
         return "\t".join(map(str, [self.chrom, self.pos, self.id, self.ref,
                                    ",".join(self.altList), self.qual,
-                                   ";".join(self.filterList),
+                                   ";".join(self.filterSet),
                                    format_info(self.infoDict),
                                    self.formatField, "\t".join(sampleList)]))
 
@@ -308,7 +308,7 @@ class VCF:
     def __init__(self):
         self.meta = []
         self.infos = []
-        self.filters = []
+        self.filters = set()
         self.formats = []
         self.headers = []
         self.data = []
@@ -352,7 +352,7 @@ class VCF:
         # make re match spec
         match = re.match(r"""<ID=(.*),Description=['"](.*)['"]>""", aValue)
         if match:
-            self.filters.append(Filter(*match.groups()))
+            self.filters.add(Filter(*match.groups()))
         else:
             raise VCFFormatError("Improperly formatted FILTER metadata: " +
                                  aValue)
