@@ -177,8 +177,7 @@ def get_vcf_data(aVcfFile, aHeaderFile, aPassOnlyFlag, anIsDebug):
 
 def group_reads_by_name(aChromList, aPosList, aTranscriptStrandList,
                         aBamFile, aFastaFile, aBamOrigin,
-                        anRnaIncludeSecondaryAlignmentsFlag,
-                        aMaxDepth, anIsDebug):
+                        anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
 
         readsDict = collections.defaultdict(list)
         # loop through all of the transcripts
@@ -198,8 +197,7 @@ def group_reads_by_name(aChromList, aPosList, aTranscriptStrandList,
 
             # get the pileups
             for pileupColumn in aBamFile.pileup(chrom, pos, pos+1,
-                                                stepper="nofilter",
-                                                max_depth=aMaxDepth):
+                                                stepper="nofilter"):
 
                 # move through pileup until at the correct position
                 if pileupColumn.pos < pos:
@@ -493,8 +491,7 @@ def find_non_overlapping_reads(aReadsDict, aMinBaseQual, anIsDebug):
 def write_to_blat_file(aBlatFileHandler, aGenomicChr, aGenomicCoordinate,
                        aChromList, aPosList, aTranscriptStrandList,
                        aParamsDict, anInfoDict, aPrefix, anAltOnlyFlag,
-                       anRnaIncludeSecondaryAlignmentsFlag, aMaxDepth,
-                       anIsDebug):
+                       anRnaIncludeSecondaryAlignmentsFlag, anIsDebug):
     '''
     ' This function gets all of the reads at a specific
     ' coordinate and creates a BLAT input file.
@@ -522,8 +519,6 @@ def write_to_blat_file(aBlatFileHandler, aGenomicChr, aGenomicCoordinate,
     '    that have the alternate allele
     ' anRnaIncludeSecondaryAlignmentsFlag:
     '    A flag to include the RNA secondary alignments
-    ' aMaxDepth:
-    '    The max depth for the pysam pileup command
     ' anIsDebug:
     '    A flag for outputting debug messages to STDERR
     '''
@@ -552,7 +547,7 @@ def write_to_blat_file(aBlatFileHandler, aGenomicChr, aGenomicCoordinate,
                                     aTranscriptStrandList, bamFile,
                                     fastaFile, bamOrigin,
                                     anRnaIncludeSecondaryAlignmentsFlag,
-                                    aMaxDepth, anIsDebug)
+                                    anIsDebug)
 
     # get all of the non-overlapping reads
     nonOverlapReadsList = find_non_overlapping_reads(readsDict,
@@ -666,11 +661,6 @@ def main():
         help="by default only the reads with the alternate base are " +
              "processed, include this argument if all of the reads " +
              "should be processed")
-    i_cmdLineParser.add_option(
-        "-d", "--maxReadDepth", type="int", default=int(8000),
-        dest="maxReadDepth", metavar="MAX_READ_DEPTH",
-        help="the maximum read depth to process from the " +
-             "samtools view command, %default by default")
 
     i_cmdLineParser.add_option(
         "-o", "--outputFilename",
@@ -745,7 +735,6 @@ def main():
     # get the optional params with default values
     i_passedVCFCallsOnlyFlag = cmdLineOpts.passedVCFCallsOnly
     i_altBasesOnlyFlag = cmdLineOpts.altBasesOnly
-    i_maxReadDepth = cmdLineOpts.maxReadDepth
     i_logLevel = cmdLineOpts.logLevel
     i_rnaIncludeSecondaryAlignments = cmdLineOpts.rnaIncludeSecondaryAlignments
 
@@ -812,7 +801,6 @@ def main():
 
         logging.debug("passedCallsOnly? %s", i_passedVCFCallsOnlyFlag)
         logging.debug("altBasesOnlyFlag? %s", i_altBasesOnlyFlag)
-        logging.debug("maxReadDepth %s", i_maxReadDepth)
 
         logging.debug("transcriptNameTag %s", i_transcriptNameTag)
         logging.debug("transcriptCoordinateTag %s", i_transcriptCoordinateTag)
@@ -867,7 +855,6 @@ def main():
                                    "dnaNormal",
                                    i_altBasesOnlyFlag,
                                    False,
-                                   i_maxReadDepth,
                                    i_debug)
 
             if (modType == "NOR_EDIT" and i_blatRnaNormalReads):
@@ -885,7 +872,6 @@ def main():
                                        "rnaNormal",
                                        i_altBasesOnlyFlag,
                                        i_rnaIncludeSecondaryAlignments,
-                                       i_maxReadDepth,
                                        i_debug)
                 else:
                     write_to_blat_file(i_outputFileHandler,
@@ -899,7 +885,6 @@ def main():
                                        "rnaNormal",
                                        i_altBasesOnlyFlag,
                                        i_rnaIncludeSecondaryAlignments,
-                                       i_maxReadDepth,
                                        i_debug)
 
             if (i_blatDnaTumorReads):
@@ -914,7 +899,6 @@ def main():
                                    "dnaTumor",
                                    i_altBasesOnlyFlag,
                                    False,
-                                   i_maxReadDepth,
                                    i_debug)
 
             if ((modType == "SOM" or modType == "TUM_EDIT") and
@@ -933,7 +917,6 @@ def main():
                                        "rnaTumor",
                                        i_altBasesOnlyFlag,
                                        i_rnaIncludeSecondaryAlignments,
-                                       i_maxReadDepth,
                                        i_debug)
                 else:
                     write_to_blat_file(i_outputFileHandler,
@@ -947,7 +930,6 @@ def main():
                                        "rnaTumor",
                                        i_altBasesOnlyFlag,
                                        i_rnaIncludeSecondaryAlignments,
-                                       i_maxReadDepth,
                                        i_debug)
 
     stopTime = time.time()
