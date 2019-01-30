@@ -1967,7 +1967,7 @@ if __name__ == '__main__':
     cmdLineParser.add_option(
         "-g", "--logFilename",
         dest="logFilename", metavar="LOG_FILE",
-        help="the name of the log file, STDOUT by default")
+        help="the name of the log file, STDERR by default")
 
     cmdLineParser.add_option(
         "", "--transcriptNameTag",
@@ -2120,7 +2120,7 @@ if __name__ == '__main__':
     i_txStrandTag = None
     if (cmdLineOpts.outputFilename is not None):
         i_outputFilename = cmdLineOpts.outputFilename
-        if (cmdLineOpts.outputFilename != sys.stdout):
+        if (cmdLineOpts.outputFilename is not sys.stdout):
             i_writeFilenameList += [i_outputFilename]
     if (cmdLineOpts.logFilename is not None):
         i_logFilename = str(cmdLineOpts.logFilename)
@@ -2142,7 +2142,7 @@ if __name__ == '__main__':
                          i_logLevel)
 
     # set up the logging
-    if (i_logFilename is not sys.stdout):
+    if (i_logFilename is not None):
         logging.basicConfig(
             level=i_numericLogLevel,
             filename=i_logFilename,
