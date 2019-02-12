@@ -697,7 +697,7 @@ class Club():
                     # oneReadDict["insertSize"] = alignedRead.template_length
                     # oneReadDict["sequence"] = alignedRead.seq
                     # oneReadDict["qualities"] = alignedRead.qual
-                    oneReadDict["qlen"] = alignedRead.query_length
+                    oneReadDict["qlen"] = len(alignedRead.query_sequence)
                     oneReadDict["base"] = alignedRead.seq[qPos]
                     oneReadDict["baseQual"] = alignedRead.qual[qPos]
                     oneReadDict["sequenceIndex"] = pileupRead.query_position
