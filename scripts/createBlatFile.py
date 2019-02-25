@@ -333,8 +333,24 @@ def group_reads_by_name(aChromList, aPosList, aTranscriptStrandList,
                                       alignedRead.query_name, oneReadDict)
                     '''
 
-                    # add it to the dictionary of reads
-                    readsDict[alignedRead.query_name].append(oneReadDict)
+                    if (strandedBase in anAlleleSet):
+                        '''
+                        if (anIsDebug):
+                            logging.debug("strandedBase=%s, is in " +
+                                          "alleleSet=%s: name=%s " +
+                                          "oneReadDict=%s",
+                                          strandedBase, anAlleleSet,
+                                          alignedRead.query_name, oneReadDict)
+                        '''
+
+                        # add it to the dictionary of reads
+                        readsDict[alignedRead.query_name].append(oneReadDict)
+
+                    elif anIsDebug:
+                        logging.debug("throwing out read where " +
+                                      "strandedBase=%s is not in the " +
+                                      "alleleSet=%s",
+                                      strandedBase, anAlleleSet)
 
                 if (anIsDebug):
                     logging.debug("group_reads_by_name(): %s:%s added %s " +
