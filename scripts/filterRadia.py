@@ -659,10 +659,10 @@ def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobL
 
     if (aGzipFlag):
         outputFilename = os.path.join(anOutputDir, aPrefix + "_passing_chr" + aChromId + ".vcf")
-        command = "zcat " + anInputFilename + " | grep \"PASS\" " + " > " + outputFilename
+        command = "zcat " + anInputFilename + " | grep -e \"PASS\" -e \"^#\" " + " > " + outputFilename
     else:
         outputFilename = os.path.join(anOutputDir, aPrefix + "_passing_chr" + aChromId + ".vcf")
-        command = "grep \"PASS\" " + anInputFilename + " > " + outputFilename
+        command = "grep -e \"PASS\" -e \"^#\" " + anInputFilename + " > " + outputFilename
 
     if (anIsDebug):
         logging.debug("Input: %s", anInputFilename)
@@ -690,7 +690,7 @@ def extract_passing(anId, aChromId, anInputFilename, anOutputDir, aPrefix, aJobL
     return outputFilename
 
 
-def filter_runSnpEff(anId, aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome, aSnpEffCanonical, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug):
+def filter_runSnpEff(aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome, aSnpEffCanonical, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug):
 
     snpEffJar = os.path.join(aSnpEffDir, "snpEff.jar")
     snpEffConfig = os.path.join(aSnpEffDir, "snpEff.config")
@@ -699,10 +699,11 @@ def filter_runSnpEff(anId, aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome,
     # if we pipe the snpEff output to gzip, the return code and error messages from snpEff
     # get overwritten by gzip, and we no longer detect when there's a problem with snpEff
     outputFilename = os.path.join(anOutputDir, aPrefix + "_snpEff_chr" + aChromId + ".vcf")
+
     if (aSnpEffCanonical):
-        command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -canon -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
+        command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + "  -formatEff -canon -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
     else:
-        command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + " -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
+        command = "java -Xmx4g -jar " + snpEffJar + " eff -c " + snpEffConfig + "  -formatEff -cancer -no-downstream -no-upstream -no-intergenic -no-intron " + aSnpEffGenome + " " + anInputFilename + " > " + outputFilename
 
     if (anIsDebug):
         logging.debug("Input: %s", anInputFilename)
@@ -745,11 +746,13 @@ def filter_createBlatInput(aPythonExecutable, anId, aChromId, anInputFilename, a
     # we can't gzip the blat input file
     outputFilename = os.path.join(anOutputDir, aPrefix + "_blatInput_chr" + aChromId + ".fa")
 
-    if (aTranscriptNameTag != None and aTranscriptCoordinateTag != None):
-        command = script + " " + anId + " " + anInputFilename + " " + aHeaderFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads --transcriptNameTag " + aTranscriptNameTag + " --transcriptCoordinateTag " + aTranscriptCoordinateTag + " --transcriptStrandTag " + aTranscriptStrandTag
-    else:
-        command = script + " " + anId + " " + anInputFilename + " " + aHeaderFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
+    # get the basic command
+    command = script + " " + anId + " " + anInputFilename + " " + aHeaderFilename + " -o " + outputFilename + " --blatRnaNormalReads --blatRnaTumorReads"
 
+    # if the transcript names, coordinates, and strands should be used
+    if (aTranscriptNameTag != None and aTranscriptCoordinateTag != None):
+        command += " --transcriptNameTag " + aTranscriptNameTag + " --transcriptCoordinateTag " + aTranscriptCoordinateTag + " --transcriptStrandTag " + aTranscriptStrandTag
+    # if the RNA secondary alignments should be included
     if (anRnaIncludeSecondaryAlignmentsFlag):
         command += " --rnaIncludeSecondaryAlignments"
 
@@ -785,9 +788,13 @@ def filter_createBlatInput(aPythonExecutable, anId, aChromId, anInputFilename, a
 def filter_runBlat(aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aJobListFileHandler, anIsDebug):
 
     blatOutputFilename = anOutputDir + aPrefix + "_blatOutput_chr" + aChromId + ".blast"
-    #command = "blat -stepSize=5 -repMatch=2253 -minScore=0 -minIdentity=0 -t=dna -q=rna " + aFastaFile + " " + aBlatInputFilename + " -out=blast8 " + blatOutputFilename
 
     command = "blat -stepSize=5 -repMatch=2253 -t=dna -q=rna " + aFastaFile + " " + aBlatInputFilename + " -out=blast8 " + blatOutputFilename
+
+    # command = "blat -stepSize=5 -repMatch=2253 -minScore=0 -minIdentity=0 -t=dna -q=rna " + aFastaFile + " " + aBlatInputFilename + " -out=blast8 " + blatOutputFilename
+
+    # default output from blat is PSL, but we're using -out=blast8 for now
+    # command = "blat -stepSize=5 -repMatch=2253 -t=dna -q=rna " + aFastaFile + " " + aBlatInputFilename + " " + blatOutputFilename
 
     if (anIsDebug):
         logging.debug("Input: %s", aBlatInputFilename)
@@ -813,7 +820,7 @@ def filter_runBlat(aChromId, aBlatInputFilename, aFastaFile, anOutputDir, aPrefi
     return blatOutputFilename
 
 
-def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, aBlatInputFilename, aFastaFile, anOutputDir, aPrefix, aScriptsDir, anIgnoreScriptsDirFlag, aJobListFileHandler, aGzipFlag, anIsDebug):
+def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilename, aBlatInputFilename, aFastaFile, aTranscriptNameTag, aTranscriptCoordinateTag, aTranscriptStrandTag, anRnaIncludeSecondaryAlignmentsFlag, anOutputDir, aPrefix, aScriptsDir, anIgnoreScriptsDirFlag, aJobListFileHandler, aGzipFlag, anIsDebug):
 
     # if no fasta file was specified, try to get it from the header file
     if (aFastaFile == None):
@@ -864,7 +871,15 @@ def filter_blat(aPythonExecutable, anId, aChromId, anInputFilename, aHeaderFilen
         readFilenameList.append(pythonScript)
         script = aPythonExecutable + " " + pythonScript
 
-    command = script + " " + anId + " " + anInputFilename + " " + blatOutputFilename + " -o " + outputFilename + " --allVCFCalls --blatRnaNormalReads --blatRnaTumorReads"
+    # get the basic command
+    command = script + " " + anId + " " + anInputFilename + " " + blatOutputFilename + " -o " + outputFilename + " --blatRnaNormalReads --blatRnaTumorReads"
+
+    # if the transcript names, coordinates, and strands should be used
+    if (aTranscriptNameTag != None and aTranscriptCoordinateTag != None):
+        command += " --transcriptNameTag " + aTranscriptNameTag + " --transcriptCoordinateTag " + aTranscriptCoordinateTag + " --transcriptStrandTag " + aTranscriptStrandTag
+    # if the RNA secondary alignments should be included
+    if (anRnaIncludeSecondaryAlignmentsFlag):
+        command += " --rnaIncludeSecondaryAlignments"
 
     if (anIsDebug):
         logging.debug("Input: %s", anInputFilename)
@@ -1169,7 +1184,7 @@ def main():
     i_cmdLineParser.add_option("-g", "--logFilename", dest="logFilename", metavar="LOG_FILE", help="the name of the log file, STDOUT by default")
 
     # range(inclusiveFrom, exclusiveTo, by)
-    i_possibleArgLengths = range(5,64,1)
+    i_possibleArgLengths = range(5, 69, 1)
     i_argLength = len(sys.argv)
 
     # check if this is one of the possible correct commands
@@ -1553,7 +1568,7 @@ def main():
                 rmTmpFilesList.append(blatInputFilename)
 
                 # filter by BLAT
-                (blatOutputFilename, previousFilename) = filter_blat(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, blatInputFilename, i_blatFastaFilename, i_outputDir, i_prefix, i_scriptsDir, i_ignoreScriptsDir, i_joblistFileHandler, i_gzip, i_debug)
+                (blatOutputFilename, previousFilename) = filter_blat(i_pythonExecutable, i_id, i_chr, previousFilename, rnaFilename, blatInputFilename, i_blatFastaFilename, i_transcriptNameTag, i_transcriptCoordinateTag, i_transcriptStrandTag, i_rnaIncludeSecondaryAlignments, i_outputDir, i_prefix, i_scriptsDir, i_ignoreScriptsDir, i_joblistFileHandler, i_gzip, i_debug)
                 rmTmpFilesList.append(blatOutputFilename)
                 rmTmpFilesList.append(previousFilename)
 
@@ -1576,7 +1591,7 @@ def main():
         previousFilename = extract_passing(i_id, i_chr, previousFilename, i_outputDir, i_prefix, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
 
-        previousFilename = filter_runSnpEff(i_id, i_chr, previousFilename, i_snpEffDir, i_snpEffGenome, i_snpEffCanonical, i_outputDir, i_prefix, i_joblistFileHandler, i_gzip, i_debug)
+        previousFilename = filter_runSnpEff(i_chr, previousFilename, i_snpEffDir, i_snpEffGenome, i_snpEffCanonical, i_outputDir, i_prefix, i_joblistFileHandler, i_debug)
         rmTmpFilesList.append(previousFilename)
 
         if (not i_dnaOnlyFlag and i_rnaBlacklistFlag):
@@ -1584,7 +1599,7 @@ def main():
             previousFilename = filter_rnaBlacklist(i_pythonExecutable, i_id, i_chr, previousFilename, i_rnaGeneBlckFilename, i_rnaGeneFamilyBlckFilename, i_outputDir, i_prefix, i_scriptsDir, i_ignoreScriptsDir, i_joblistFileHandler, i_gzip, i_debug)
             rmTmpFilesList.append(previousFilename)
 
-        # merge passing with snpEff back with originals 
+        # merge passing with snpEff back with originals
         previousFilename = merge_passingAndOriginals(i_pythonExecutable, i_id, i_chr, previousFilename, preSnpEffFilename, i_outputDir, i_prefix, i_scriptsDir, i_ignoreScriptsDir, i_joblistFileHandler, i_gzip, i_debug)
         rmTmpFilesList.append(previousFilename)
 
