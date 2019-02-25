@@ -1777,8 +1777,10 @@ class Club():
         multiMappingPct = 0.0
         # multiple mapping of the mutCountReads
         (source, target) = aModChange.split(">")
-        if ((target in mmpDict) and (mmpDict[target]["total"] > 0) and
+        if ((target in mmpDict) and
+            (mmpDict[target]["total"] > 0) and
             (mmpDict[target]["total"] >= aParamsDict["minMultiMapDepth"])):
+            # get the multi mapping percent
             secondary = mmpDict[target]["secondary"]
             total = mmpDict[target]["total"]
             multiMappingPct = round(secondary/float(total), 2)
