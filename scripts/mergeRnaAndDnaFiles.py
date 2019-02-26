@@ -139,18 +139,18 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
     # process all of the calls from the DNA mpileup filter
     for line in dnaFileHandler:
 
+        # if it is an empty line, then just continue
+        if (line.isspace()):
+            continue
+
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
 
         if (anIsDebug and not line.startswith("#")):
             logging.debug("DNA mpileup Line: %s", line)
 
-        # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
         # if it is a header line, then add it to the header list
-        elif (line.startswith("#")):
+        if (line.startswith("#")):
 
             # keep all the header lines
             headerList.append(line + "\n")
@@ -171,41 +171,37 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
     # these are all the calls that pass in both the DNA and RNA
     for line in overlapsFileHandler:
 
+        # if it is an empty line, then just continue
+        # if it is a header line, then continue
+        if (line.isspace() or line.startswith("#")):
+            continue
+
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
 
         if (anIsDebug and not line.startswith("#")):
             logging.debug("Overlaps file Line: %s", line)
 
-        # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
-        # if it is a header line, then continue
-        elif (line.startswith("#")):
-            continue
-
         # now we are to the data
+        # split the line on the tab
+        splitLine = line.split("\t")
+
+        # the coordinate is the second element
+        stopCoordinate = splitLine[1]
+
+        # if the call passed in both the RNA and DNA,
+        # then adjust the origin
+        if (stopCoordinate in coordinateDict):
+            dnaLine = coordinateDict[stopCoordinate]
+            if (anIsDebug):
+                logging.debug("passed in both RNA and DNA (from overlaps " +
+                              "file) changing the origin to (DNA,RNA) " +
+                              "\nDNALine: %s RNALine: %s\n",
+                              dnaLine, line)
+            dnaLine = dnaLine.replace("ORIGIN=DNA", "ORIGIN=DNA,RNA")
+            coordinateDict[stopCoordinate] = dnaLine
         else:
-            # split the line on the tab
-            splitLine = line.split("\t")
-
-            # the coordinate is the second element
-            stopCoordinate = splitLine[1]
-
-            # if the call passed in both the RNA and DNA,
-            # then adjust the origin
-            if (stopCoordinate in coordinateDict):
-                dnaLine = coordinateDict[stopCoordinate]
-                if (anIsDebug):
-                    logging.debug("passed in both RNA and DNA (from " +
-                                  "overlaps file) changing the origin to " +
-                                  "(DNA,RNA) \nDNALine: %s RNALine: %s\n",
-                                  dnaLine, line)
-                dnaLine = dnaLine.replace("ORIGIN=DNA", "ORIGIN=DNA,RNA")
-                coordinateDict[stopCoordinate] = dnaLine
-            else:
-                coordinateDict[stopCoordinate] = line + "\n"
+            coordinateDict[stopCoordinate] = line + "\n"
 
     # loop through the RNA mpileup filtered calls
     # create 2 dictionaries:  one for passing, one for non-passing
@@ -247,38 +243,39 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
     rnaMpileupNonpassingDict = {}
     for rnaLine in rnaFileHandler:
 
+        # if it is an empty line, then just continue
+        # if it is a header line, then just continue
+        if (rnaLine.isspace() or rnaLine.startswith("#")):
+            continue
+
         # strip the carriage return and newline characters
         rnaLine = rnaLine.rstrip("\r\n")
 
         if (anIsDebug and not rnaLine.startswith("#")):
             logging.debug("RNA mpileup Line: %s", rnaLine)
 
-        # if it is an empty line, then just continue
-        if (rnaLine.isspace()):
-            continue
-
-        # if it is a header line, then just continue
-        elif (rnaLine.startswith("#")):
-            continue
-
         # now we are to the data
+        # split the line on the tab
+        rnaLineSplit = rnaLine.split("\t")
+
+        # the coordinate is the second element
+        stopCoordinate = rnaLineSplit[1]
+
+        # put the call in the right dict
+        if "PASS" in rnaLineSplit[6]:
+            rnaMpileupPassingDict[stopCoordinate] = rnaLine
         else:
-            # split the line on the tab
-            rnaLineSplit = rnaLine.split("\t")
-
-            # the coordinate is the second element
-            stopCoordinate = rnaLineSplit[1]
-
-            # put the call in the right dict
-            if "PASS" in rnaLineSplit[6]:
-                rnaMpileupPassingDict[stopCoordinate] = rnaLine
-            else:
-                rnaMpileupNonpassingDict[stopCoordinate] = rnaLine
+            rnaMpileupNonpassingDict[stopCoordinate] = rnaLine
 
     # these are the RNA Rescue and RNA Editing calls after
     # the initial filtering but before filterByReadSupport.py
     if (os.path.isfile(aNonOverlapsFile)):
         for line in nonOverlapsFileHandler:
+
+            # if it is an empty line, then just continue
+            # if it is a header line, then just continue
+            if (line.isspace() or line.startswith("#")):
+                continue
 
             # strip the carriage return and newline characters
             line = line.rstrip("\r\n")
@@ -286,160 +283,149 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
             if (anIsDebug and not line.startswith("#")):
                 logging.debug("Non-overlaps Line: %s", line)
 
-            # if it is an empty line, then just continue
-            if (line.isspace()):
-                continue
-
-            # if it is a header line, then just continue
-            elif (line.startswith("#")):
-                continue
-
             # now we are to the data
-            else:
-                # split the line on the tab
-                splitLine = line.split("\t")
+            # split the line on the tab
+            splitLine = line.split("\t")
 
-                # the coordinate is the second element
-                stopCoordinate = splitLine[1]
+            # the coordinate is the second element
+            stopCoordinate = splitLine[1]
 
-                # if this call passed in the RNA, then overwrite
-                # the DNA call that didn't pass
-                if ("PASS" in splitLine[6]):
-                    # if this call existed in the DNA
-                    if (stopCoordinate in coordinateDict):
-                        dnaLine = coordinateDict[stopCoordinate]
-                        # get the RNA line from the RNA mpileups passing dict
-                        rnaLine = rnaMpileupPassingDict[stopCoordinate]
-                        # if it didn't pass in the DNA
-                        if ("PASS" not in dnaLine):
-                            if (anIsDebug):
-                                logging.debug("Overwriting non-passing DNA " +
-                                              "call with passing RNA Rescue " +
-                                              "calls \nDNALine: %s" +
-                                              "RNALineNonOverlaps: %s" +
-                                              "\nRNALineMpileup: %s\n",
-                                              dnaLine, line, rnaLine)
-                            coordinateDict[stopCoordinate] = rnaLine + "\n"
-                        else:
-                            if (anIsDebug):
-                                # this call passed in both
-                                logging.debug("Unusual call in non-overlaps " +
-                                              "file passed in both the RNA " +
-                                              "and DNA but they probably " +
-                                              "don't have the same modType! " +
-                                              "\nDNALine: %s " +
-                                              "RNALineNonOverlaps: %s" +
-                                              "\nRNALineMpileup: %s\n",
-                                              dnaLine, line, rnaLine)
-                            # at this point, there are multiple events that
-                            # pass all the filters. in this case, pick the
-                            # passing event in the following order:
-                            # GERM, NOR_EDIT, SOM, TUM_EDIT, RNA_TUM_VAR, LOH
-                            if ("GERM" in dnaLine or "SOM" in dnaLine):
-                                coordinateDict[stopCoordinate] = dnaLine
-                            else:
-                                coordinateDict[stopCoordinate] = rnaLine
-                    # this call didn't exist in the DNA
+            # if this call passed in the RNA, then overwrite
+            # the DNA call that didn't pass
+            if ("PASS" in splitLine[6]):
+                # if this call existed in the DNA
+                if (stopCoordinate in coordinateDict):
+                    dnaLine = coordinateDict[stopCoordinate]
+                    # get the RNA line from the RNA mpileups passing dict
+                    rnaLine = rnaMpileupPassingDict[stopCoordinate]
+                    # if it didn't pass in the DNA
+                    if ("PASS" not in dnaLine):
+                        if (anIsDebug):
+                            logging.debug("Overwriting non-passing DNA call " +
+                                          "with passing RNA Rescue calls " +
+                                          "\nDNALine: %s" +
+                                          "RNALineNonOverlaps: %s" +
+                                          "\nRNALineMpileup: %s\n",
+                                          dnaLine, line, rnaLine)
+                        coordinateDict[stopCoordinate] = rnaLine + "\n"
                     else:
-                        logging.warning("Call didn't exist in DNA? " +
-                                        "RNALine: %s\n", line)
-                        coordinateDict[stopCoordinate] = line + "\n"
-                # this call didn't pass in the RNA
+                        if (anIsDebug):
+                            # this call passed in both
+                            logging.debug("Unusual call in non-overlaps " +
+                                          "file passed in both the RNA and " +
+                                          "DNA but they probably don't have " +
+                                          "the same modType! \nDNALine: %s " +
+                                          "RNALineNonOverlaps: %s" +
+                                          "\nRNALineMpileup: %s\n",
+                                          dnaLine, line, rnaLine)
+                        # at this point, there are multiple events that pass
+                        # all the filters. in this case, pick the passing
+                        # event in the following order:
+                        # GERM, NOR_EDIT, SOM, TUM_EDIT, RNA_TUM_VAR, LOH
+                        if ("GERM" in dnaLine or "SOM" in dnaLine):
+                            coordinateDict[stopCoordinate] = dnaLine
+                        else:
+                            coordinateDict[stopCoordinate] = rnaLine
+                # this call didn't exist in the DNA
                 else:
-                    if (anIsDebug):
-                        logging.debug("Call didn't pass in RNA: " +
-                                      "RNALine: %s\n", line)
+                    logging.warning("Call didn't exist in DNA? " +
+                                    "RNALine: %s\n", line)
+                    coordinateDict[stopCoordinate] = line + "\n"
+            # this call didn't pass in the RNA
+            else:
+                if (anIsDebug):
+                    logging.debug("Call didn't pass in RNA: " +
+                                  "RNALine: %s\n", line)
 
-                    # if this call existed in the DNA
-                    if (stopCoordinate in coordinateDict):
-                        dnaLine = coordinateDict[stopCoordinate]
-                        # if it didn't pass in the DNA
-                        if ("PASS" not in dnaLine):
-                            if (anIsDebug):
-                                logging.debug("RNANoPass:  Didn't pass in " +
-                                              "both, so change origin and " +
-                                              "merge filters \nDNALine: %s " +
-                                              "RNALine: %s\n", dnaLine, line)
-                            # change origin
-                            if ("ORIGIN=DNA,RNA" not in dnaLine):
-                                dnaLine = dnaLine.replace("ORIGIN=DNA",
-                                                          "ORIGIN=DNA,RNA")
-                            dnaLine = dnaLine.rstrip("\r\n")
-                            dnaLineSplit = dnaLine.split("\t")
+                # if this call existed in the DNA
+                if (stopCoordinate in coordinateDict):
+                    dnaLine = coordinateDict[stopCoordinate]
+                    # if it didn't pass in the DNA
+                    if ("PASS" not in dnaLine):
+                        if (anIsDebug):
+                            logging.debug("RNANoPass:  Didn't pass in both, " +
+                                          "so change origin and merge " +
+                                          "filters \nDNALine: %s " +
+                                          "RNALine: %s\n", dnaLine, line)
+                        # change origin
+                        if ("ORIGIN=DNA,RNA" not in dnaLine):
+                            dnaLine = dnaLine.replace("ORIGIN=DNA",
+                                                      "ORIGIN=DNA,RNA")
+                        dnaLine = dnaLine.rstrip("\r\n")
+                        dnaLineSplit = dnaLine.split("\t")
 
-                            # merge the filters for the FILTER column
-                            dnaLineSplit[6] = merge_filters(splitLine[6],
-                                                            dnaLineSplit[6])
+                        # merge the filters for the FILTER column
+                        dnaLineSplit[6] = merge_filters(splitLine[6],
+                                                        dnaLineSplit[6])
 
-                            # merge the mod filters and filter types
-                            # in the INFO column
-                            dnaLineSplit[7] = merge_mod_filters(
-                                                            splitLine[7],
-                                                            dnaLineSplit[7])
+                        # merge the mod filters and filter types
+                        # in the INFO column
+                        dnaLineSplit[7] = merge_mod_filters(
+                                                        splitLine[7],
+                                                        dnaLineSplit[7])
 
-                            newDnaLine = "\t".join(dnaLineSplit) + "\n"
-                            coordinateDict[stopCoordinate] = newDnaLine
+                        newDnaLine = "\t".join(dnaLineSplit) + "\n"
+                        coordinateDict[stopCoordinate] = newDnaLine
 
-                            if (anIsDebug):
-                                logging.debug("RNANoPass:  After change " +
-                                              "origin and merge filters " +
-                                              "\nFinalLine: %s\n",
-                                              "\t".join(dnaLineSplit))
-                        else:
-                            # this call passed in both:
-                            # DNALine: 17 4857042 .   T   A,G,C   0.0 PASS
-                            #    AB=A,G,C;AC=10,5,8211;AF=0.0,0.0,0.98;AN=4;
-                            #    BQ=31;DP=8379;FA=0.98;INS=0;DEL=0;;MC=T>A;
-                            #    MT=GERM;NS=3;ORG_ISO_AD=16_2_1_2615,
-                            #    18_3_1_2791,18_1_2_2805;ORIGIN=DNA;
-                            #    RS_GEN_POS=17:4854383-4860426,
-                            #    17:4854383-4860426,17:4854383-4860426;
-                            #    RS_NAME=NM_001193503,NM_001976,NM_053013;
-                            #    RS_ORG_POS=313,484,442;RS_STRAND=+,+,+;
-                            #    SB=0.74;SS=1;START=1;STOP=0;VT=SNP
-                            #    GT:DP:AD:AF:INS:DEL:START:STOP:BQ:SB
-                            #    0/1:36:31,4,1,0:0.86,0.11,0.03,0.0:0:0:1:0:
-                            #        29,28,3,0:0.39,0.5,1.0,0.0
-                            #    0/0:70:70,0,0,0:1.0,0.0,0.0,0.0:0:0:0:0:
-                            #        31,0,0,0:0.56,0.0,0.0,0.0
-                            #    3/3:8273:52,6,4,8211:0.01,0.0,0.0,0.99:0:0:0:0:
-                            #        45,12,12,58:0.94,1.0,1.0,0.97
-                            # RNALine: 17    4857042 .   T   A,G,C   0.0 PASS
-                            #    AB=A,G,C;AC=10,5,8211;AF=0.0,0.0,0.98;AN=4;
-                            #    BQ=31;DP=8379;FA=0.98;INS=0;DEL=0;;MC=T>C;
-                            #    MT=TUM_EDIT;NS=3;ORG_ISO_AD=16_2_1_2615,
-                            #    18_3_1_2791,18_1_2_2805;ORIGIN=RNA;
-                            #    RS_GEN_POS=17:4854383-4860426,
-                            #    17:4854383-4860426,17:4854383-4860426;
-                            #    RS_NAME=NM_001193503,NM_001976,NM_053013;
-                            #    RS_ORG_POS=313,484,442;RS_STRAND=+,+,+;
-                            #    SB=0.74;SS=5;START=1;STOP=0;VT=SNP
-                            #    GT:DP:AD:AF:INS:DEL:START:STOP:BQ:SB
-                            #    0/1:36:31,4,1,0:0.86,0.11,0.03,0.0:0:0:1:0:
-                            #        29,28,3,0:0.39,0.5,1.0,0.0
-                            #    0/0:70:70,0,0,0:1.0,0.0,0.0,0.0:0:0:0:0:
-                            #        31,0,0,0:0.56,0.0,0.0,0.0
-                            #    3/3:8273:52,6,4,8211:0.01,0.0,0.0,0.99:0:0:0:0:
-                            #        45,12,12,58:0.94,1.0,1.0,0.97
-                            logging.warning("RNANoPass:  Call passed in " +
-                                            "both RNA and DNA but they " +
-                                            "probably don't have the same " +
-                                            "modType \nDNALine: %s " +
-                                            "RNALine: %s\n",
-                                            dnaLine, line)
-                            # at this point, there are multiple events that
-                            # pass all the filters. in this case, pick the
-                            # passing event in the following order:
-                            # GERM, NOR_EDIT, SOM, TUM_EDIT, RNA_TUM_VAR, LOH
-                            if ("GERM" in dnaLine or "SOM" in dnaLine):
-                                coordinateDict[stopCoordinate] = dnaLine
-                            else:
-                                coordinateDict[stopCoordinate] = line
-                    # this call didn't exist in the DNA
+                        if (anIsDebug):
+                            logging.debug("RNANoPass:  After change origin " +
+                                          "and merge filters " +
+                                          "\nFinalLine: %s\n",
+                                          "\t".join(dnaLineSplit))
                     else:
-                        logging.warning("RNANoPass:  Call didn't exist in " +
-                                        "DNA? RNALine: %s\n", line)
-                        coordinateDict[stopCoordinate] = line + "\n"
+                        # this call passed in both:
+                        # DNALine: 17 4857042 .   T   A,G,C   0.0 PASS
+                        #    AB=A,G,C;AC=10,5,8211;AF=0.0,0.0,0.98;AN=4;
+                        #    BQ=31;DP=8379;FA=0.98;INS=0;DEL=0;;MC=T>A;
+                        #    MT=GERM;NS=3;ORG_ISO_AD=16_2_1_2615,
+                        #    18_3_1_2791,18_1_2_2805;ORIGIN=DNA;
+                        #    RS_GEN_POS=17:4854383-4860426,
+                        #    17:4854383-4860426,17:4854383-4860426;
+                        #    RS_NAME=NM_001193503,NM_001976,NM_053013;
+                        #    RS_ORG_POS=313,484,442;RS_STRAND=+,+,+;
+                        #    SB=0.74;SS=1;START=1;STOP=0;VT=SNP
+                        #    GT:DP:AD:AF:INS:DEL:START:STOP:BQ:SB
+                        #    0/1:36:31,4,1,0:0.86,0.11,0.03,0.0:0:0:1:0:
+                        #        29,28,3,0:0.39,0.5,1.0,0.0
+                        #    0/0:70:70,0,0,0:1.0,0.0,0.0,0.0:0:0:0:0:
+                        #        31,0,0,0:0.56,0.0,0.0,0.0
+                        #    3/3:8273:52,6,4,8211:0.01,0.0,0.0,0.99:0:0:0:0:
+                        #        45,12,12,58:0.94,1.0,1.0,0.97
+                        # RNALine: 17    4857042 .   T   A,G,C   0.0 PASS
+                        #    AB=A,G,C;AC=10,5,8211;AF=0.0,0.0,0.98;AN=4;
+                        #    BQ=31;DP=8379;FA=0.98;INS=0;DEL=0;;MC=T>C;
+                        #    MT=TUM_EDIT;NS=3;ORG_ISO_AD=16_2_1_2615,
+                        #    18_3_1_2791,18_1_2_2805;ORIGIN=RNA;
+                        #    RS_GEN_POS=17:4854383-4860426,
+                        #    17:4854383-4860426,17:4854383-4860426;
+                        #    RS_NAME=NM_001193503,NM_001976,NM_053013;
+                        #    RS_ORG_POS=313,484,442;RS_STRAND=+,+,+;
+                        #    SB=0.74;SS=5;START=1;STOP=0;VT=SNP
+                        #    GT:DP:AD:AF:INS:DEL:START:STOP:BQ:SB
+                        #    0/1:36:31,4,1,0:0.86,0.11,0.03,0.0:0:0:1:0:
+                        #        29,28,3,0:0.39,0.5,1.0,0.0
+                        #    0/0:70:70,0,0,0:1.0,0.0,0.0,0.0:0:0:0:0:
+                        #        31,0,0,0:0.56,0.0,0.0,0.0
+                        #    3/3:8273:52,6,4,8211:0.01,0.0,0.0,0.99:0:0:0:0:
+                        #        45,12,12,58:0.94,1.0,1.0,0.97
+                        logging.warning("RNANoPass:  Call passed in both " +
+                                        "RNA and DNA but they probably " +
+                                        "don't have the same modType " +
+                                        "\nDNALine: %s RNALine: %s\n",
+                                        dnaLine, line)
+                        # at this point, there are multiple events that
+                        # pass all the filters. in this case, pick the
+                        # passing event in the following order:
+                        # GERM, NOR_EDIT, SOM, TUM_EDIT, RNA_TUM_VAR, LOH
+                        if ("GERM" in dnaLine or "SOM" in dnaLine):
+                            coordinateDict[stopCoordinate] = dnaLine
+                        else:
+                            coordinateDict[stopCoordinate] = line
+                # this call didn't exist in the DNA
+                else:
+                    logging.warning("RNANoPass:  Call didn't exist in DNA? " +
+                                    "RNALine: %s\n", line)
+                    coordinateDict[stopCoordinate] = line + "\n"
 
     # these are needed for merging the RNA mpileup filters
     for (rnaStopCoordinate, rnaLine) in rnaMpileupNonpassingDict.iteritems():

@@ -61,15 +61,15 @@ def get_vcf_data(anId, anInputDir, anIsDebug):
 
         for line in vcfFileHandler:
 
+            # if it is an empty line, then just continue
+            if (line.isspace()):
+                continue
+
             # strip the carriage return and newline characters
             line = line.rstrip("\r\n")
 
             if (anIsDebug):
                 logging.debug("vcfLine: %s", line)
-
-            # if it is an empty line, then just continue
-            if (line.isspace()):
-                continue
 
             # if we haven't processed the header yet, then do it here
             if (not processedHeader):

@@ -40,18 +40,18 @@ def get_vcf_data(aVCFFile, anIsDebug):
 
     for line in vcfFileHandler:
 
+        # if it is an empty line, then just continue
+        if (line.isspace()):
+            continue
+
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
 
         if (anIsDebug):
             logging.debug("vcfLine: %s", line)
 
-        # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
         # if we find the FILTER section, then record the filters
-        elif (line.startswith("##FILTER")):
+        if (line.startswith("##FILTER")):
             filterList.append(line)
 
         # if we find the INFO section, then record the info

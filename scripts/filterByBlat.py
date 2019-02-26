@@ -48,7 +48,8 @@ def get_vcf_data(aVcfFile, aPassOnlyFlag, anIsDebug):
     for line in fileHandler:
 
         # if it is an empty line, then just continue
-        if (line.isspace()):
+        # if is is a header line, then just continue
+        if (line.isspace() or line.startswith("#")):
             continue
 
         # strip the carriage return and newline characters
@@ -57,13 +58,9 @@ def get_vcf_data(aVcfFile, aPassOnlyFlag, anIsDebug):
         # if (anIsDebug):
         #    logging.debug("VCF: %s", line)
 
-        # these are header lines, so just continue
-        if (line.startswith("#")):
-            continue
-
         # if we are only suppose to process the passed calls
         # and this call has not passed, then skip it
-        elif (aPassOnlyFlag and "PASS" not in line):
+        if (aPassOnlyFlag and "PASS" not in line):
             continue
 
         yield line
@@ -92,11 +89,8 @@ def parse_blat_output(aBlatFile, anOutputFormat, anIsDebug):
     for line in fileHandler:
 
         # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
-        # these are header lines, so just continue
-        if (line.startswith("#")):
+        # if is is a header line, then just continue
+        if (line.isspace() or line.startswith("#")):
             continue
 
         # strip the carriage return and newline characters

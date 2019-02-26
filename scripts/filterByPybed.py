@@ -48,17 +48,19 @@ def get_vcf_data(anInputFileHandler, anOutputFileHandler,
     hasAddedHeader = False
 
     for line in anInputFileHandler:
-        # strip the carriage return and newline characters
-        line = line.rstrip("\r\n")
-
-        if (anIsDebug):
-            logging.debug("VCF Line: %s", line)
 
         # if it is an empty line, then just continue
         if (line.isspace()):
             continue
+
+        # strip the carriage return and newline characters
+        line = line.rstrip("\r\n")
+
+        # if (anIsDebug):
+        #    logging.debug("VCF Line: %s", line)
+
         # if we find the INFO or FILTER section, then add the filters from here
-        elif (((aHeaderLine is not None) and
+        if (((aHeaderLine is not None) and
                (not hasAddedHeader)) and
               ((aHeaderLine.startswith("##INFO") and
                 line.startswith("##INFO")) or

@@ -47,130 +47,125 @@ def get_vcf_data(anInputFilename, aStatsDict, aCompareDict,
     outputDict = {}
 
     for line in inputFileHandler:
+
+        # if it is an empty line or header line, then just continue
+        if (line.isspace() or line.startswith("#")):
+            continue
+
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
 
         # if (anIsDebug):
         #    logging.debug("VCF Line: %s", line)
 
-        # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
-        # these lines are from previous scripts in the pipeline, so output them
-        elif (line.startswith("#")):
-            continue
-
         # now we are to the data
-        else:
+        # split the line on the tab
+        splitLine = line.split("\t")
 
-            # split the line on the tab
-            splitLine = line.split("\t")
+        # get the fields to yield
+        # columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT",
+        #                  "QUAL", "FILTER", "INFO", "FORMAT"]
+        chrom = splitLine[0]
+        stopCoordinate = splitLine[1]
 
-            # get the fields to yield
-            # columnHeaders = ["CHROM", "POS", "ID", "REF", "ALT",
-            #                  "QUAL", "FILTER", "INFO", "FORMAT"]
-            chrom = splitLine[0]
-            stopCoordinate = splitLine[1]
+        # outputDict[chrom + "_" + stopCoordinate] = line
 
-            # outputDict[chrom + "_" + stopCoordinate] = line
+        # keep track of the number of total events per file
+        # aStatsDict[aPrefix + "_events"] += 1
 
-            # keep track of the number of total events per file
-            # aStatsDict[aPrefix + "_events"] += 1
+        # if ("PASS" in line):
+        #    aStatsDict[aPrefix + "_pass_events"] += 1
 
-            # if ("PASS" in line):
-            #    aStatsDict[aPrefix + "_pass_events"] += 1
+        # the thing that is being compared to has to have the
+        # smaller/limited amount i.e. only the passing som events,
+        # otherwise everything will be found
+        # if (aPrefix == "rad" and "SNP" in line):
+        # if (aPrefix == "rad"):
+        if (aPrefix == "rad" and "PASS" in line and "SNP" in line and
+            ("SOM" in line or "EDIT" in line or
+             "RNA_TUM_VAR" in line or "RNA_NOR_VAR" in line)):
+            # add the coordinate to the output
+            outputDict[chrom + "_" + stopCoordinate] = line
+        # elif (aPrefix == "cmp" and "PASS" in line):
+        # elif (aPrefix == "cmp" and "SNP" in line):
+        elif (aPrefix == "cmp" and "PASS" in line and "SNP" in line and
+              ("SOM" in line or "EDIT" in line or
+               "RNA_TUM_VAR" in line or "RNA_NOR_VAR" in line)):
+            outputDict[chrom + "_" + stopCoordinate] = line
 
-            # the thing that is being compared to has to have the
-            # smaller/limited amount i.e. only the passing som events,
-            # otherwise everything will be found
-            # if (aPrefix == "rad" and "SNP" in line):
-            # if (aPrefix == "rad"):
-            if (aPrefix == "rad" and "PASS" in line and "SNP" in line and
-                ("SOM" in line or "EDIT" in line or
-                 "RNA_TUM_VAR" in line or "RNA_NOR_VAR" in line)):
-                # add the coordinate to the output
-                outputDict[chrom + "_" + stopCoordinate] = line
-            # elif (aPrefix == "cmp" and "PASS" in line):
-            # elif (aPrefix == "cmp" and "SNP" in line):
-            elif (aPrefix == "cmp" and "PASS" in line and "SNP" in line and
-                  ("SOM" in line or "EDIT" in line or
-                   "RNA_TUM_VAR" in line or "RNA_NOR_VAR" in line)):
-                outputDict[chrom + "_" + stopCoordinate] = line
+        # if ("PASS" in line and "Somatic" in line and "SNP" in line):
+        # if ("SOM" in line):
+        #    outputDict[chrom + "_" + stopCoordinate] = line
 
-            # if ("PASS" in line and "Somatic" in line and "SNP" in line):
-            # if ("SOM" in line):
-            #    outputDict[chrom + "_" + stopCoordinate] = line
+        #    # keep track of the number of total events per file
+        #    aStatsDict[aPrefix + "_events"] += 1
 
-            #    # keep track of the number of total events per file
-            #    aStatsDict[aPrefix + "_events"] += 1
+        #    if ("PASS" in line):
+        #        aStatsDict[aPrefix + "_pass_events"] += 1
 
-            #    if ("PASS" in line):
-            #        aStatsDict[aPrefix + "_pass_events"] += 1
+        # if ("PASS" in line and "SOM" in line):
+        # if ("SOM" in line):
+        #    outputDict[chrom + "_" + stopCoordinate] = line
+        #    aStatsDict[aPrefix + "_events"] += 1
+        #    aStatsDict[aPrefix + "_pass_events"] += 1
 
-            # if ("PASS" in line and "SOM" in line):
-            # if ("SOM" in line):
-            #    outputDict[chrom + "_" + stopCoordinate] = line
-            #    aStatsDict[aPrefix + "_events"] += 1
-            #    aStatsDict[aPrefix + "_pass_events"] += 1
+        # keep track of the total number of comparison events (blck, dnSnp,
+        # etc.) per file. there can be multiple keys for one filter such
+        # as blq and bldp for blacklists
+        for (radKeyString, cmpKeyString) in aCompareDict.iteritems():
+            if (aPrefix == "rad"):
+                # break up the string to get the individual keys
+                radKeyList = radKeyString.split(",")
+                # search for each one of them
+                for radKey in radKeyList:
+                    # if we find one
+                    if (radKey in line):
+                        # count it using the keyString
+                        aStatsDict[aPrefix + "_" + radKeyString] += 1
+                        # if this is a passing line,
+                        # call it using the keyString
+                        # if ("PASS" in line and
+                        #     (radKey == "GERM" or "DB" not in line)):
+                        # if ("PASS" in line and
+                        #     (radKey == "Germline" or "DB" not in line)):
+                        # if ("PASS" in line):
+                        # if (radKey in line):
+                        # if ("PASS" in line and "SNP" in line):
+                        if ("PASS" in line and
+                            "SNP" in line and
+                            radKey in line):
+                            statKey = aPrefix + "_pass_" + radKeyString
+                            aStatsDict[statKey] += 1
+                        # only count it once
+                        break
 
-            # keep track of the total number of comparison events (blck, dnSnp,
-            # etc.) per file. there can be multiple keys for one filter such
-            # as blq and bldp for blacklists
-            for (radKeyString, cmpKeyString) in aCompareDict.iteritems():
-                if (aPrefix == "rad"):
-                    # break up the string to get the individual keys
-                    radKeyList = radKeyString.split(",")
-                    # search for each one of them
-                    for radKey in radKeyList:
-                        # if we find one
-                        if (radKey in line):
-                            # count it using the keyString
-                            aStatsDict[aPrefix + "_" + radKeyString] += 1
-                            # if this is a passing line,
-                            # call it using the keyString
-                            # if ("PASS" in line and
-                            #     (radKey == "GERM" or "DB" not in line)):
-                            # if ("PASS" in line and
-                            #     (radKey == "Germline" or "DB" not in line)):
-                            # if ("PASS" in line):
-                            # if (radKey in line):
-                            # if ("PASS" in line and "SNP" in line):
-                            if ("PASS" in line and
-                                "SNP" in line and
-                                radKey in line):
-                                statKey = aPrefix + "_pass_" + radKeyString
-                                aStatsDict[statKey] += 1
-                            # only count it once
-                            break
-
-                elif (aPrefix == "cmp"):
-                    # break up the string to get the individual keys
-                    cmpKeyList = cmpKeyString.split(",")
-                    # search for each one of them
-                    for cmpKey in cmpKeyList:
-                        # if we find one
-                        if (cmpKey in line):
-                            # count it using the keyString
-                            # if ("SNP" in line):
-                            #    aStatsDict[aPrefix + "_" + cmpKeyString] += 1
-                            aStatsDict[aPrefix + "_" + cmpKeyString] += 1
-                            # if this is a passing line,
-                            # call it using the keyString
-                            # if ("PASS" in line and
-                            #    (cmpKey == "GERM" or "DB" not in line)):
-                            # if ("PASS" in line and "SNP" in line and
-                            #    (cmpKey == "Germline" or "DB" not in line)):
-                            # if ("PASS" in line and "SNP" in line and
-                            #    "SS=2" in line and cmpKey in line):
-                            # if ("PASS" in line):
-                            if ("PASS" in line and
-                                "SNP" in line and
-                                cmpKey in line):
-                                statKey = aPrefix + "_pass_" + cmpKeyString
-                                aStatsDict[statKey] += 1
-                            # only count it once
-                            break
+            elif (aPrefix == "cmp"):
+                # break up the string to get the individual keys
+                cmpKeyList = cmpKeyString.split(",")
+                # search for each one of them
+                for cmpKey in cmpKeyList:
+                    # if we find one
+                    if (cmpKey in line):
+                        # count it using the keyString
+                        # if ("SNP" in line):
+                        #    aStatsDict[aPrefix + "_" + cmpKeyString] += 1
+                        aStatsDict[aPrefix + "_" + cmpKeyString] += 1
+                        # if this is a passing line,
+                        # call it using the keyString
+                        # if ("PASS" in line and
+                        #    (cmpKey == "GERM" or "DB" not in line)):
+                        # if ("PASS" in line and "SNP" in line and
+                        #    (cmpKey == "Germline" or "DB" not in line)):
+                        # if ("PASS" in line and "SNP" in line and
+                        #    "SS=2" in line and cmpKey in line):
+                        # if ("PASS" in line):
+                        if ("PASS" in line and
+                            "SNP" in line and
+                            cmpKey in line):
+                            statKey = aPrefix + "_pass_" + cmpKeyString
+                            aStatsDict[statKey] += 1
+                        # only count it once
+                        break
 
     inputFileHandler.close()
 
@@ -195,98 +190,93 @@ def get_maf_data(anInputFilename, aStatsDict, aCompareDict,
     outputDict = {}
 
     for line in inputFileHandler:
+
+        # if it is an empty line or header line, then just continue
+        if (line.isspace() or line.startswith("#")):
+            continue
+
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
 
         # if (anIsDebug):
         #    logging.debug("MAF Line: %s", line)
 
-        # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
-        # these lines are from previous scripts in the pipeline, so output them
-        elif (line.startswith("#")):
-            continue
-
         # now we are to the data
-        else:
+        # split the line on the tab
+        splitLine = line.split("\t")
 
-            # split the line on the tab
-            splitLine = line.split("\t")
+        # get the fields to yield
+        # center = splitLine[2]
+        chrom = splitLine[4]
+        # startCoordinate = splitLine[5]
+        stopCoordinate = splitLine[6]
+        # variantType = splitLine[9]
+        # dbSnp = splitLine[13]
 
-            # get the fields to yield
-            # center = splitLine[2]
-            chrom = splitLine[4]
-            # startCoordinate = splitLine[5]
-            stopCoordinate = splitLine[6]
-            # variantType = splitLine[9]
-            # dbSnp = splitLine[13]
+        # if ("Somatic" in line and "SNP" in line):
+        if (True):
+            # coordinateKey = chrom + "_" + stopCoordinate
+            # if (coordinateKey) in outputDict:
+            #    logging.debug(line + outputDict[coordinateKey])
 
-            # if ("Somatic" in line and "SNP" in line):
-            if (True):
-                # coordinateKey = chrom + "_" + stopCoordinate
-                # if (coordinateKey) in outputDict:
-                #    logging.debug(line + outputDict[coordinateKey])
+            # add the coordinate to the output
+            outputDict[chrom + "_" + stopCoordinate] = line
 
-                # add the coordinate to the output
-                outputDict[chrom + "_" + stopCoordinate] = line
+            # keep track of the number of total events per file
+            aStatsDict[aPrefix + "_events"] += 1
 
-                # keep track of the number of total events per file
-                aStatsDict[aPrefix + "_events"] += 1
+            # all events are considered passing events
+            aStatsDict[aPrefix + "_pass_events"] += 1
 
-                # all events are considered passing events
-                aStatsDict[aPrefix + "_pass_events"] += 1
+        # keep track of the total number of comparison events (blck, dnSnp,
+        # etc.) per file. their can be multiple keys for one filter such
+        # as blq and bldp for blacklists
+        for (radKeyString, cmpKeyString) in aCompareDict.iteritems():
+            if (aPrefix == "rad"):
+                # break up the string to get the individual keys
+                radKeyList = radKeyString.split(",")
+                # search for each one of them
+                for radKey in radKeyList:
+                    # if we find one
+                    if (radKey in line):
+                        # count it using the keyString
+                        aStatsDict[aPrefix + "_" + radKeyString] += 1
+                        # if this is a passing line,
+                        # call it using the keyString
+                        # if ("PASS" in line and
+                        #    (radKey == "GERM" or "DB" not in line)):
+                        # if ("PASS" in line and
+                        #    (radKey == "Germline" or "DB" not in line)):
+                        # if ("PASS" in line and radKey in line):
+                        # if ("SNP" in line):
+                        if ("SOMATIC" in line):
+                            statKey = aPrefix + "_pass_" + radKeyString
+                            aStatsDict[statKey] += 1
+                        # only count it once
+                        break
 
-            # keep track of the total number of comparison events (blck, dnSnp,
-            # etc.) per file. their can be multiple keys for one filter such
-            # as blq and bldp for blacklists
-            for (radKeyString, cmpKeyString) in aCompareDict.iteritems():
-                if (aPrefix == "rad"):
-                    # break up the string to get the individual keys
-                    radKeyList = radKeyString.split(",")
-                    # search for each one of them
-                    for radKey in radKeyList:
-                        # if we find one
-                        if (radKey in line):
-                            # count it using the keyString
-                            aStatsDict[aPrefix + "_" + radKeyString] += 1
-                            # if this is a passing line,
-                            # call it using the keyString
-                            # if ("PASS" in line and
-                            #    (radKey == "GERM" or "DB" not in line)):
-                            # if ("PASS" in line and
-                            #    (radKey == "Germline" or "DB" not in line)):
-                            # if ("PASS" in line and radKey in line):
-                            # if ("SNP" in line):
-                            if ("SOMATIC" in line):
-                                statKey = aPrefix + "_pass_" + radKeyString
-                                aStatsDict[statKey] += 1
-                            # only count it once
-                            break
-
-                elif (aPrefix == "cmp"):
-                    # break up the string to get the individual keys
-                    cmpKeyList = cmpKeyString.split(",")
-                    # search for each one of them
-                    for cmpKey in cmpKeyList:
-                        # if we find one
-                        if (cmpKey in line):
-                            # count it using the keyString
-                            aStatsDict[aPrefix + "_" + cmpKeyString] += 1
-                            # if this is a passing line,
-                            # call it using the keyString
-                            # if ("PASS" in line and
-                            #    (cmpKey == "GERM" or "DB" not in line)):
-                            # if ("PASS" in line and "SNP" in line and
-                            #    (cmpKey == "Germline" or "DB" not in line)):
-                            # if ("SNP" in line):
-                            # if ("PASS" in line):
-                            if ("SOMATIC" in line):
-                                statKey = aPrefix + "_pass_" + cmpKeyString
-                                aStatsDict[statKey] += 1
-                            # only count it once
-                            break
+            elif (aPrefix == "cmp"):
+                # break up the string to get the individual keys
+                cmpKeyList = cmpKeyString.split(",")
+                # search for each one of them
+                for cmpKey in cmpKeyList:
+                    # if we find one
+                    if (cmpKey in line):
+                        # count it using the keyString
+                        aStatsDict[aPrefix + "_" + cmpKeyString] += 1
+                        # if this is a passing line,
+                        # call it using the keyString
+                        # if ("PASS" in line and
+                        #    (cmpKey == "GERM" or "DB" not in line)):
+                        # if ("PASS" in line and "SNP" in line and
+                        #    (cmpKey == "Germline" or "DB" not in line)):
+                        # if ("SNP" in line):
+                        # if ("PASS" in line):
+                        if ("SOMATIC" in line):
+                            statKey = aPrefix + "_pass_" + cmpKeyString
+                            aStatsDict[statKey] += 1
+                        # only count it once
+                        break
 
     inputFileHandler.close()
 
@@ -311,71 +301,64 @@ def get_validation_data(anInputFilename, aStatsDict, aCompareDict,
     outputDict = {}
 
     for line in inputFileHandler:
+
+        # if it is an empty line or header line, then just continue
+        if (line.isspace() or
+            line.startswith("#") or
+            line.startswith("chrom")):
+            continue
+
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
 
         # if (anIsDebug):
         #    logging.debug("Validation Line: %s", line)
 
-        # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
-        # these lines are from previous scripts in the pipeline, so skip them
-        elif (line.startswith("#")):
-            continue
-
-        # this is a header line, so skip it
-        elif (line.startswith("chrom")):
-            continue
-
         # now we are to the data
-        else:
+        # split the line on the tab
+        splitLine = line.split("\t")
 
-            # split the line on the tab
-            splitLine = line.split("\t")
+        # get the fields to yield
+        # columnHeaders = ["chrom", "chr_start", "chr_stop",
+        #                  "ref", "var", "source", "val_result"]
+        # these are 0-based
+        chrom = splitLine[0]
+        # startCoordinate = splitLine[1]
+        stopCoordinate = splitLine[2]
+        # ref = splitLine[3]
+        # variantAllele = splitLine[4]
+        # center = splitLine[5]
+        # valResult = splitLine[6]
 
-            # get the fields to yield
-            # columnHeaders = ["chrom", "chr_start", "chr_stop",
-            #                  "ref", "var", "source", "val_result"]
-            # these are 0-based
-            chrom = splitLine[0]
-            # startCoordinate = splitLine[1]
-            stopCoordinate = splitLine[2]
-            # ref = splitLine[3]
-            # variantAllele = splitLine[4]
-            # center = splitLine[5]
-            # valResult = splitLine[6]
+        # add the coordinate to the output
+        outputDict[chrom + "_" + stopCoordinate] = line
 
-            # add the coordinate to the output
-            outputDict[chrom + "_" + stopCoordinate] = line
+        # keep track of the number of total events per file
+        aStatsDict[aPrefix + "_events"] += 1
 
-            # keep track of the number of total events per file
-            aStatsDict[aPrefix + "_events"] += 1
+        # all events are considered passing events
+        aStatsDict[aPrefix + "_pass_events"] += 1
 
-            # all events are considered passing events
-            aStatsDict[aPrefix + "_pass_events"] += 1
-
-            # keep track of the total number of comparison events (blck, dnSnp,
-            # etc.) per file. their can be multiple keys for one filter such
-            # as blq and bldp for blacklists
-            for (radKeyString, cmpKeyString) in aCompareDict.iteritems():
-                if (aPrefix == "cmp"):
-                    # break up the string to get the individual keys
-                    cmpKeyList = cmpKeyString.split(",")
-                    # search for each one of them
-                    for cmpKey in cmpKeyList:
-                        # if we find one
+        # keep track of the total number of comparison events (blck, dnSnp,
+        # etc.) per file. their can be multiple keys for one filter such
+        # as blq and bldp for blacklists
+        for (radKeyString, cmpKeyString) in aCompareDict.iteritems():
+            if (aPrefix == "cmp"):
+                # break up the string to get the individual keys
+                cmpKeyList = cmpKeyString.split(",")
+                # search for each one of them
+                for cmpKey in cmpKeyList:
+                    # if we find one
+                    if (cmpKey in line):
+                        # count it using the keyString
+                        aStatsDict[aPrefix + "_" + cmpKeyString] += 1
+                        # if this is a passing line,
+                        # call it using the keyString
                         if (cmpKey in line):
-                            # count it using the keyString
-                            aStatsDict[aPrefix + "_" + cmpKeyString] += 1
-                            # if this is a passing line,
-                            # call it using the keyString
-                            if (cmpKey in line):
-                                statKey = aPrefix + "_pass_" + cmpKeyString
-                                aStatsDict[statKey] += 1
-                            # only count it once
-                            break
+                            statKey = aPrefix + "_pass_" + cmpKeyString
+                            aStatsDict[statKey] += 1
+                        # only count it once
+                        break
 
     inputFileHandler.close()
 
@@ -401,68 +384,63 @@ def get_simulation_data(anInputFilename, aStatsDict, aCompareDict,
     outputDict = {}
 
     for line in inputFileHandler:
+
+        # if it is an empty line or header line, then just continue
+        if (line.isspace() or line.startswith("#")):
+            continue
+
         # strip the carriage return and newline characters
         line = line.rstrip("\r\n")
 
         # if (anIsDebug):
         #    logging.debug("Simulation Line: %s", line)
 
-        # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
-        # these lines are from previous scripts in the pipeline, so skip them
-        elif (line.startswith("#")):
-            continue
-
         # now we are to the data
-        else:
+        # split the line on the tab
+        splitLine = line.split("\t")
 
-            # split the line on the tab
-            splitLine = line.split("\t")
+        # mutType = splitLine[0]
+        chrom = splitLine[1]
+        # startCoordinate = splitLine[2]
+        # stopCoordinate = splitLine[3]
+        # targetAF = splitLine[4]
+        mutPosition = splitLine[5]
+        # baseChange = splitLine[6]
+        # coverageIn = splitLine[7]
+        # coverageOut = splitLine[8]
+        # actualAF = splitLine[9]
+        # highestAF = splitLine[10]
 
-            # mutType = splitLine[0]
-            chrom = splitLine[1]
-            # startCoordinate = splitLine[2]
-            # stopCoordinate = splitLine[3]
-            # targetAF = splitLine[4]
-            mutPosition = splitLine[5]
-            # baseChange = splitLine[6]
-            # coverageIn = splitLine[7]
-            # coverageOut = splitLine[8]
-            # actualAF = splitLine[9]
-            # highestAF = splitLine[10]
+        if (chrom + "_" + mutPosition) in outputDict:
+            logging.debug(line + outputDict[chrom + "_" + mutPosition])
 
-            if (chrom + "_" + mutPosition) in outputDict:
-                logging.debug(line + outputDict[chrom + "_" + mutPosition])
+        # add the coordinate to the output
+        outputDict[chrom + "_" + mutPosition] = line
 
-            # add the coordinate to the output
-            outputDict[chrom + "_" + mutPosition] = line
+        # keep track of the number of total events per file
+        aStatsDict[aPrefix + "_events"] += 1
 
-            # keep track of the number of total events per file
-            aStatsDict[aPrefix + "_events"] += 1
+        # all events are considered passing events
+        aStatsDict[aPrefix + "_pass_events"] += 1
 
-            # all events are considered passing events
-            aStatsDict[aPrefix + "_pass_events"] += 1
-
-            # keep track of the total number of comparison events (blck, dnSnp,
-            # etc.) per file. their can be multiple keys for one filter such
-            # as blq and bldp for blacklists
-            for (radKeyString, cmpKeyString) in aCompareDict.iteritems():
-                if (aPrefix == "cmp"):
-                    # break up the string to get the individual keys
-                    cmpKeyList = cmpKeyString.split(",")
-                    # search for each one of them
-                    for cmpKey in cmpKeyList:
-                        # if we find one
-                        if (cmpKey in line):
-                            # count it using the keyString
-                            aStatsDict[aPrefix + "_" + cmpKeyString] += 1
-                            # if this is a passing line,
-                            # call it using the keyString
-                            aStatsDict[aPrefix + "_pass_" + cmpKeyString] += 1
-                            # only count it once
-                            break
+        # keep track of the total number of comparison events (blck, dnSnp,
+        # etc.) per file. their can be multiple keys for one filter such
+        # as blq and bldp for blacklists
+        for (radKeyString, cmpKeyString) in aCompareDict.iteritems():
+            if (aPrefix == "cmp"):
+                # break up the string to get the individual keys
+                cmpKeyList = cmpKeyString.split(",")
+                # search for each one of them
+                for cmpKey in cmpKeyList:
+                    # if we find one
+                    if (cmpKey in line):
+                        # count it using the keyString
+                        aStatsDict[aPrefix + "_" + cmpKeyString] += 1
+                        # if this is a passing line,
+                        # call it using the keyString
+                        aStatsDict[aPrefix + "_pass_" + cmpKeyString] += 1
+                        # only count it once
+                        break
 
     inputFileHandler.close()
 
