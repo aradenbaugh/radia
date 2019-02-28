@@ -281,7 +281,7 @@ def group_reads_by_name(aChromList, aPosList, aTranscriptStrandList,
 
                     # keep a dict of all reads, using the readName as the key
                     # due to the inclusion of secondary alignments for RNA-Seq,
-                    # there could be more than 2 reads that are paired
+                    # there could be more than 2 reads
                     oneReadDict = {}
                     keptReads += 1
                     qPos = pileupRead.query_position
