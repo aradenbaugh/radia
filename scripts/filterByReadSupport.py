@@ -328,7 +328,7 @@ def reverse_complement_nucleotide(aNucleotide):
     return None
 
 
-def is_mutation(aReadDict, aRef, anAltList, aBamOrigin, anMMPDict, anIsDebug):
+def is_mutation(aReadDict, aRef, anAlt, aBamOrigin, anMMPDict, anIsDebug):
 
     orgReadBase = aReadDict["base"]
     readBase = aReadDict["base"]
@@ -356,31 +356,31 @@ def is_mutation(aReadDict, aRef, anAltList, aBamOrigin, anMMPDict, anIsDebug):
     else:
         anMMPDict[readBase]["total"] += 1
 
-    if (readBase == refBase):
+    if (readBase == aRef):
         if (anIsDebug):
             logging.debug("is_mutation() base matches reference, " +
                           "queryPos=%s, chrom=%s, pos=%s, orgBase=%s, " +
-                          "orgRef=%s, base=%s, ref=%s, vcfRef=%s, vcfAlt=%s",
+                          "orgRef=%s, base=%s, ref=%s, vcfAlt=%s, vcfRef=%s",
                           aReadDict["sequenceIndex"], aReadDict["chrom"],
                           aReadDict["pos"], readBase, refBase, orgReadBase,
-                          orgRefBase, aRef, anAltList)
+                          orgRefBase, anAlt, aRef)
         return False
-    elif readBase in anAltList:
+    elif readBase == anAlt:
         if (anIsDebug):
             logging.debug("is_mutation() base matches alt, queryPos=%s, " +
                           "chrom=%s, pos=%s, orgBase=%s, orgRef=%s, " +
-                          "base=%s, ref=%s, vcfRef=%s, vcfAlt=%s",
+                          "base=%s, ref=%s, vcfAlt=%s, vcfRef=%s",
                           aReadDict["sequenceIndex"], aReadDict["chrom"],
                           aReadDict["pos"], readBase, refBase, orgReadBase,
-                          orgRefBase, aRef, anAltList)
+                          orgRefBase, anAlt, aRef)
         return True
 
     if (anIsDebug):
         logging.debug("is_mutation() found nothing, queryPos=%s, chrom=%s, " +
                       "pos=%s, orgBase=%s, orgRef=%s, base=%s, ref=%s, " +
-                      "vcfRef=%s, vcfAlt=%s", aReadDict["sequenceIndex"],
+                      "vcfAlt=%s, vcfRef=%s", aReadDict["sequenceIndex"],
                       aReadDict["chrom"], aReadDict["pos"], readBase, refBase,
-                      orgReadBase, orgRefBase, aRef, anAltList)
+                      orgReadBase, orgRefBase, anAlt, aRef)
     return False
 
 
@@ -561,11 +561,27 @@ class Club():
 
         return
 
+    def rev_comp_nucleotide(self, aNucleotide):
+        '''
+        ' This function returns the reverse complement
+        ' of the parameter aNucleotide
+        '
+        ' aNucleotide:    A nucleotide to reverse complement
+        '''
+        if aNucleotide in i_reverseCompDict:
+            return i_reverseCompDict[aNucleotide]
+        else:
+            logging.error("Trying to reverse complement an "
+                          "unknown nucleotide: %s", aNucleotide)
+            sys.exit(1)
+            return None
+
     def group_reads_by_name(self, aChromList, aPosList, aTxStrandList,
-                            aBamOrigin, aParamsDict, aMutSS, aMutType,
-                            anIsDebug):
+                            anAlleleSet, aBamOrigin, aParamsDict,
+                            aMutSS, aMutType, anIsDebug):
 
         readsDict = collections.defaultdict(list)
+
         # loop through all of the transcripts
         for (chrom, pos, strand) in izip(aChromList,
                                          list(map(int, aPosList)),
@@ -601,8 +617,8 @@ class Club():
             refBase = fastaFile.fetch(chrom, pos, pos+1).upper()
 
             if (anIsDebug):
-                logging.debug("getting pileups for chrom=%s, pos=%s",
-                              chrom, pos)
+                logging.debug("getting pileups for chrom=%s, pos=%s, " +
+                              "strand=%s", chrom, pos, strand)
 
             # get the pileups
             for pileupColumn in bamFile.pileup(chrom, pos, pos+1,
@@ -671,7 +687,7 @@ class Club():
 
                     # keep a dict of all reads, using the readName as the key
                     # due to the inclusion of secondary alignments for RNA-Seq,
-                    # there could be more than 2 reads that are paired
+                    # there could be more than 2 reads
                     oneReadDict = {}
                     keptReads += 1
                     qPos = pileupRead.query_position
@@ -710,13 +726,39 @@ class Club():
                     oneReadDict["strand"] = strand
                     oneReadDict["refBase"] = refBase
 
+                    # the RSEM fasta for transcripts has reads in the 5' to 3'
+                    # direction. the RNA bam files have reads aligned to the
+                    # RSEM fasta in the 5' to 3' direction. if the transcript
+                    # is on the genomic "-" strand, then we need to reverse
+                    # complement the base. otherwise, we just use the forward
+                    # strand base
+                    strandedBase = alignedRead.seq[qPos]
+                    if (strand is not None and strand == "-"):
+                        strandedBase = self.rev_comp_nucleotide(strandedBase)
+                    oneReadDict["strandedBase"] = strandedBase
+
                     '''
                     if (anIsDebug):
                         logging.debug("name=%s, oneReadDict=%s",
                                       alignedRead.query_name, oneReadDict)
                     '''
-                    # add it to the dictionary of reads
-                    readsDict[alignedRead.query_name].append(oneReadDict)
+
+                    if (strandedBase in anAlleleSet):
+                        if (anIsDebug):
+                            logging.debug("strandedBase=%s, is in " +
+                                          "alleleSet=%s: name=%s " +
+                                          "oneReadDict=%s",
+                                          strandedBase, anAlleleSet,
+                                          alignedRead.query_name, oneReadDict)
+
+                        # add it to the dictionary of reads
+                        readsDict[alignedRead.query_name].append(oneReadDict)
+
+                    elif anIsDebug:
+                        logging.debug("throwing out read where " +
+                                      "strandedBase=%s is not in the " +
+                                      "alleleSet=%s",
+                                      strandedBase, anAlleleSet)
 
                 if (anIsDebug):
                     logging.debug("group_reads_by_name(): %s:%s added %s " +
@@ -730,18 +772,18 @@ class Club():
         '''
         ' This function loops through the reads with the same name.  Due to the
         ' inclusion of secondary alignments for RNA-Seq, there could be more
-        ' than 2 reads that are paired.  If the read pairs overlap and the
-        ' bases agree, then we keep the read with the highest base quality. If
-        ' the read pairs overlap and the bases disagree, then we only keep the
-        ' read with the highest base quality if the other reads have a
-        ' low quality.  If the reads don't overlap, then keep all the reads.
+        ' than 2 reads.  If the reads overlap and the bases agree, then we keep
+        ' the read with the highest base quality. If the reads overlap and the
+        ' bases disagree, then we only keep the read with the highest base quality
+        ' if the other reads have a low quality.  If the reads don't overlap,
+        ' then keep all the reads.
         '
         ' aReadsDict:    The dictionary of reads grouped by their read name
         ' aMinBaseQual:  A minimum base quality score for the base
         ' anIsDebug:     A flag for outputting debug messages to STDERR
         '''
-        # loop through read pairs
-        #     if read pairs overlap:
+        # loop through reads
+        #     if reads overlap:
         #         if the bases agree:
         #             keep the one with the highest base quality
         #         else bases don't agree:
@@ -750,17 +792,17 @@ class Club():
         #     else:
         #        keep all non-overlaps
         nonOverlapReadsList = []
-        for (readName, readPairsList) in aReadsDict.iteritems():
+        for (readName, readList) in aReadsDict.iteritems():
             '''
             if (anIsDebug):
                 logging.debug("readName=%s, len=%s, readList=%s", readName,
-                              len(readPairsList), readPairsList)
+                              len(readList), readList)
             '''
             # if there is only one read, then no overlapping reads exist
-            if (len(readPairsList) == 1):
+            if (len(readList) == 1):
                 # if (anIsDebug):
                 #    logging.debug("only one read %s", readName)
-                nonOverlapReadsList.append(readPairsList[0])
+                nonOverlapReadsList.append(readList[0])
             # check for overlapping reads
             else:
                 maxBaseQual = -1
@@ -769,11 +811,11 @@ class Club():
                 basesSet = set()
 
                 # for each read
-                for index in range(0, len(readPairsList)):
-                    readStart = readPairsList[index]["start"]
-                    readSeqIndex = readPairsList[index]["sequenceIndex"]
-                    readMateStart = readPairsList[index]["mateStart"]
-                    readLength = readPairsList[index]["qlen"]
+                for index in range(0, len(readList)):
+                    readStart = readList[index]["start"]
+                    readSeqIndex = readList[index]["sequenceIndex"]
+                    readMateStart = readList[index]["mateStart"]
+                    readLength = readList[index]["qlen"]
                     # abs(core.pos + p->qpos - core.mpos) < (core.l_qseq)
                     # samtools view pos = reference_start and
                     # samtools view pos = 1-based leftmost coordinate
@@ -820,8 +862,8 @@ class Club():
                                           str(readLength))
                         '''
 
-                        base = readPairsList[index]["base"]
-                        qual = ord(readPairsList[index]["baseQual"])-33
+                        base = readList[index]["base"]
+                        qual = ord(readList[index]["baseQual"])-33
                         basesSet.add(base)
                         if (qual > maxBaseQual):
                             # if the current max is higher than the next max,
@@ -854,7 +896,7 @@ class Club():
                                           str(abs(readSpan)),
                                           str(readLength))
                         '''
-                        nonOverlapReadsList.append(readPairsList[index])
+                        nonOverlapReadsList.append(readList[index])
 
                 # if all the bases agree, then keep the one with the
                 # highest base quality and avoid double counting
@@ -864,9 +906,9 @@ class Club():
                         logging.debug("all bases in overlapping reads " +
                                       "agree, keeping=%s, %s %s",
                                       str(maxBaseQualIndex), readName,
-                                      readPairsList)
+                                      readList)
                     '''
-                    nonOverlapReadsList.append(readPairsList[maxBaseQualIndex])
+                    nonOverlapReadsList.append(readList[maxBaseQualIndex])
                 # if the bases disagree, then it's likely a sequencing error.
                 # only keep the read with a high qual if the other reads
                 # have a low qual
@@ -880,9 +922,9 @@ class Club():
                                       "minBaseQual=%s, keeping=%s, %s %s",
                                       str(maxBaseQual), str(nextMaxBaseQual),
                                       str(aMinBaseQual), str(maxBaseQualIndex),
-                                      readName, readPairsList)
+                                      readName, readList)
                     '''
-                    nonOverlapReadsList.append(readPairsList[maxBaseQualIndex])
+                    nonOverlapReadsList.append(readList[maxBaseQualIndex])
                 '''
                 elif anIsDebug:
                     logging.debug("bases in overlapping reads don't agree " +
@@ -890,7 +932,7 @@ class Club():
                                   "qual scores, maxBaseQual=%s, " +
                                   "nextMaxBaseQual=%s, minBaseQual=%s, %s %s",
                                   str(maxBaseQual), str(nextMaxBaseQual),
-                                  str(aMinBaseQual), readName, readPairsList)
+                                  str(aMinBaseQual), readName, readList)
                 '''
         if (anIsDebug):
             logging.debug("find_non_overlapping_reads(): " +
@@ -1569,9 +1611,9 @@ class Club():
         mutSS = currData.infoDict["SS"][0]
 
         if (anIsDebug):
-            logging.debug("begin filter for %s and %s, mutSS=%s, " +
+            logging.debug("begin filter for %s and %s and %s, mutSS=%s, " +
                           "mutType=%s, origin=%s", chromList, posList,
-                          mutSS, aMutType, aBamOrigin)
+                          strandList, mutSS, aMutType, aBamOrigin)
             logging.debug("parmsDict: %s", aParamsDict)
 
         if (mutSS == "Somatic" or mutSS == "2"):
@@ -1607,9 +1649,16 @@ class Club():
         currData.infoDict["PN"] = [prevRefBase]
         currData.infoDict["NN"] = [nextRefBase]
 
+        # get the set of alleles for this call
+        alleleSet = set()
+        (ref, alt) = modChange.split(">")
+        alleleSet.add(ref)
+        alleleSet.add(alt)
+
         # group all of the reads by name
         readsDict = self.group_reads_by_name(chromList, posList, strandList,
-                                             aBamOrigin, aParamsDict, mutSS,
+                                             alleleSet, aBamOrigin,
+                                             aParamsDict, mutSS,
                                              aMutType, anIsDebug)
 
         # get all of the non-overlapping reads
@@ -1639,8 +1688,7 @@ class Club():
             '''
 
             # if this read supports the alternative allele
-            if is_mutation(readDict, aCurrData.ref, aCurrData.altList,
-                           aBamOrigin, mmpDict, anIsDebug):
+            if is_mutation(readDict, ref, alt, aBamOrigin, mmpDict, anIsDebug):
 
                 '''
                 if (anIsDebug):
@@ -1648,6 +1696,7 @@ class Club():
                                   "at: %s:%s = %s", readDict["chrom"],
                                   readDict["pos"], alignedRead)
                 '''
+
                 mutCountReads += 1
 
                 if (anIsDebug):
@@ -2290,8 +2339,11 @@ if __name__ == '__main__':
                                 i_txNameTag,
                                 i_txCoordinateTag,
                                 i_txStrandTag,
-                                modType, modChange,
-                                "DNA", params, i_debug)
+                                modType,
+                                modChange,
+                                "DNA",
+                                params,
+                                i_debug)
                             dnaFilters = dnaFilters.union(dnaReadFilters)
 
                         # if we already passed using the DNA,
@@ -2308,8 +2360,11 @@ if __name__ == '__main__':
                                     i_txNameTag,
                                     i_txCoordinateTag,
                                     i_txStrandTag,
-                                    modType, modChange,
-                                    "RNA", params, i_debug)
+                                    modType,
+                                    modChange,
+                                    "RNA",
+                                    params,
+                                    i_debug)
                                 rnaFilters = rnaFilters.union(rnaReadFilters)
 
                     # if it passed by DNA or RNA, then it passed
