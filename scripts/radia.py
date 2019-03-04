@@ -1516,8 +1516,21 @@ def output_vcf_header(anOutputFileHandler, aVCFFormat, aRefId, aRefURL,
 
         samples = samples.rstrip(",")
         samples += ">\n"
-        anOutputFileHandler.write(samples)
         columnHeaders.append(label)
+
+    anOutputFileHandler.write(samples)
+
+    # add pedigree tags for latest snpEff version
+    for label in aLabelList:
+        if (label == "DNA_TUMOR"):
+            anOutputFileHandler.write("##PEDIGREE=<Derived=DNA_TUMOR," +
+                                      "Original=DNA_NORMAL>\n")
+        elif (label == "RNA_TUMOR"):
+            anOutputFileHandler.write("##PEDIGREE=<Derived=RNA_TUMOR," +
+                                      "Original=DNA_NORMAL>\n")
+        elif (label == "RNA_NORMAL"):
+            anOutputFileHandler.write("##PEDIGREE=<Derived=RNA_NORMAL," +
+                                      "Original=DNA_NORMAL>\n")
 
     # get the info fields
     anOutputFileHandler.write(
