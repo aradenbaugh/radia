@@ -35,6 +35,9 @@ i_headerIDRegEx = re.compile("ID=(\\w)*,")
 # this regular expression is used to extract the
 # Type tag from the INFO and FORMAT fields
 i_headerTypeRegEx = re.compile("Type=(\\w)*,")
+# this regular expression is used to extract the
+# Derived tag from the PEDIGREE fields
+i_headerDerivedRegEx = re.compile("Derived=(\\w)*,")
 
 
 def fix_genotypes(aChrom, aRefList, anAltList,
@@ -722,6 +725,15 @@ def get_meta_id(aLine):
     return metaId
 
 
+def get_derived_sample(aLine):
+    matchObj = i_headerDerivedRegEx.search(aLine)
+    matchId = matchObj.group()
+    matchId = matchId.rstrip(",")
+    (tag, matchId) = matchId.split("=")
+    # matchId = matchId.lstrip("Derived=")
+    return matchId
+
+
 def get_id(aLine):
     matchObj = i_headerIDRegEx.search(aLine)
     matchId = matchObj.group()
@@ -753,6 +765,10 @@ def add_header_data(aHeaderDict, aLine, anIsDebug):
         sampleId = get_id(aLine)
         aHeaderDict["sample"][sampleId] = aLine
 
+    elif (aLine.startswith("##PEDIGREE")):
+            derivedSample = get_derived_sample(aLine)
+            aHeaderDict["pedigree"][derivedSample] = aLine
+
     elif (aLine.startswith("##")):
         metadataId = get_meta_id(aLine)
         aHeaderDict["metadata"][metadataId] = aLine
@@ -768,6 +784,7 @@ def get_mpileup_header(anAddOriginFlag):
     headerDict = dict()
     headerDict["metadata"] = collections.defaultdict(str)
     headerDict["sample"] = collections.defaultdict(str)
+    headerDict["pedigree"] = collections.defaultdict(str)
     headerDict["format"] = collections.defaultdict(str)
     headerDict["info"] = collections.defaultdict(str)
     headerDict["filter"] = collections.defaultdict(str)
@@ -998,6 +1015,10 @@ def get_vcf_header(aHeaderDict, aFilename, aCmdLineParams,
             sampleId = get_id(line)
             aHeaderDict["sample"][sampleId] = line
 
+        elif (line.startswith("##PEDIGREE")):
+            derivedSample = get_derived_sample(line)
+            aHeaderDict["pedigree"][derivedSample] = line
+
         # if we find the vcfGenerator line,
         # then update the params from the user
         elif ("vcfGenerator" in line):
@@ -1149,6 +1170,7 @@ def filter_by_mpileup_support(anId, aChrom, aVCFFilename, aHeaderFilename,
     # output the header information
     output_header(headerDict["metadata"], False, i_outputFileHandler)
     output_header(headerDict["sample"], False, i_outputFileHandler)
+    output_header(headerDict["pedigree"], False, i_outputFileHandler)
     output_header(headerDict["filter"], True, i_outputFileHandler)
     output_header(headerDict["info"], True, i_outputFileHandler)
     output_header(headerDict["format"], True, i_outputFileHandler)
