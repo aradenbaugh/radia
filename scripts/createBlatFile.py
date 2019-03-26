@@ -36,7 +36,7 @@ import os
 i_reverseCompDict = {"A": "T", "C": "G", "G": "C", "T": "A", "N": "N"}
 
 
-def get_vcf_data(aVcfFile, aHeaderFile, aPassOnlyFlag, anIsDebug):
+def get_vcf_data(aVcfFile, aPassOnlyFlag, anIsDebug):
     '''
     ' This function reads from a VCF input file and uses the python generator
     ' to yield the information one line at a time.  It ignores empty lines and
@@ -44,58 +44,10 @@ def get_vcf_data(aVcfFile, aHeaderFile, aPassOnlyFlag, anIsDebug):
     ' information from the VCF file.
     '
     ' aVcfFile:       A VCF file
-    ' aHeaderFile:    A VCF file to get the header lines
     ' aPassOnlyFlag:  If all calls should be processed or only those calls
     '                 that passed the filters thus far
     ' anIsDebug:      A flag for outputting debug messages to STDERR
     '''
-
-    # open the header file
-    fileHandler = radiaUtil.get_read_fileHandler(aHeaderFile)
-
-    for line in fileHandler:
-
-        # if it is an empty line, then just continue
-        if (line.isspace()):
-            continue
-
-        # strip the carriage return and newline characters
-        line = line.rstrip("\r\n")
-
-        # if (anIsDebug):
-        #    logging.debug("VCF Header: %s", line)
-
-        # if we find the column headers
-        if ("#CHROM" in line):
-            columnsLine = line.lstrip("#")
-            columnsList = columnsLine.split("\t")
-            columnsList = columnsList[9:len(columnsList)]
-            continue
-
-        # if we find the vcfGenerator line, then create the dict of params
-        elif ("vcfGenerator" in line):
-            # generatorLine = line.rstrip(">")
-            # generatorLine = generatorLine.lstrip("##vcfGenerator=<")
-            generatorLine = line[0:(len(line)-1)]
-            # print "generatorLine: %s", generatorLine
-            generatorLine = generatorLine[16:len(generatorLine)]
-            # print "generatorLine: %s", generatorLine
-            generatorParamsList = generatorLine.split(",")
-            generatorParamsDict = {}
-
-            # create a dictionary of existing params
-            for param in generatorParamsList:
-                (key, value) = param.split("=")
-                value = value.rstrip(">")
-                value = value.lstrip("<")
-                generatorParamsDict[key] = value
-            continue
-
-        # if we are done with the header, then stop
-        elif (not line.startswith("#")):
-            break
-
-    fileHandler.close()
 
     # open the VCF file
     fileHandler = radiaUtil.get_read_fileHandler(aVcfFile)
@@ -700,16 +652,10 @@ def write_to_blat_file(aBlatFileHandler, aGenomicChr, aGenomicCoordinate,
 
 def main():
 
-    # command for running this on a small test case:
-    # python createBlatFile.py TCGA-00-4454 7
-    # ../data/test/TCGA-00-4454_EGFR.vcf
-    # ../data/test/tmp/
-    # --dnaNormalFilename=../data/test/TCGA-00-4454_EGFR.reads
-
     startTime = time.time()
 
     # create the usage statement
-    usage = "usage: python %prog id vcfFile headerFile [Options]"
+    usage = "usage: python %prog id vcfFile [Options]"
     i_cmdLineParser = OptionParser(usage=usage)
 
     # add the optional parameters
@@ -782,7 +728,7 @@ def main():
              "should be processed")
 
     # range(inclusiveFrom, exclusiveTo, by)
-    i_possibleArgLengths = range(3, 22, 1)
+    i_possibleArgLengths = range(2, 22, 1)
     i_argLength = len(sys.argv)
 
     # check if this is one of the possible correct commands
@@ -794,7 +740,6 @@ def main():
     (cmdLineOpts, i_cmdLineArgs) = i_cmdLineParser.parse_args()
     i_id = i_cmdLineArgs[0]
     i_vcfFilename = i_cmdLineArgs[1]
-    i_headerFilename = i_cmdLineArgs[2]
 
     # get the optional params with default values
     i_passedVCFCallsOnlyFlag = cmdLineOpts.passedVCFCallsOnly
@@ -808,7 +753,7 @@ def main():
     i_blatRnaTumorReads = cmdLineOpts.blatRnaTumorReads
 
     # try to get any optional parameters with no defaults
-    i_readFilenameList = [i_vcfFilename, i_headerFilename]
+    i_readFilenameList = [i_vcfFilename]
     i_writeFilenameList = []
 
     i_logFilename = None
@@ -860,7 +805,6 @@ def main():
     if (i_debug):
         logging.debug("id=%s", i_id)
         logging.debug("vcfFilename=%s", i_vcfFilename)
-        logging.debug("headerFilename=%s", i_headerFilename)
         logging.debug("outputFilename=%s", i_outputFilename)
 
         logging.debug("passedCallsOnly? %s", i_passedVCFCallsOnlyFlag)
@@ -889,7 +833,6 @@ def main():
 
     # get the VCF generator
     vcfGenerator = get_vcf_data(i_vcfFilename,
-                                i_headerFilename,
                                 i_passedVCFCallsOnlyFlag,
                                 i_debug)
 

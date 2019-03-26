@@ -820,11 +820,10 @@ def run_snpEff(aChromId, anInputFilename, aSnpEffDir, aSnpEffGenome,
 
 
 def create_blat_input(aPythonExecutable, anId, aChromId, anInputFilename,
-                      aHeaderFilename, aTxNameTag, aTxCoordinateTag,
-                      aTxStrandTag, anRnaIncludeSecondaryAlignmentsFlag,
-                      anOutputDir, aPrefix, aScriptsDir,
-                      anIgnoreScriptsDirFlag, aJobListFileHandler,
-                      anIsDebug):
+                      aTxNameTag, aTxCoordinateTag, aTxStrandTag,
+                      anRnaIncludeSecondaryAlignmentsFlag, anOutputDir,
+                      aPrefix, aScriptsDir, anIgnoreScriptsDirFlag,
+                      aJobListFileHandler, anIsDebug):
 
     readFilenameList = []
     if (anIgnoreScriptsDirFlag):
@@ -842,7 +841,6 @@ def create_blat_input(aPythonExecutable, anId, aChromId, anInputFilename,
     cmd = script
     cmd += " " + anId
     cmd += " " + anInputFilename
-    cmd += " " + aHeaderFilename
     cmd += " -o " + outputFilename
     cmd += " --blatRnaNormalReads"
     cmd += " --blatRnaTumorReads"
@@ -859,11 +857,10 @@ def create_blat_input(aPythonExecutable, anId, aChromId, anInputFilename,
     if (anIsDebug):
         logging.debug("Script: %s", script)
         logging.debug("Input: %s", anInputFilename)
-        logging.debug("Header: %s", aHeaderFilename)
         logging.debug("Output: %s", outputFilename)
         logging.debug("Filter: %s", cmd)
 
-    readFilenameList += [anInputFilename, aHeaderFilename]
+    readFilenameList += [anInputFilename]
     writeFilenameList = [outputFilename]
 
     run_cmd(cmd, None, readFilenameList, writeFilenameList,
@@ -2110,7 +2107,6 @@ def main():
                                                   i_id,
                                                   i_chr,
                                                   previousFilename,
-                                                  rnaFilename,
                                                   i_transcriptNameTag,
                                                   i_transcriptCoordinateTag,
                                                   i_transcriptStrandTag,
