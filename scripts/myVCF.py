@@ -174,6 +174,8 @@ def parse_sample_data(aFormatField, aDataField, aNumAlleles):
     # e.g. rnaTumorDict["DP"] = [100]
     # e.g. rnaTumorDict["AD"] = [50,50]
 
+    alleleTags = ["GT", "AD", "AF", "MQ0", "MMQ", "MQA", "BQ", "SB", "MMP"]
+
     dataDict = dict()
     for (formatItem, dataItem) in izip(aFormatField.split(":"),
                                        aDataField.split(":")):
@@ -184,8 +186,10 @@ def parse_sample_data(aFormatField, aDataField, aNumAlleles):
 
         if (dataItem != "."):
             dataDict[formatItem] = dataItem.split(sep)
-        else:
+        elif formatItem in alleleTags:
             dataDict[formatItem] = ["."] * aNumAlleles
+        else:
+            dataDict[formatItem] = ["."]
 
     return dataDict
 
