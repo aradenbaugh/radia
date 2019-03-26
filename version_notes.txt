@@ -1,3 +1,290 @@
+03/26/2019:
+
+Add the default . for each allele on allele specific tags. (myVCF.py)
+
+
+Removed requirement for a header file. (createBlatFile.py, filterRadia.py)
+
+
+Fixed pep8 issues. (filterRadia.py)
+
+
+Fixed pep8 issues. (filterByReadSupport.py)
+
+
+Added handling of pedigree tags in the metadata. (radia.py, filterByMpileupSupport.py)
+
+    - Fixed how the sample tags are output.
+
+
+Check the stranded base when grouping reads by name (filterByReadSupport.py)
+
+    When grouping reads by name, be sure to check that the
+    stranded base is supporting the ref or alt from the call
+    being evaluated. Otherwise, this can be problematic when
+    there are multiple isoforms contributing to a call. For
+    example, the 'RGPD5' gene has 3 isoforms: one on the positive
+    strand and 2 on the negative strand.  In the previous code,
+    the reads from all 3 isoforms would be grouped by the read
+    name. Then in the find_non_overlapping_reads() function,
+    it would be discovered that the reads overlapped and the
+    read with the highest base quality would be chosen. If all
+    overlapping reads had the same high base quality, then a
+    random read (e.g. the first read) would be chosen. Later,
+    the stranded base is compared to the genomic ref and alt.
+    Since the first overlapping read was randomly chosen, the
+    stranded base seemingly came from the positive strand and
+    did not match the genomic ref nor alt. In actuality, the
+    call came from the negative strand from reads that were
+    not randomly chosen. Now the code checks at the beginning
+    to make sure that the stranded base matches the genomic
+    ref or alt, and only groups reads by name that support
+    the call being evaluated.
+
+    When checking to see if a read supports the alt allele,
+    make sure it is supporting the alt allele from the call
+    being evaluated and not an additional alt allele.
+
+
+Check the stranded base when grouping reads by name (createBlatFile.py)
+
+    The 'RGPD5' gene has 3 isoforms: one on the positive strand
+    and 2 on the negative strand.  In the previous code, the reads
+    from all 3 isoforms would be grouped by the read name. Then
+    in the find_non_overlapping_reads() function, it would be
+    discovered that the reads overlapped and the read with the
+    highest base quality would be chosen.  If all overlapping
+    reads had the same high base quality, then a random read
+    (e.g. the first read) was chosen. This is okay for all genes
+    that have all isoforms on the same strand, but for this one
+    gene, it resulted in no reads being output to the blatInput.fa
+    file. In the write_to_blat_file() function, the stranded base
+    is compared to the genomic ref and alts.  Since the first
+    overlapping read was randomly chosen, the stranded base
+    seemingly came from the positive strand and did not match
+    the genomic ref nor alt. In actuality, the call came from
+    the negative strand from reads that were not randomly chosen.
+    Now the code checks at the beginning to make sure that
+    the stranded base matches the genomic ref or alt, and
+    only groups reads by name that support the call.
+
+
+02/25/2019:
+
+Find the stranded RNA base and correct read length (createBlatFile.py)
+
+    - The base on the read is being compared to the forward
+      genomic strand REF and ALT columns, so the base needs
+      to be converted to the forward genomic strand if necessary.
+
+    - Some of the read lengths were negative and based off of
+      the insert size.  Now the actual read length is used.
+
+    - Need to check for empty lines before removing the newline.
+
+    - Create a blat file for all supported mod types.
+
+
+Check the stranded base when grouping reads by name (createBlatFile.py)
+
+    The 'RGPD5' gene has 3 isoforms: one on the positive strand
+    and 2 on the negative strand.  In the previous code, the reads
+    from all 3 isoforms would be grouped by the read name. Then
+    in the find_non_overlapping_reads() function, it would be
+    discovered that the reads overlapped and the read with the
+    highest base quality would be chosen.  If all overlapping
+    reads had the same high base quality, then a random read
+    (e.g. the first read) was chosen. This is okay for all genes
+    that have all isoforms on the same strand, but for this one
+    gene, it resulted in no reads being output to the blatInput.fa
+    file. In the write_to_blat_file() function, the stranded base
+    is compared to the genomic ref and alts.  Since the first
+    overlapping read was randomly chosen, the stranded base
+    seemingly came from the positive strand and did not match
+    the genomic ref nor alt. In actuality, the call came from
+    the negative strand from reads that were not randomly chosen.
+    Now the code checks at the beginning to make sure that
+    the stranded base matches the genomic ref or alt, and
+    only groups reads by name that support the call.
+
+
+Properly handle RNA aligned to the transcriptome and other fixes (filterByBlat.py)
+
+    - The base on the read is being compared to the forward
+      genomic strand REF and ALT columns, so the base needs
+      to be converted to the forward genomic strand if necessary.
+
+    - Some of the read lengths were negative and based off of
+      the insert size.  Now the actual read length is used.
+
+    - The start and stop coordinates on the blat hits can be
+      reversed, so check for overlaps in both directions.
+
+    - The previous code was keeping a list of 'other' values,
+      and then finding the min or max at the end, but it is much
+      easier to just keep the top 'overlapping' value and the
+      top 'other' value as each blat hit is processed. The old
+      way also had a bug if no 'other' value was set for the
+      max overlapping identity.
+
+    - The previous code loaded all of the blat hits into memory
+      at the beginning and then looped over the VCF lines to
+      process each call.  In order to avoid using a ton of memory
+      by loading all the blat hits at once, now the VCF line and
+      the corresponding blat hits are loaded into memory one call
+      at a time, using python generators.
+
+    - The previous code required the blat alignment length to be
+      at least half the read length to set the maxOverlapIdentity,
+      but it did not make the same requirement to set the
+      maxOverlapEValue. Now both require the blat alignment length
+      to be at least half the read length.
+
+    - The transcript name, coordinate, and strand are needed
+      for RNA that is aligned to the transcriptome.
+
+    - The RNA secondary alignments flag is needed when the RNA
+      is aligned to the transcriptome.
+
+    - Skip the PSL header lines.
+
+    - Changed some parameter names to be consistent with
+      other code.
+
+    - Added an order of magnitude flag.
+
+    - Added ability to filter DNA somatic calls by blat.
+
+    - Need to check for empty lines before removing the newline.
+
+
+Added some parameters for the filterByBlat.py command (filterRadia.py)
+
+    - The filterByBlat.py command needs the transcript name,
+      coordinate, and strand parameters for RNA that is
+      aligned to the transcriptome.
+
+    - The filterByBlat.py command needs the RNA secondary
+      alignments flag for RNA that is aligned to the
+      transcriptome.
+
+    - Include the header lines when extracting the passing
+      calls for filtering by blat.
+
+    - The latest version of snpEff has a new format.  In
+      the future, use the new format, but for now stick
+      with the old one.
+
+
+Use the length of the query sequence for the read length (filterByReadSupport.py)
+
+    In order to be consistent across the code, use the
+    length of the query sequence as the read length.
+
+
+
+02/01/2019:
+
+Avoid repeated filters in FILTER column (filterByReadSupport.py, myVCF.py)
+
+    Since we are filtering by DNA and by RNA, it is
+    possible to have a call fail for the same reason,
+    but we only want to report the filter once. The
+    filters should be a ‘set’ instead of a ‘list’ to
+    avoid the repeated filters.
+
+
+Removed the max read depth parameter (createBlatFile.py)
+
+    The max read depth parameter was originally added to limit
+    the number of reads that were processed with the samtools
+    view command. The code has switched from the old samtools
+    view command to pysam, and pysam has a default max depth
+    of 8,000 reads. In order to be consistent with the code
+    in filterByReadSupport.py, remove the max depth parameter
+    that is specified here.
+
+
+When calculating the score, check to see if the data exists (fitlerByReadSupport.py)
+
+    For some calls, there might not be data for all
+    samples (e.g. germline). Also, if the —outputAllData
+    flag is used, then all data is output even if no
+    variant exists.
+
+
+Added ability to run installed commands (filterRadia.py)
+
+    In some environments, the RADIA package may be installed
+    (e.g. Continuous Integration), and the commands should be run
+    as ’command.py’ instead of ‘python /scriptsDir/command.py’.
+    In order to maintain backwards compatibility, an
+    -—ignoreScriptsDir flag has been added to run the commands
+    as ‘command.py’.  Since the API currently requires the
+    script directory, the user should provide a dummy directory.
+    In a future version, the API will change such that no
+    dummy directory is necessary.
+
+
+
+01/23/2019:
+
+Only ignore nearby A>G mismatches on perfect reads for RNA editing (filterByReadSupport.py)
+
+    A>G RNA editing events occur in clusters. Theoretically, somatic
+    mutations could occur in regions where A>G editing clusters exist,
+    but practically speaking, ignoring A>G mismatches on perfect reads
+    for somatic mutations leads to an increase in false positives. It
+    is better to count the A>G mismatches as true mismatches for
+    somatic mutations and only ignore the A>G mismatches for RNA
+    editing events. In the future, it would be good to exclude high
+    confidence A>G RNA editing events for both somatic mutations and
+    RNA editing events, when counting mismatches on perfect reads.
+
+
+Create an empty list if the "MMP" INFO tag is missing (filterByReadSupport.py)
+
+    This code calculates the Multi Mapping Percent (MMP) for all
+    calls that it analyses and stores it in the INFO.  If the
+    "MMP" INFO tag does not exist, then just create an empty list
+    to be filled with the calculations.
+
+
+
+01/17/2019:
+
+Add metavar names for the transcript tags (filterRadia.py)
+
+
+Fixed pep8 issues (filterByPybed.py, pybed.py)
+    Included renaming some functions
+
+
+Count all mismatches on perfect reads except A>G editing (filterByReadSupport.py)
+
+    A>G RNA Editing events occur in clusters.  The
+    previous code did not count the number of
+    mismatches when determining if a read was perfect
+    for all types of RNA editing.  Since other types
+    of RNA editing are not known to occur in clusters,
+    now all non A>G mismatches are counted for all RNA
+    editing events.
+
+
+Adjust the coordinate for the previous and next ref bases (filterByReadSupport.py)
+
+    For the previous and next ref bases stored in the INFO,
+    the VCFs are 1-based and pysam requires a 0-based coordinate
+
+
+Fixed pep8 issues (filterByReadSupport.py)
+
+    Added read1, read2, reverse, and mate_reverse flags
+    to the readDict in order to debug the stranded RNA
+
+
+
+
 11/29/2018:
 
 Added previous and next reference bases to INFO (radia.py and filterByReadSupport.py)
@@ -1007,11 +1294,11 @@ mergeRnaAndDnaFiles.py
     
     - Added some flags for outputting VCF lines when debugging
     
-    - Added ability to query one single position. 
+    - Added ability to query one single position.
     
-    - Added ability to include RNA secondary alignments. 
+    - Added ability to include RNA secondary alignments.
     
-    - Added analyte to the SAMPLE tag in the header. 
+    - Added analyte to the SAMPLE tag in the header.
     
     - The AD format field should be an Integer instead of a Float.
 
