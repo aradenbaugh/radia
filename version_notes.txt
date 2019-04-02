@@ -1,3 +1,17 @@
+04/01/2019:
+
+Fixed problems when the --dnaHeaderOnly flag is true (mergeRnaAndDnaFiles.py)
+    
+    A KeyError was occurring when the --rnaOnly flag in filterRadia.py
+    was set to true resulting in the --dnaHeaderOnly flag here to
+    be set to true.  When merging the rna and dna filters, we need
+    to check if only the dna header is loaded from the dnaFile.
+    In addition, the non-overlapping RNA calls that don’t pass the
+    germline and pseudogene filters were being omitted from the
+    final output. They are now added with the 'dnacall' filter
+    to show that they are non-passing.
+
+
 03/26/2019:
 
 Add the default . for each allele on allele specific tags. (myVCF.py)
