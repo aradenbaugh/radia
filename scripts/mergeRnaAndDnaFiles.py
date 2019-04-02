@@ -326,10 +326,12 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
                             coordinateDict[stopCoordinate] = dnaLine
                         else:
                             coordinateDict[stopCoordinate] = rnaLine
-                # this call didn't exist in the DNA
+                # this call either didn't exist in the DNA or
+                # the user only wants the RNA calls output
                 else:
-                    logging.warning("Call didn't exist in DNA? " +
-                                    "RNALine: %s\n", line)
+                    if not aDnaHeaderOnlyFlag:
+                        logging.warning("Call didn't exist in DNA? " +
+                                        "RNALine: %s\n", line)
                     coordinateDict[stopCoordinate] = line + "\n"
             # this call didn't pass in the RNA
             else:
@@ -421,10 +423,12 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
                             coordinateDict[stopCoordinate] = dnaLine
                         else:
                             coordinateDict[stopCoordinate] = line
-                # this call didn't exist in the DNA
+                # this call either didn't exist in the DNA or
+                # the user only wants the RNA calls output
                 else:
-                    logging.warning("RNANoPass:  Call didn't exist in DNA? " +
-                                    "RNALine: %s\n", line)
+                    if not aDnaHeaderOnlyFlag:
+                        logging.warning("RNANoPass:  Call didn't exist in " +
+                                        "DNA? RNALine: %s\n", line)
                     coordinateDict[stopCoordinate] = line + "\n"
 
     # these are needed for merging the RNA mpileup filters
@@ -433,35 +437,76 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
         if (anIsDebug and not rnaLine.startswith("#")):
             logging.debug("RNA mpileup non-passing Line: %s", rnaLine)
 
-        # split the line on the tab
-        rnaLineSplit = rnaLine.split("\t")
+        # if this call existed in the DNA and
+        # the user wants the merged calls
+        if (rnaStopCoordinate in coordinateDict):
 
-        # get the original line
-        dnaLine = coordinateDict[rnaStopCoordinate]
-        dnaLine = dnaLine.rstrip("\r\n")
-        dnaLineSplit = dnaLine.split("\t")
+            # split the line on the tab
+            rnaLineSplit = rnaLine.split("\t")
 
-        # if the call didn't pass in the RNA or DNA,
-        # we want to merge the filters
-        if "PASS" not in dnaLineSplit[6]:
-            if (anIsDebug):
-                logging.debug("Merging filters for \nDNALine: %s " +
-                              "\nRNALine: %s", dnaLine, rnaLine)
+            # get the original line
+            dnaLine = coordinateDict[rnaStopCoordinate]
+            dnaLine = dnaLine.rstrip("\r\n")
+            dnaLineSplit = dnaLine.split("\t")
 
-            # merge the filters for the FILTER column
-            dnaLineSplit[6] = merge_filters(rnaLineSplit[6], dnaLineSplit[6])
+            # if the call didn't pass in the RNA or DNA,
+            # we want to merge the filters
+            if "PASS" not in dnaLineSplit[6]:
+                if (anIsDebug):
+                    logging.debug("Merging filters for \nDNALine: %s " +
+                                  "\nRNALine: %s", dnaLine, rnaLine)
 
-            # merge the mod filters and filter types in the INFO column
-            dnaLineSplit[7] = merge_mod_filters(rnaLineSplit[7],
-                                                dnaLineSplit[7])
+                # merge the filters for the FILTER column
+                dnaLineSplit[6] = merge_filters(rnaLineSplit[6],
+                                                dnaLineSplit[6])
 
-            finalLine = "\t".join(dnaLineSplit)
-            if ("ORIGIN=DNA,RNA" not in finalLine):
-                finalLine = finalLine.replace("ORIGIN=DNA", "ORIGIN=DNA,RNA")
+                # merge the mod filters and filter types in the INFO column
+                dnaLineSplit[7] = merge_mod_filters(rnaLineSplit[7],
+                                                    dnaLineSplit[7])
 
-            coordinateDict[rnaStopCoordinate] = finalLine + "\n"
-            if (anIsDebug):
-                logging.debug("Merged filters \nFinalLine: %s", finalLine)
+                finalLine = "\t".join(dnaLineSplit)
+                if ("ORIGIN=DNA,RNA" not in finalLine):
+                    finalLine = finalLine.replace("ORIGIN=DNA",
+                                                  "ORIGIN=DNA,RNA")
+
+                coordinateDict[rnaStopCoordinate] = finalLine + "\n"
+                if (anIsDebug):
+                    logging.debug("Merged filters \nFinalLine: %s", finalLine)
+        # this call either didn't exist in the DNA or
+        # the user only wants the RNA calls output
+        else:
+            coordinateDict[rnaStopCoordinate] = rnaLine + "\n"
+
+    # These are needed when the --rnaOnly flag in filterRadia.py is True
+    # resulting in the --dnaHeaderOnly flag here to be True.
+    # These are calls that don't pass in the DNA but do pass in the RNA, so
+    # they end up in the non-overlaps files as possible RNA rescue or RNA
+    # editing events. The non-overlaps file is filtered down to eliminate
+    # possible germline (dnm*/DB/GERM) or false positives due to pseudogene
+    # calls (EGPS/RTPS) and are no longer considered as possible passing
+    # RNA rescue or RNA editing events.  When the --dnaHeaderOnly flag is
+    # false, then the calls will be added from the dna file with the dna
+    # filters. When the --dnaHeaderOnly flag is true, the calls were omitted.
+    # Now they are added back here as non-passing calls with the "dnacall"
+    # filter which is basically a dummy filter for the fact that these could
+    # be germline or false positives due to pseudogenes.
+
+    if (aDnaHeaderOnlyFlag):
+        for (rnaStopCoordinate, rnaLine) in rnaMpileupPassingDict.iteritems():
+
+            if (anIsDebug and not rnaLine.startswith("#")):
+                logging.debug("RNA mpileup passing Line: %s", rnaLine)
+
+            # if this call already exists, then continue
+            if (rnaStopCoordinate in coordinateDict):
+                continue
+            else:
+                # split the line on the tab
+                rnaLineSplit = rnaLine.split("\t")
+                rnaLineSplit[6] = "dnacall"
+
+                finalLine = "\t".join(rnaLineSplit)
+                coordinateDict[rnaStopCoordinate] = finalLine + "\n"
 
     dnaFileHandler.close()
     rnaFileHandler.close()
