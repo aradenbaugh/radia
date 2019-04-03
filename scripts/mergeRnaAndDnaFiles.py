@@ -116,8 +116,8 @@ def set_sst_field(anInfoField):
     return anInfoField
 
 
-def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
-                   aDnaHeaderOnlyFlag, anIsDebug):
+def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile,
+                   aNonOverlapsFile, anIsDebug):
 
     # open the header file
     dnaFileHandler = radiaUtil.get_read_fileHandler(aDnaFile)
@@ -132,9 +132,13 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
 
     # the dna file has the results from the dna mpileup filter
     # the rna file has the results from the rna mpileup filter
-    # calls that pass in both the DNA and RNA will be in the overlaps file
-    # calls that don't pass in the DNA but pass in the RNA are in the
-    # non-overlaps file - these are the RNA Rescue and RNA Editing calls
+    # the overlaps file has calls that pass in both the DNA and RNA
+    # the non-overlaps file originally has calls that don't pass in the DNA but
+    # pass in the RNA, these RNA calls are further filtered to eliminate
+    # possible germline (dnm*/DB/GERM) calls or false positives due to
+    # pseudogens (EGPS/RTPS) and then the RNA reads are optionally run through
+    # the blat filter to check for mapping uniqueness - these are the
+    # RNA Rescue and RNA Editing calls
 
     # process all of the calls from the DNA mpileup filter
     for line in dnaFileHandler:
@@ -156,10 +160,6 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
             headerList.append(line + "\n")
 
         # now we are to the data
-        # if we only want the header, then break
-        elif (aDnaHeaderOnlyFlag):
-            break
-        # if we want the DNA data then process it
         else:
             # split the line on the tab
             splitLine = line.split("\t")
@@ -171,7 +171,7 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
     # these are all the calls that pass in both the DNA and RNA
     for line in overlapsFileHandler:
 
-        # if it is an empty line, then just continue
+        # if it is an empty line, then continue
         # if it is a header line, then continue
         if (line.isspace() or line.startswith("#")):
             continue
@@ -326,12 +326,10 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
                             coordinateDict[stopCoordinate] = dnaLine
                         else:
                             coordinateDict[stopCoordinate] = rnaLine
-                # this call either didn't exist in the DNA or
-                # the user only wants the RNA calls output
+                # this call didn't exist in the DNA
                 else:
-                    if not aDnaHeaderOnlyFlag:
-                        logging.warning("Call didn't exist in DNA? " +
-                                        "RNALine: %s\n", line)
+                    logging.warning("Call didn't exist in DNA? " +
+                                    "RNALine: %s\n", line)
                     coordinateDict[stopCoordinate] = line + "\n"
             # this call didn't pass in the RNA
             else:
@@ -423,12 +421,10 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
                             coordinateDict[stopCoordinate] = dnaLine
                         else:
                             coordinateDict[stopCoordinate] = line
-                # this call either didn't exist in the DNA or
-                # the user only wants the RNA calls output
+                # this call didn't exist in the DNA
                 else:
-                    if not aDnaHeaderOnlyFlag:
-                        logging.warning("RNANoPass:  Call didn't exist in " +
-                                        "DNA? RNALine: %s\n", line)
+                    logging.warning("RNANoPass:  Call didn't exist in DNA? " +
+                                    "RNALine: %s\n", line)
                     coordinateDict[stopCoordinate] = line + "\n"
 
     # these are needed for merging the RNA mpileup filters
@@ -472,41 +468,9 @@ def merge_vcf_data(aDnaFile, anRnaFile, anOverlapsFile, aNonOverlapsFile,
                 coordinateDict[rnaStopCoordinate] = finalLine + "\n"
                 if (anIsDebug):
                     logging.debug("Merged filters \nFinalLine: %s", finalLine)
-        # this call either didn't exist in the DNA or
-        # the user only wants the RNA calls output
+        # this call didn't exist in the DNA
         else:
             coordinateDict[rnaStopCoordinate] = rnaLine + "\n"
-
-    # These are needed when the --rnaOnly flag in filterRadia.py is True
-    # resulting in the --dnaHeaderOnly flag here to be True.
-    # These are calls that don't pass in the DNA but do pass in the RNA, so
-    # they end up in the non-overlaps files as possible RNA rescue or RNA
-    # editing events. The non-overlaps file is filtered down to eliminate
-    # possible germline (dnm*/DB/GERM) or false positives due to pseudogene
-    # calls (EGPS/RTPS) and are no longer considered as possible passing
-    # RNA rescue or RNA editing events.  When the --dnaHeaderOnly flag is
-    # false, then the calls will be added from the dna file with the dna
-    # filters. When the --dnaHeaderOnly flag is true, the calls were omitted.
-    # Now they are added back here as non-passing calls with the "dnacall"
-    # filter which is basically a dummy filter for the fact that these could
-    # be germline or false positives due to pseudogenes.
-
-    if (aDnaHeaderOnlyFlag):
-        for (rnaStopCoordinate, rnaLine) in rnaMpileupPassingDict.iteritems():
-
-            if (anIsDebug and not rnaLine.startswith("#")):
-                logging.debug("RNA mpileup passing Line: %s", rnaLine)
-
-            # if this call already exists, then continue
-            if (rnaStopCoordinate in coordinateDict):
-                continue
-            else:
-                # split the line on the tab
-                rnaLineSplit = rnaLine.split("\t")
-                rnaLineSplit[6] = "dnacall"
-
-                finalLine = "\t".join(rnaLineSplit)
-                coordinateDict[rnaStopCoordinate] = finalLine + "\n"
 
     dnaFileHandler.close()
     rnaFileHandler.close()
@@ -532,10 +496,6 @@ def main():
              "rnaNonOverlapsFile outputFile [Options]")
     i_cmdLineParser = OptionParser(usage=usage)
 
-    i_cmdLineParser.add_option(
-        "-d", "--dnaHeaderOnly", action="store_true", default=False,
-        dest="dnaHeaderOnly",
-        help="include this argument if only the DNA header should be included")
     i_cmdLineParser.add_option(
         "-l", "--log", default="WARNING",
         dest="logLevel", metavar="LOG",
@@ -567,7 +527,6 @@ def main():
 
     # get the optional params with default values
     i_logLevel = i_cmdLineOptions.logLevel
-    i_dnaHeaderOnly = i_cmdLineOptions.dnaHeaderOnly
 
     i_logFilename = None
     if (i_cmdLineOptions.logFilename is not None):
@@ -625,7 +584,6 @@ def main():
                                       i_rnaFilename,
                                       i_overlapsFilename,
                                       i_nonOverlapsFilename,
-                                      i_dnaHeaderOnly,
                                       i_debug)
 
     outputFileHandler = radiaUtil.get_write_fileHandler(i_outputFilename)

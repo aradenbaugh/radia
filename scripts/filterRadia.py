@@ -1051,9 +1051,8 @@ def filter_rnaBlacklist(aPythonExecutable, aChromId, anInputFilename,
 
 def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename,
                     anRnaFilename, anOverlapsFilname, aNonoverlapsFilename,
-                    aDnaHeaderOnlyFlag, anOutputDir, aPrefix, aScriptsDir,
-                    anIgnoreScriptsDirFlag, aJobListFileHandler,
-                    aGzipFlag, anIsDebug):
+                    anOutputDir, aPrefix, aScriptsDir, anIgnoreScriptsDirFlag,
+                    aJobListFileHandler, aGzipFlag, anIsDebug):
 
     readFilenameList = []
     if (anIgnoreScriptsDirFlag):
@@ -1078,9 +1077,6 @@ def merge_rnaAndDna(aPythonExecutable, anId, aChromId, aDnaFilename,
     cmd += " " + anOverlapsFilname
     cmd += " " + aNonoverlapsFilename
     cmd += " " + outputFilename
-
-    if (aDnaHeaderOnlyFlag):
-        cmd += " --dnaHeaderOnly"
 
     if (anIsDebug):
         logging.debug("Script: %s", script)
@@ -2142,46 +2138,22 @@ def main():
             rmTmpFilesList.append(blatOutputFilename)
             rmTmpFilesList.append(previousFilename)
 
-        # if RNA only, just merge the RNA Confirmation and RNA Rescue calls
-        if (i_rnaOnlyFlag):
-            # the dnaFilename and --dnaHeaderOnly=True means that we only
-            # extract the header from the dnaFilename and ignore the rest
-            previousFilename = merge_rnaAndDna(i_pythonExecutable,
-                                               i_id,
-                                               i_chr,
-                                               dnaFilename,
-                                               rnaFilename,
-                                               overlapFilename,
-                                               previousFilename,
-                                               True,
-                                               i_outputDir,
-                                               i_prefix,
-                                               i_scriptsDir,
-                                               i_ignoreScriptsDir,
-                                               i_joblistFileHandler,
-                                               i_gzip,
-                                               i_debug)
-            rmTmpFilesList.append(previousFilename)
-        else:
-            # merge RNA and DNA
-            # the dnaFilename and --dnaHeaderOnly=False means that we
-            # merge the header and the results in the dnaFilename
-            previousFilename = merge_rnaAndDna(i_pythonExecutable,
-                                               i_id,
-                                               i_chr,
-                                               dnaFilename,
-                                               rnaFilename,
-                                               overlapFilename,
-                                               previousFilename,
-                                               False,
-                                               i_outputDir,
-                                               i_prefix,
-                                               i_scriptsDir,
-                                               i_ignoreScriptsDir,
-                                               i_joblistFileHandler,
-                                               i_gzip,
-                                               i_debug)
-            rmTmpFilesList.append(previousFilename)
+        # merge RNA and DNA
+        previousFilename = merge_rnaAndDna(i_pythonExecutable,
+                                           i_id,
+                                           i_chr,
+                                           dnaFilename,
+                                           rnaFilename,
+                                           overlapFilename,
+                                           previousFilename,
+                                           i_outputDir,
+                                           i_prefix,
+                                           i_scriptsDir,
+                                           i_ignoreScriptsDir,
+                                           i_joblistFileHandler,
+                                           i_gzip,
+                                           i_debug)
+        rmTmpFilesList.append(previousFilename)
 
     if (i_snpEffFlag):
         # keep track of the orginal file
