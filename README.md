@@ -186,7 +186,7 @@ python filterRadia.py
     /radia/filtered/
     /radia/scripts/
     -b /radia/data/hg19/blacklists/1000Genomes/phase3/
-    -d /radia/data/hg19/snp150/
+    -d /radia/data/hg19/snp151/
     -r /radia/data/hg19/retroGenes/
     -p /radia/data/hg19/pseudoGenes/
     -c /radia/data/hg19/cosmic/
