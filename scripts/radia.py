@@ -1452,7 +1452,7 @@ def output_vcf_header(anOutputFileHandler, aVCFFormat, aRefId, aRefURL,
 
     # add RADIA param info
     aParamDict["algorithm"] = "RADIA"
-    aParamDict["version"] = "1.1.3"
+    aParamDict["version"] = "1.1.4"
 
     # output the vcf generator tag
     generator = "##vcfGenerator=<"
@@ -1781,7 +1781,7 @@ def main():
     -u https://url/to/fasta/hg19.fasta
     '''
 
-    i_radiaVersion = "v1.1.3"
+    i_radiaVersion = "v1.1.4"
     i_vcfFormat = "VCFv4.1"
 
     # create the usage statement
