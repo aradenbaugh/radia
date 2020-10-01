@@ -2474,25 +2474,25 @@ def main():
                          "and a pileups file for the RNA tumor sample.")
         sys.exit(1)
     if (i_dnaNormalFilename is not None and
-        not os.path.isfile(i_dnaNormalFilename + ".bai")):
+        not (os.path.isfile(os.path.splitext(i_dnaNormalFilename)[0] + ".bai") or os.path.isfile(os.path.splitext(i_dnaNormalFilename)[0] + ".bam.bai"))):
         logging.critical("The index file for the BAM file " +
                          i_dnaNormalFilename + " doesn't exist. Please use " +
                          "the 'samtools index' command to create one.")
         sys.exit(1)
     if (i_rnaNormalFilename is not None and
-        not os.path.isfile(i_rnaNormalFilename + ".bai")):
+        not (os.path.isfile(os.path.splitext(i_rnaNormalFilename)[0] + ".bai") or os.path.isfile(os.path.splitext(i_rnaNormalFilename)[0] + ".bam.bai"))):
         logging.critical("The index file for the BAM file " +
                          i_rnaNormalFilename + " doesn't exist. Please use " +
                          "the 'samtools index' command to create one.")
         sys.exit(1)
     if (i_dnaTumorFilename is not None and
-        not os.path.isfile(i_dnaTumorFilename + ".bai")):
+        not (os.path.isfile(os.path.splitext(i_dnaTumorFilename)[0] + ".bai") or os.path.isfile(os.path.splitext(i_dnaTumorFilename)[0] + ".bam.bai"))):
         logging.critical("The index file for the BAM file " +
                          i_dnaTumorFilename + " doesn't exist. Please use " +
                          "the 'samtools index' command to create one.")
         sys.exit(1)
     if (i_rnaTumorFilename is not None and
-        not os.path.isfile(i_rnaTumorFilename + ".bai")):
+        not (os.path.isfile(os.path.splitext(i_rnaTumorFilename)[0] + ".bai") or os.path.isfile(os.path.splitext(i_rnaTumorFilename)[0] + ".bam.bai"))):
         logging.critical("The index file for the BAM file " +
                          i_rnaTumorFilename + " doesn't exist. Please use " +
                          "the 'samtools index' command to create one.")
